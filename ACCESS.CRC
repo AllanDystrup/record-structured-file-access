@@ -1,0 +1,58 @@
+DATE:    
+Tue Aug 18 13:48:57 GMT 1992
+-------------------------------------------------- 
+SIZE.H: 
+-rwxrwxrwa 1 com        4875 Aug 18 12:38 access.h*
+-rwxrwxrwa 1 com        6069 Aug 18 12:38 general.h*
+-rwxrwxrwa 1 com        4079 Aug 18 13:44 getopt.h*
+-rwxrwxrwa 1 com       10738 Aug 18 12:38 hash.h*
+-rwxrwxrwa 1 com        6693 Aug 18 12:38 index.h*
+-rwxrwxrwa 1 com       11972 Aug 18 12:38 key.h*
+-rwxrwxrwa 1 com        9358 Aug 18 12:38 tbm.h*
+-rwxrwxrwa 1 com       10093 Aug 18 12:38 va.h*
+     232     979    9860   va.h
+     260    1029   10477   hash.h
+     152     651    6540   index.h
+      96     371    3982   getopt.h
+     267    1196   11704   key.h
+     197    1104    9160   tbm.h
+     113     557    5955   general.h
+     113     469    4761   access.h
+    1430    6356   62439   total
+-------------------------------------------------- 
+SIZE.C: 
+-rwxrwxrwa 1 com       10037 Aug 18 13:47 getopt.c*
+-rwxrwxrwa 1 com      110652 Aug 18 12:38 hash.c*
+-rwxrwxrwa 1 com       36231 Aug 18 12:38 index.c*
+-rwxrwxrwa 1 com      112517 Aug 18 12:43 key.c*
+-rwxrwxrwa 1 com       24882 Aug 18 12:38 tbm.c*
+-rwxrwxrwa 1 com       52020 Aug 18 12:38 va.c*
+    1213    6382   50806   va.c
+    2571   14203  108080   hash.c
+     874    4219   35356   index.c
+     232    1109    9804   getopt.c
+    2492   13674  110024   key.c
+     565    3085   24316   tbm.c
+    7947   42672  338386   total
+-------------------------------------------------- 
+SIZE.O(BJ): 
+-rwxrwxrwa 1 com        1062 Aug 18 13:42 getoptL.obj*
+-rwxrwxrwa 1 com       12158 Aug 18 12:40 hashL.obj*
+-rwxrwxrwa 1 com        7352 Aug 18 12:41 indexL.obj*
+-rwxrwxrwa 1 com        9259 Aug 18 12:44 keyL.obj*
+-rwxrwxrwa 1 com        2962 Aug 18 12:45 tbmL.obj*
+-rwxrwxrwa 1 com        6441 Aug 18 12:39 vaL.obj*
+-rwxrwxrwa 1 com       22243 Aug 18 12:45 indexL.exe*
+-------------------------------------------------- 
+CRC:    
+CCITT CRC (REVERSE) for     va.h   is	[43ED]
+CCITT CRC (REVERSE) for     va.c   is	[E1C6]
+CCITT CRC (REVERSE) for   hash.h   is	[47F1]
+CCITT CRC (REVERSE) for   hash.c   is	[CF44]
+CCITT CRC (REVERSE) for  index.h   is	[ADD7]
+CCITT CRC (REVERSE) for  index.c   is	[424E]
+CCITT CRC (REVERSE) for    key.h   is	[33BE]
+CCITT CRC (REVERSE) for    key.c   is	[D740]
+CCITT CRC (REVERSE) for    tbm.h   is	[F243]
+CCITT CRC (REVERSE) for    tbm.c   is	[2B3E]
+-------------------------------------------------- 
