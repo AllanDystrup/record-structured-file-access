@@ -1,5 +1,5 @@
 #============================================================================#
-# Project 	CLionProjects\accessSU\Makefile for GETOPT.C
+# Project 	CLionProjects\accessSU\Makefile for utils: GETOPT, CRC
 #		For command-line build, i.e. outside an IDE
 #============================================================================#
 # FUNCTION 	Makefile for proj. GETOPT gcommand-line option-parsing 
@@ -27,37 +27,95 @@
 #		C:\Users\allan>		wsl -d Ubuntu -u allan
 #		allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan$  cd ./CLionProjects/accessSU
 #
-#		----- Clean and build default target
-#		allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ make clean
-#			rm -f getopt.o
-#
-#		allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ make
-#			gcc -g -c getopt.c -o getopt.o
-#
-#		allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ /* DONE */
-#
 #=============================================================================
 
-# FILES ----------------------------------------------------------------------
-HEADERS = getopt.h 
-OBJECTS = getopt.o
-TARGET  = getopt
-.PRECIOUS: $(TARGET) $(OBJECTS)
 
-default: $(TARGET).o
+# ============================================================================
+#				GETOPT
+#=============================================================================
+#  allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ make clean1
+#		rm -f getopt.o
+#
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ make getopt.o
+#		gcc -g -c getopt.c -o getopt.o
+#
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ /* DONE */
+
+# FILES ----------------------------------------------------------------------
+HEADERS1 = getopt.h 
+OBJECTS1 = getopt.o
+TARGET1  = getopt
+.PRECIOUS: $(TARGET1) $(OBJECTS1)
+
+default: $(TARGET1).o
 
 # COMPILE --------------------------------------------------------------------
 CC = gcc
 # OBJ
 CFLAGS = -g
 
-$(TARGET).o:	$(TARGET).c $(HEADERS)
-	$(CC) $(CFLAGS) -c $(TARGET).c -o $(TARGET).o
+$(TARGET1).o:	$(TARGET1).c $(HEADERS1)
+	$(CC) $(CFLAGS) -c $(TARGET1).c -o $(TARGET1).o
 
 # CLEAN ---------------------------------------------------------------------
-clean:
-	-rm -f getopt.o
+clean1:
+	-rm -f $(TARGET1).o
 
+
+# ============================================================================
+#				CRC
+#=============================================================================
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ make clean2
+# 		rm -f crc.o
+#
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ make crc
+# 		gcc -DMAIN -DNDEBUG -g -c crc.c -o crc.o
+# 		gcc crc.o -Wall -lm -o crc
+#
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/accessSU$ make test
+#		./crc CRC.C
+#		CCITT CRC (REVERSE) for    CRC.C   is   [396B]
+#
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionPro  /* DONE */
+
+# FILES ----------------------------------------------------------------------
+HEADERS2 = crc.h 
+OBJECTS2 = crc.o
+TARGET2  = crc
+.PRECIOUS: $(TARGET2) $(OBJECTS2)
+
+default: $(TARGET2)
+
+# COMPILE --------------------------------------------------------------------
+CC = gcc
+# OBJ
+# ----- Testdriver for module CRC.C
+#CFLAGS = -DMAIN -g
+# ----- Standalone application for computing file checksums
+CFLAGS = -DMAIN -DNDEBUG -g
+
+$(TARGET2).o:	$(TARGET2).c $(HEADERS2)
+	$(CC) $(CFLAGS) -c $(TARGET2).c -o $(TARGET2).o
+
+# LINK -----------------------------------------------------------------------
+LIBS = -lm
+$(TARGET2):	$(OBJECTS2)
+	$(CC) $(OBJECTS2) -Wall $(LIBS) -o $(TARGET2)
+
+# TEST -----------------------------------------------------------------------
+test:
+	./$(TARGET2) CRC.C
+
+app:
+	
+
+log:
+	./$(TARGET2) CRC.C 2>&1 >$(TARGET2).log
+
+
+# CLEAN ---------------------------------------------------------------------
+clean2:
+	-rm -f $(TARGET2).o
 		
 # END makefile
 #=============================================================================
