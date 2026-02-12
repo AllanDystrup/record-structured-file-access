@@ -29,6 +29,14 @@
 #
 #=============================================================================
 
+# ============================================================================
+#				ALL
+#=============================================================================
+HDRS = ./va/va.h ./ss/ss.h ./index/index.h ./key/key.h ../find/tbm/tbm.h getopt.h  general.h access.h 
+SRCS = ./va/va.c ./ss/ss.c ./index/index.c ./key/key.c ../find/tbm/tbm.c getopt.c
+OBJS = ./va/va.o ./ss/ss.o ./index/index.o ./key/key.o ../find/tbm/tbm.o getopt.o
+EXEC = ./va/va   ./ss/ss   ./index/index   ./key/key   ../find/tbm/tbm     			
+
 
 # ============================================================================
 #				GETOPT
@@ -84,6 +92,7 @@ OBJECTS2 = crc.o
 TARGET2  = crc
 .PRECIOUS: $(TARGET2) $(OBJECTS2)
 
+TMPCRC   = accessSU.crc
 default: $(TARGET2)
 
 # COMPILE --------------------------------------------------------------------
@@ -104,10 +113,46 @@ $(TARGET2):	$(OBJECTS2)
 
 # TEST -----------------------------------------------------------------------
 test:
-	./$(TARGET2) CRC.C
+	rm -f $(TMPCRC)
 
-app:
-	
+	@echo ===CHECKSUMMING SRC===
+	@echo -------------------------------------------------- >>  $(TMPCRC)
+	@echo DATE:       >   $(TMPCRC)
+	date          	  >>  $(TMPCRC)
+	@echo -------------------------------------------------- >>  $(TMPCRC)
+	@echo SIZE.H:     >>  $(TMPCRC)
+	ls -Fglp $(HDRS)  >>  $(TMPCRC)
+	@echo LINES WORDS BYTES   				 >>  $(TMPCRC)
+	wc  $(HDRS)       >>  $(TMPCRC)
+	@echo -------------------------------------------------- >>  $(TMPCRC)
+	@echo SIZE.C:     >>  $(TMPCRC)
+	ls -Fglp $(SRCS)  >>  $(TMPCRC)
+	@echo LINES WORDS BYTES   				 >>  $(TMPCRC)
+	@echo LINES WORDS BYTES   				 >>  $(TMPCRC)
+	wc  $(SRCS)       >>  $(TMPCRC)
+	@echo -------------------------------------------------- >>  $(TMPCRC)
+	@echo SIZE.O:     >>  $(TMPCRC)
+	ls -Fglp $(OBJS)  >>  $(TMPCRC)
+	@echo LINES WORDS BYTES   				 >>  $(TMPCRC)
+	wc  $(OBJS)       >>  $(TMPCRC)
+	@echo -------------------------------------------------- >>  $(TMPCRC)
+	@echo SIZE EXEC:  >>  $(TMPCRC)
+	ls -Fglp $(EXEC)  >>  $(TMPCRC)
+	@echo LINES WORDS BYTES   				 >>  $(TMPCRC)
+	wc  $(EXEC)       >>  $(TMPCRC)
+	@echo -------------------------------------------------- >>  $(TMPCRC)
+	@echo CRC:        >>  $(TMPCRC)
+	./crc ./va/va.h		>>  $(TMPCRC)
+	./crc ./va/va.c		>>  $(TMPCRC)
+	./crc ./ss/ss.h		>>  $(TMPCRC)
+	./crc ./ss/ss.c		>>  $(TMPCRC)
+	./crc ./index/index.h	>>  $(TMPCRC)
+	./crc ./index/index.c	>>  $(TMPCRC)
+	./crc ./key/key.h	>>  $(TMPCRC)
+	./crc ./key/key.c	>>  $(TMPCRC)
+	./crc ../find/tbm/tbm.h	>>  $(TMPCRC)
+	./crc ../find/tbm/tbm.c	>>  $(TMPCRC)
+	cat $(TMPCRC)
 
 log:
 	./$(TARGET2) CRC.C 2>&1 >$(TARGET2).log
