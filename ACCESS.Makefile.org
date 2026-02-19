@@ -1,0 +1,556 @@
+#=+1===================================================================#
+#   MODULE                       MAKEFILE                              #
+#======================================================================#
+#   FUNCTION      Plain vanilla Makefile for project "ACCESS";
+#                 Call MAKE with this file as param to generate pgms.
+#
+#   SYSTEM        DOS  MKS  MAKE version 2.4a, Mortice Kern Systems Inc.
+#                 UNIX	SVR3 & SVR4 MAKE
+#
+#   SEE ALSO      Modules   : VA.C/H, HASH.C/H, INDEX.C/H, KEY.C/H
+#                 Utilities : GETOPT.C/H TBM.C/H STCK.C/H, HPCK.C/H
+#
+#   PROGRAMMER    Allan Dystrup
+#
+#   COPYRIGHT     (c) Allan Dystrup, Kommunedata I/S, Aug. 1991
+#
+#   VERSION       $Header: d:/cwork/soul1/RCS/makefile 0.1 92/09/29 16:19:28
+#                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+#                 -----------------------------------------------------
+#                 $Log:	makefile $
+#                 Revision 0.1  92/09/29  16:19:28  Allan_Dystrup
+#                 PREREL (ALFA1)
+#
+#   BUGS      [1] Should include entries for automatic generation of :
+#                 - function prototypes (proto), and 
+#                 - file dependencies (depend)
+#                 - function "links" (tags)
+#             [2] Might use a more advanced DOS shell (eg. MKS ksh)
+#                 for better functionality & portability to UN*X.
+#             [3] The method of managing activation of testdrivers 
+#                 (-DMAIN) and debug scaffolding (-DDEBUG) through
+#                 separate commandlines in the make rules (to be
+#                 selectively uncommented) could conceivable be refined
+#                 by appropriate use of the make macro facility.
+#  
+#=-1===================================================================#
+
+
+
+#======================================================================#
+#                           MAKE MACROS                                #
+#======================================================================#
+# A separate list of make macro's are provided for each environment
+# supported (pt. PC/MS DOS and UN*X). UNCOMMENT the macro's for the 
+# environment, you wish to use as development platform. You will have
+# to modify the settings, so they correspond to the setup (directories)
+# and tools (DOS: PClint, MKS more et.al.) on your particular machine.
+# You may choose to compile/lint under ANSI or K&R conventions on DOS and
+# UN*X by UNCOMMENT'ing the appropriate lines. Use ANSI whereever possible.
+# On DOS you may furthermore select a memory model by setting the macro M 
+# to any of [S|M|L|H].
+
+
+#----------------------------------------------------------------------#
+#                              DOS                                     #
+#----------------------------------------------------------------------#
+
+# 1. ------------------------- CHECK -----------------------------------
+TMPCRC   = tmp.crc
+TMPSCN   = tmp.scn
+SCAN     = c:\etc\virchk\scan /SUB /M /CHKHI /BELL /DATE /REPORT $(TMPSCN)
+XREF	  = xrefc
+LINTROOT = d:\pclint
+LINT     = $(LINTROOT)\lint
+TMPLNT   = tmp.lnt
+MORE     = c:\etc\mks\bin\more
+#Choose one of [K&R | ANSI]
+#K&R  - for porting/test
+#LINTFLAGS =   +fkp +v -e314 $(LINTROOT)\std.lnt
+#ANSI - for release, please
+LINTFLAGS  =   +v -e314 $(LINTROOT)\std.lnt
+
+# 2. ------------------------- COMPILE --------------------------------
+#O	        =  .obj
+#E	        =  .exe
+CC         =   cl
+M          =	L
+#Choose one of [K&R | ANSI]
+#K&R  - for porting/test
+#CRFLAGS    +=  /c /A$M /W1 /Gt /G0 /Fo.\$@
+#CDFLAGS    +=  /c /A$M /W1 /Zd /Zi /Od /Gt /G2 /Fo.\$@ -DDEBUG -DHDEBUG -DSDEBUG
+#ANSI - for release, please
+CRFLAGS    +=  /c /A$M /Za /W4 /Gt /G0 /Fo.\$@
+CDFLAGS    +=  /c /A$M /Za /W4 /Zd /Zi /Od /Gt /G2 /Fo.\$@ -DDEBUG -DHDEBUG -DSDEBUG
+UTIL-H      =   stck.h    hpck.h   
+UTIL-O      =   stck$M$O  hpck$M$O
+# Release (R) flags
+# /c       compile without linking
+# /A$M     select memory model (in macro $M)
+# /G<num>  generate instructions for 0:8086, 1:80186, 2:80286
+# /Gd      use standard C (not Pascal) calling convention / Default
+# /Ge      enable calls to stack-checking routine / Default
+# /Gt      place data items > 256 byte in new seg (for far/huge data)
+# /Ox      maximize optimization
+# /Za      enforce ANSI language compability
+# /W4      set compiler warning level to 4 (max)
+# Development/Debugging (D) flags
+# /Od      disable all optimization (for MS CodeView/Debugging)
+# /qc      Invoke quick compile        # OBS requires a lot of heap space
+# /Zd      generate linenumber info (for MS CodeView/Debugging)
+# /Zi      generate symbolic information (for MS CodeView/Debugging)
+# /Zr      generate code with check for null & out-of-range ptrs. 
+
+# 3 ------------------------- LINK-----------------------------------
+LD          =  link
+LRFLAGS    += 	/ST:0x4000 /NOI
+LDFLAGS    += 	/ST:0x2000 /CO /LI /M /NOI /NOP
+TAIL	     =	,$@,,;
+# /CO      include symbolic data (for MS CodeView/Debugging) 
+# /INF     display phases of linking
+# /LI      include src-file linenumbers in map-file
+# /M       create map-file with public/global symbol defs
+# /NOI     NO-Ignore-case, destinguish between lower/upper case
+# /NOP     NO-codesegment-packing
+
+# 4 ------------------------- I/O ------------------------------------
+EXT        =  b:
+DATE       =  dato
+CPYO       =  cp
+
+
+#----------------------------------------------------------------------#
+#                              UN*X                                    #
+#----------------------------------------------------------------------#
+
+# 1. ------------------------- CHECK -----------------------------------
+#TMPCRC    =  /tmp/tmp.crc
+#SCAN      =
+#XREF		=  cxref
+#LINTROOT  =   
+#LINT      =  lint
+#LINTFLAGS =
+#TMPLNT    =  /tmp/tmp.lnt
+#MORE      =  more
+
+# 2. ------------------------- COMPILE --------------------------------
+#O	        =  .o
+#E	        =	
+#CC	    =  cc -c
+#M	        =
+#Choose one of [K&R | ANSI]
+#K&R
+#CRFLAGS   = 
+#CDFLAGS   =  -g -p -DDEBUG
+#ANSI
+#CRFLAGS   =  -ansi 
+#CDFLAGS   =  -ansi -g -p -DDEBUG
+#UTIL-H    =
+#UTIL-O    =
+
+# 3 ------------------------- LINK-----------------------------------
+#LD        =  cc  
+# K&R
+#LRFLAGS   =  -o $@	
+#LDFLAGS   =  -o $@ 
+# ANSI
+#LRFLAGS   =  -ansi -o $@	
+#LDFLAGS   =  -ansi -o $@ 
+#TAIL      =  -lm 
+
+# 4 ------------------------- I/O ------------------------------------
+#EXT       =  /dev/rmt/0
+#DATE      =  date
+#LIST      =  find . -depth -print
+#CPYO      =  cpio -ocvdB
+#LOG       =  cpio -itv
+
+
+
+#======================================================================#
+#                          APPLICATION                                 #
+#======================================================================#
+# Chose an access strategy for index/key modules :
+# - VirtualArray.. : ACCMETH=VA, ACCFILE=va
+# - ScatterStorage : ACCMETH=SS, ACCFILE=hash
+# Remember to "touch" index.c and key.c for update with new access method.
+
+# UNCOMMENT (chose) one of [VA | SS] and the corresponding [va | hash] :
+ACCMETH 	=	VA
+ACCFILE 	=	va
+#ACCMETH 	=	SS
+#ACCFILE 	=	hash
+
+
+
+#======================================================================#
+#                          NEW RULES                                   #
+#======================================================================#
+# Definitions of new rules to LINT, INDENT & DOCUMENT source modules;
+# Ex. make <module>.lnt will lint     <module>.c, ie. check the syntax
+#     make <module>.ind will indent   <module>.c, ie. format the source
+#     make <module>.doc will document <module.h/.c>, ie. extract doc.
+
+.SUFFIXES: .ind .lnt .xrf .doc
+
+.c.ind .IGNORE:
+		@echo ===INDENTING/FORMATTING $<===
+		rm $*.bak
+		indent $<
+		@echo DONE!
+
+.c.lnt .IGNORE:
+		@echo ===LINTING $<===
+		rm $(TMPLNT)
+		$(LINT) $(LINTFLAGS) -D$(ACCMETH) $< > $(TMPLNT)
+		$(MORE) $(TMPLNT)
+		@echo DONE!.doc
+
+.c.xrf .IGNORE:
+		@echo ===CROSS-REFERENCING $<===
+		rm $*.xrf
+		@echo CROSS-REF of module $*.c > $*.xrf
+		$(XREF) $*.c >>  $*.xrf
+		$(MORE) $*.xrf
+		@echo DONE!
+
+.h.doc .c.doc .IGNORE: 
+		@echo ===EXTRACTING DOCUMENTATION $*.h/c ===
+		awk  -f ../util/ex.awk  $*.h >   $*.doc
+		awk  -f ../util/ex.awk  $*.c >>  $*.doc
+		$(MORE) $*.doc
+		@echo DONE!
+
+
+
+#======================================================================#
+#*************************** ALL **************************************#
+#======================================================================#
+# Define general dependencies for maintaining the program source complex:
+#    make all ...................: for compiling & linking all modules 
+#    make check .................: for linting all source modules
+#    make clean & make realclean.: for cleaning up intermediary files 
+#    make install & make xfer ...: for instalation & source transfer
+
+HDRS =   va.h hash.h   index.h   getopt.h   key.h   tbm.h  general.h access.h 
+SRCS =   va.c hash.c   index.c   getopt.c   key.c   tbm.c
+OBJS = va$M$O hash$M$O index$M$O getopt$M$O key$M$O tbm$M$O
+EXEC =                 index$M$E			
+
+
+all .IGNORE: $(OBJS) $(EXEC)
+# First check these required compile/link settings for release (ie. no main/debug):
+# VA....: OBJ-RELEASE (no-link)    Virtual Array access method
+# HASH..: OBJ-RELEASE (no-link)    Scatter Storage access method
+# INDEX.: MAIN-RELEASE/RELEASE     Index generation (OBS: EXE-module)
+# GETOPT: OBJ-RELEASE (no-link)     - w./ general option handler module
+# KEY...: OBJ-RELEASE (no-link)    Index lookup OBJ-module    
+# TBM...: OBJ-RELEASE (no-link)     - w./ Tuned Boyer-Moore search module
+# Then run a "make realclean" before the "make all"
+		@echo DONE!
+
+
+crc .IGNORE: $(SRCS)
+		@echo ===CHECKSUMMING SRC===
+		@echo -------------------------------------------------- >>  $(TMPCRC)
+		@echo DATE:       >   $(TMPCRC)
+		$(DATE)           >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TMPCRC)
+		@echo SIZE.H:     >>  $(TMPCRC)
+		ls -Fglp $(HDRS)  >>  $(TMPCRC)
+		wc  $(HDRS)       >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TMPCRC)
+		@echo SIZE.C:     >>  $(TMPCRC)
+		ls -Fglp $(SRCS)  >>  $(TMPCRC)
+		wc  $(SRCS)       >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TMPCRC)
+		@echo SIZE.O(BJ): >>  $(TMPCRC)
+		ls -Fglp $(OBJS)  >>  $(TMPCRC)
+		ls -Fglp $(EXEC)  >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TMPCRC)
+		@echo CRC:        >>  $(TMPCRC)
+		crc va.h          >>  $(TMPCRC)
+		crc va.c          >>  $(TMPCRC)
+		crc hash.h        >>  $(TMPCRC)
+		crc hash.c        >>  $(TMPCRC)
+		crc index.h       >>  $(TMPCRC)
+		crc index.c       >>  $(TMPCRC)
+		crc key.h         >>  $(TMPCRC)
+		crc key.c         >>  $(TMPCRC)
+		crc tbm.h         >>  $(TMPCRC)
+		crc tbm.c         >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TMPCRC)
+		$(MORE)               $(TMPCRC)
+		@echo To print: DOS [copy $(TMPCRC) LPTn:]  or  UNIX [lp $(TMPCRC)]
+		@echo DONE!
+
+
+scn .IGNORE: $(SRCS)
+		@echo ===PCDOS VIRUSCHECKING SRC===
+		$(SCAN) d:\cwork\soul1 
+		$(MORE) $(TMPSCN)
+		@echo To print: DOS [copy $(TMPSCN) LPTn:]
+		@echo DONE!
+
+
+lint .IGNORE: $(SRCS)
+		@echo ===CHECKING/LINTING SRC===
+		rm $(TMPLNT)
+		$(LINT) $(LINTFLAGS) -D$(ACCMETH) va.c   >  $(TMPLNT)
+		$(LINT) $(LINTFLAGS) -D$(ACCMETH) hash.c >> $(TMPLNT)
+		$(LINT) $(LINTFLAGS) -D$(ACCMETH) index.c getopt.c key.c tbm.c >> $(TMPLNT)
+		$(MORE) $(TMPLNT)
+		@echo .
+		@echo To print: DOS [copy $(TMPLNT) LPTn:]  or  UNIX [lp $(TMPLNT)]
+		@echo DONE!
+
+
+clean .IGNORE:
+		@echo ===CLEANING UP===
+		rm  *.bak  *.sav  *.map  *.new *.lnt core
+		ls -CFp
+		@echo DONE!
+
+
+realclean .IGNORE:
+		@echo ===CLEANING ALL===
+		rm  *.bak  *.sav  *.new  *$O  *.map  *.lnt core
+		ls -CFp
+		@echo DONE!
+
+
+install:
+		@echo ===INSTALLING ACCESS PACKAGE===
+		# to be implemented
+		@echo Coming real soon!
+
+
+xferd:
+		@echo ===TRANSFERRING ACCESS MODULES TO EXTERNAL MEDIUM===
+		@echo ===NB: First run a "make all" w. correct settings===
+		@echo === Remember to install external medium in drive ===
+		$(CPYO) .\tmp.crc $(HDRS) $(SRCS) $(EXT)
+		$(SCAN) $(EXT)
+		@echo DONE!
+
+xferu:
+		@echo ===TRANSFERRING ACCESS MODULES TO EXTERNAL MEDIUM===
+		@echo ===NB: First run a "make all" w. correct settings===
+		@echo === Remember to install external medium in drive ===
+		$(LIST) | $(CPYO) > $(EXT)
+		$(LOG) < $(EXT) > ./tmp.log
+		$(MORE) ./tmp.log
+		@echo DONE!
+
+
+
+#======================================================================#
+#*************************** ACCESS:VA ********************************#
+#======================================================================#
+# Module for creating, accessing & maintaining VirtualArray-index'es
+
+va$M$E:	va$M$O
+#----------------------------------------------------------------------
+		@echo ===LINKING va$M$E===
+#TESTDRIVER
+#		$(LD) $(LRFLAGS) va$M$O $(TAIL)
+#TESTDRIVER-DEBUG
+		$(LD) $(LDFLAGS) va$M$O $(TAIL)
+
+
+va$M$O:	va.c va.h
+#----------------------------------------------------------------------
+		@echo ===COMPILING va$M$O===
+#OBJ-RELEASE
+		$(CC) $(CRFLAGS) va.c
+#OBJ-DEBUG
+#		$(CC) $(CDFLAGS) va.c
+#MAIN
+#		$(CC) $(CRFLAGS) -DMAIN va.c
+#MAIN-DEBUG
+#		$(CC) $(CDFLAGS) -DMAIN va.c
+
+
+
+#======================================================================#
+#*************************** ACCESS:HASH ******************************#
+#======================================================================#
+# Module for creating, accessing & maintaining ScatterStorage-index'es
+
+hash$M$E:	hash$M$O $(UTIL-O)
+#----------------------------------------------------------------------
+		@echo ===LINKING hash$M$E===
+#TESTDRIVER
+#		$(LD) $(LRFLAGS) hash$M$O $(TAIL)
+#TESTDRIVER-DEBUG
+		$(LD) $(LDFLAGS) hash$M$O $(UTIL-O) $(TAIL)
+
+
+hash$M$O:	hash.c hash.h $(UTIL-H)
+#----------------------------------------------------------------------
+		@echo ===COMPILING hash$M$O===
+#OBJ-RELEASE
+		$(CC) $(CRFLAGS) hash.c
+#OBJ-DEBUG
+#		$(CC) $(CDFLAGS) hash.c
+#MAIN
+#		$(CC) $(CRFLAGS) -DMAIN hash.c
+#MAIN-DEBUG
+#		$(CC) $(CDFLAGS) -DMAIN hash.c
+#MAIN-DEBUG-RANDOM
+#		$(CC) $(CDFLAGS) -DMAIN -DRANDOM hash.c
+
+
+
+#======================================================================#
+#*************************** INDEX ************************************#
+#======================================================================#
+# Module for generating an indexfile (VA or HASH) from a datafile
+
+index$M$E:	index$M$O $(ACCFILE)$M$O getopt$M$O $(UTIL-O)
+#----------------------------------------------------------------------
+		@echo ===LINKING index$M$E===
+#RELEASE
+		$(LD) $(LRFLAGS) index$M$O $(ACCFILE)$M$O getopt$M$O $(TAIL)
+#DEBUG
+#		$(LD) $(LDFLAGS) index$M$O $(ACCFILE)$M$O getopt$M$O $(UTIL-O) $(TAIL)
+
+
+index$M$O:	index.c getopt.c general.h index.h $(UTIL-H)
+#----------------------------------------------------------------------
+		@echo ===COMPILING index$M$O===
+#MAIN-RELEASE
+		$(CC) $(CRFLAGS) -DMAIN -D$(ACCMETH) index.c
+#MAIN-DEBUG
+#		$(CC) $(CDFLAGS) -DMAIN -D$(ACCMETH) index.c
+#MAIN-DEBUG-RANDOM
+#		$(CC) $(CDFLAGS) -DMAIN -D$(ACCMETH) -DRANDOM index.c
+
+
+
+#======================================================================#
+#*************************** KEY **************************************#
+#======================================================================#
+# Module for fast acces to datafiles through indexfiles
+
+key$M$E:	key$M$O $(ACCFILE)$M$O tbm$M$O $(UTIL-O) 
+#----------------------------------------------------------------------
+		@echo ===LINKING key$M$E===
+#RELEASE (TESTDRIVER ONLY)
+#		$(LD) $(LRFLAGS) key$M$O $(ACCFILE)$M$O tbm$M$O $(TAIL)
+#DEBUG
+		$(LD) $(LDFLAGS) key$M$O $(ACCFILE)$M$O tbm$M$O $(UTIL-O) $(TAIL)
+
+
+key$M$O:	key.c general.h key.h $(UTIL-H)
+#----------------------------------------------------------------------
+		@echo ===COMPILING key$M$O===
+#OBJ-RELEASE
+		$(CC) $(CRFLAGS) -D$(ACCMETH) key.c
+#OBJ-DEBUG
+#		$(CC) $(CDFLAGS) -D$(ACCMETH) key.c
+#MAIN
+#		$(CC) $(CRFLAGS) -DMAIN -D$(ACCMETH) key.c
+#MAIN-DEBUG
+#		$(CC) $(CDFLAGS) -DMAIN -D$(ACCMETH) key.c
+#MAIN-DEBUG-RANDOM
+#		$(CC) $(CDFLAGS) -DMAIN -D$(ACCMETH) -DRANDOM key.c
+
+
+
+
+#======================================================================#
+#************************** UTIL:GETOPT *******************************#
+#======================================================================#
+# Module for retrieving options (in free format) from the command line
+
+#getopt$M$E:	getopt$M$O
+#----------------------------------------------------------------------
+# MAIN driver, - not implemented (yet!)
+#		@echo ===LINKING getopt$M$E===
+#		$(LD) $(LDFLAGS) getopt$M$O $(TAIL)
+
+
+getopt$M$O:	getopt.c general.h getopt.h
+#----------------------------------------------------------------------
+		@echo ===COMPILING getopt$M$O===
+#OBJ-RELEASE
+		$(CC) $(CRFLAGS) getopt.c
+#MAIN-NORMAL
+#		$(CC) $(CRFLAGS) -DMAIN getopt.c
+
+
+
+
+#======================================================================#
+#************************** UTIL:TBM **********************************#
+#======================================================================#
+# Module for fast (Tuned Boyer-Moore) string searching
+
+tbm$M$E:	tbm$M$O
+#----------------------------------------------------------------------
+		@echo ===LINKING tbm$M$E===
+#RELEASE
+#	    $(LD) $(LRFLAGS) tbm$M$O $(TAIL)
+#DEBUG
+		$(LD) $(LDFLAGS) tbm$M$O $(TAIL)
+
+ 
+tbm$M$O:	tbm.c tbm.h
+#----------------------------------------------------------------------
+		@echo ===COMPILING tbm$M$O===
+#OBJ-RELEASE
+		$(CC) $(CRFLAGS) tbm.c
+#OBJ-DEBUG
+#		$(CC) $(CDFLAGS) tbm.c
+#MAIN-UTIL
+#		$(CC) $(CRFLAGS) -DMAIN tbm.c
+#MAIN-DEBUG
+#		$(CC) $(CDFLAGS) -DMAIN tbm.c
+
+
+
+#======================================================================#
+#************************** DOSUTIL: STACK ****************************#
+#======================================================================#
+# Utility for dynamic/runtime stack-check
+
+stck$M$E:	stck$M$O
+#----------------------------------------------------------------------
+		@echo ===LINKING stck$M$E===
+		$(LD) $(LDFLAGS) stck$M$O $(TAIL)
+
+
+stck$M$O:	stck.c general.h stck.h
+#----------------------------------------------------------------------
+		@echo ===COMPILING stck$M$O===
+#OBJ
+		$(CC) $(CRFLAGS) stck.c
+#MAIN-NORMAL
+#		$(CC) $(CRFLAGS) -DMAIN -DSDEBUG stck.c
+
+
+
+#======================================================================#
+#************************** DOSUTIL: HEAP *****************************#
+#======================================================================#
+# Utility for dynamic/runtime heap-check
+
+hpck$M$E:	hpck$M$O
+#----------------------------------------------------------------------
+		@echo ===LINKING hpck$M$E===
+		$(LD) $(LDFLAGS) hpck$M$O $(TAIL)
+
+
+hpck$M$O:	hpck.c general.h hpck.h
+#----------------------------------------------------------------------
+		@echo ===COMPILING hpck$M$O===
+#OBJ
+		$(CC) $(CRFLAGS) hpck.c
+#MAIN-NORMAL
+#		$(CC) $(CRFLAGS) -DMAIN hpck.c
+
+
+
+# END of module makefile (for project "ACCESS")                        #
+#======================================================================#

@@ -1,0 +1,416 @@
+
+
+
+
+
+Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.h   is	[8C0F]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ #####    ####    ####   #               #    #
+ #    #  #    #  #    #  #               #    #
+ #####   #    #  #    #  #               ######
+ #    #  #    #  #    #  #        ###    #    #
+ #    #  #    #  #    #  #        ###    #    #
+ #####    ####    ####   ######   ###    #    #
+
+
+
+
+
+
+/*+1========================================================================*/ 
+/*   MODULE                      BOOL.H                                     */ 
+/*==========================================================================*/ 
+/*   FUNCTION      Headerfile for module BOOL.C (and user modules).  
+ *  
+ *	 SYSTEM        Standard (ANSI/ISO) C.
+ *                 Tested on PC/MS DOS 5.0 (MSC 600A).  
+ *  
+ *    SEE ALSO      Modules : ERROR.C, BOOL.C
+ *  
+ *    PROGRAMMER    Allan Dystrup.
+ *  
+ *    COPYRIGHT     (c) Allan Dystrup, 1991, 2025
+ *  
+ *    VERSION      $Header: d:/cwk/kf/bool/RCS/bool.h 1.1 92/10/25 16:51:29
+ *                 Allan_Dystrup Exp Locker: Allan_Dystrup $  
+ *                 ----------------------------------------------------------  
+ *                 $Log: bool.h $  
+ *                 Revision 1.1 1992/10/25	16:51:29    Allan_Dystrup
+ *                 Initial revision
+ *		  --------------------
+ *		  Revision 1.2 2025/12/07	10:00:00	Allan_Dystrup
+ *		  Port to UBUNTU Linux on Windows10/WSL, Using CLion
+ *		  Port to Windows 10 native, Using CLion for Windows
+ *
+ *-1=========================================================================*/  Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.h   is	[8C0F]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ #####    ####    ####   #                ####
+ #    #  #    #  #    #  #               #    #
+ #####   #    #  #    #  #               #
+ #    #  #    #  #    #  #        ###    #
+ #    #  #    #  #    #  #        ###    #    #
+ #####    ####    ####   ######   ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/
+/*   MODULE                        BOOL.C                                   */
+/*==========================================================================*/
+/*   FUNCTION      Boolean expression compiler                              */
+/*                                                                          */
+/*   SYSTEM        Standard(ANSI/ISO) C.       				    */
+/*                 Tested on PC/MS DOS 5.0(MSC 600 A).             	    */
+/*                                                                          */
+/*   SEE ALSO      Modules: GENERAL.H, STACK.H, ERROR.H/C, BOOL.H           */
+/*                                                                          */
+/*   PROGRAMMER    Allan Dystrup.                                           */
+/*                                                                          */
+/*   COPYRIGHT(c)  Allan Dystrup, FEB.1991                                  */
+/*                                                                          */
+/*   VERSION    $Header: d:/cwk/kf/bool/RCS/bool.c 1.1 92/10/25 16:52:50    */
+/*              Allan_Dystrup Exp Locker: Allan_Dystrup $		    */
+/*              ---------------------------------------------------------   */
+/*              $Log:   bool.c $					    */
+/*              Revision 1.1  92/10/25  16:52:50  Allan_Dystrup		    */
+/*              Initial revision					    */
+/*				--------------------			    */
+/*		Revision 1.2 2025/12/07	10:00:00	Allan_Dystrup	    */
+/*		Port to UBUNTU Linux on Windows10/WSL, Using CLion	    */
+/*		Port to Windows 10 native, Using CLion for Windows	    */
+/*									    */
+/*======================COMPILER STRUCTURE ================================ */
+/*                                                                          */
+/* This module implements a simple compiler for evaluating boolean          */
+/* expressions. The compiler is structured into two parts :                 */
+/*  - a "front end" for transforming a boolean expression from infix form   */
+/*    to postfix form (consisting of : SCANNER, PARSER, EMITTER);           */
+/*  - a "back end" for interpreting the postfix boolean expression using    */
+/*    an abstract/software stack machine (consisting of : INTERPRETER).     */
+/* The compiler "front end" and "back end" communicates using a common      */
+/* symbol table (cf BOOL.H). The overall structure of the module is thus :  */
+/*                                                                          */
+/*   infix string---* SCANNER---* PARSER---* EMITTER---* postfix string     */
+/*                      |                       *               |           */
+/*                      |                       |               |           */
+/*                      +-------* SYMBOL--------+               |           */
+/*                                 *  |                         |           */
+/*                                 |  |                         |           */
+/*                   (FIND)--------+  |                         |           */
+/*                                    *                         |           */
+/*   evaluation result *-------INTERPRETER *--------------------+           */
+/*                                                                          */
+/*                                                                          */
+/*                                                                          */
+/*====================== COMPILER FRONT END ================================*/
+/*                                                                          */
+/* The syntax of the input string is defined by the following rules.        */
+/*                                                                          */
+/* 1. Boolean operator precedence, arity and associativity :                */
+/*             operator(s)   precedence   arity and associativity           */
+/*             ----------------------------------------------------         */
+/*             NOT               1        unary                             */
+/*             AND               2        binary                            */
+/*             OR   XOR          3        binary, left associative          */
+/*                                                                          */
+/* 2. Context-free grammer (expressed in BNF:Bacus-Naur/Normal Form) :      */
+/*    1. set of tokens(= terminal symbols) : { NOT, AND, OR, XOR, EOS, ID } */
+/*       NOT,AND,OR,XOR  The 4 basic Boolean operators                      */
+/*             EOS       End Of String                                      */
+/*             ID        IDentifier                                         */
+/*    2. set of nonterminals : { Z, E, T, F }                               */
+/*             Z       Destinguished start symbol                           */
+/*             E       Expression                                           */
+/*             T       Term                                                 */
+/*             F       Factor                                               */
+/*    3. set of productions (context-free: one nonterminal on left side)    */
+/*             Z  ->   E EOS                                                */
+/*             E  ->   E OR  T | E XOR T | T                                */
+/*             T  ->   T AND F | F                                          */
+/*             F  ->   ID | ( E ) | NOT F                                   */
+/*                                                                          */
+/*    We want to construct a recursive descent predictive parser, ie.       */
+/*    a top-down parser without backtracking. Furthermore we will require   */
+/*    the parser to work with 1 lookahead-character, ie. a LL(1) parser     */
+/*    (scanning input Left->right, using Leftmost derivations, 1 lookahead).*/
+/*    To make this possible, we have to transcribe the productions to get : */
+/*     - no left recursion (thus eliminating infinite loops)                */
+/*     - no conflict between two right sides for any lookahead symbol       */
+/*       (i.e. an unambigous FIRST-set for any production) :                */
+/*             Z  ->   E  EOS                                               */
+/*             E  ->   T  E'                                                */
+/*             E' ->   OR  T E' | XOR T E' | epsilon                        */
+/*             T  ->   F  T'                                                */
+/*             T' ->   AND F T' | epsilon                                   */
+/*             F  ->   ( E )    | NOT F    | ID                             */
+/*                                                                          */
+/* 3. Syntax-directed translation :                                         */
+/*    Combination of syntax analyzer and intermediate-code generator.       */
+/*    The chosen intermediate code is postfix (= "reverse polish"),         */
+/*    a notation in which the operators appear after their operands.        */
+/*    Postfix notation is a compact way of representing a parse tree,       */
+/*    with an unambigous decoding dictated only by position and arity       */
+/*    (= number of operator arguments), - ie. parentheses are eliminated.   */
+/*    The interpretation of postfix is analogous to a bottom-up traversal   */
+/*    of the parse tree, - but may be performed by a simple stack machine.  */
+/*    We use a simple syntax directed definition (with semantic rules       */
+/*    defined by simple concatenation of translations) yielding a           */
+/*    corresponding simple translation scheme that can execute the          */
+/*    semantic actions (ie. emit intermediate code) during the parse.       */
+/*    Thus it is not nessecary to explicitly build the parse tree (syntax   */
+/*    analysys) before emitting the output (code ceneration); - hence       */
+/*    the concept "syntax-directed translation" !                           */
+/*                                                                          */
+/*:------------------------------------------------------------------------:*/
+/*:       Simple syntax directed definition    :    Translation scheme     :*/
+/*:--------------------------------------------:---------------------------:*/
+/*: Productions def.  : Semantic rules for     : Semantic actions in       :*/
+/*: gramm. constructs : postfix=.p translation : procedural notation       :*/
+/*: (infix)           : (infix to postfix)     : (generate postfix)        :*/
+/*:-------------------:------------------------:---------------------------:*/
+/*  Z  -> E  EOS      : Z.p  := E.p  EOS       : Z -> E {terminate}         */
+/*  E  -> T  E'       : E.p  := T.p, E'.p      : E -> T  E'                 */
+/*  E' -> OR  T E'    : E'.p := T.p, OR,  E'   : E'-> OR  T {print(OR)}  E' */
+/*     |  XOR T E'    :       | T.p, XOR, E'   :   |  XOR T {print(XOR)} E' */
+/*     |  epsilon     :       | epsilon        :   |  epsilon               */
+/*  T  -> F  T'       : T.p  := F.p, T'.p      : T -> F  T'                 */
+/*  T' -> AND F T'    : T'.p := F.p, AND, T'p  : T'-> AND F {print(AND)} E' */
+/*     |  epsilon     :       | epsilon        :   |  epsilon               */
+/*  F  -> ( E )       : F.p  := E.p            : F -> ( E )                 */
+/*     |  NOT F       :       | F.p, NOT       :   |  NOT F {print(NOT)}    */
+/*     |  ID          :       | ID.p           :   |  ID {print(ID.slot)}   */
+/*:------------------------------------------------------------------------:*/
+/*                                                                          */
+/*                                                                          */
+/*====================== COMPILER BACK END =================================*/
+/*                                                                          */
+/*    The compiler back-end takes the front-end generated code (a postfix   */
+/*    string) as input, and evaluates it on the target machine (a simple    */
+/*    stack construction).                                                  */
+/*                                                                          */
+/*    To be specific, the type of syntax-directed translation used by the   */
+/*    compiler front end is based on an S-attributed definition with only   */
+/*    synthesized attributes (more complex grammars require context info    */
+/*    passed down the syntax tree in the form of inherited attributes).     */
+/*                                                                          */
+/*    The "internal form" emitted by the front end is an abstract syntax    */
+/*    tree casted as a postfix string; More precicely, the syntax tree is   */
+/*    a Directed Acyclic Graph : a "DAG", because the value index for an    */
+/*    operator that occurs multiple times in a boolean expression, is       */
+/*    unique (a reference to the symboltable) in the postfix string.        */
+/*                                                                          */
+/*    These characteristics alow a simple depth-first evaluation of the     */
+/*    syntax tree (no dependency graph transformation of the tree needed).  */
+/*    Thus the evaluation function may be implemented by a stack machine    */
+/*    interpreting the postfix-string from left to right.                   */
+/*                                                                          */
+/*-1========================================================================*/   Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+/*+2 MODULE BOOL.C =========================================================*/
+/*   NAME   00                 main                                         */
+/*== SYNOPSIS ==============================================================*/
+/* DESCRIPTION                 Test driver for module bool.c  
+ *-2*/ Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+/*+2 MODULE BOOL.C =========================================================*/
+/*** NAME   01     ********** SCANNER ***************************************/
+/*== SYNOPSIS ==============================================================*/
+/*   * DESCRIPTION                Lexical analyzer  
+ *
+ * Linear analysis (= lexical analysis or scanning) of the input stream :  
+ * - The input string is read from left to right (using a "greedy algorithm")  
+ * - Characters are grouped into lexemes (sequences of characters with a  
+ *   collective meaning, according to the defined grammer)  
+ * - For each lexeme matched by a defined pattern in the grammer the scanner  
+ *   returns a unique type encoding (token), and assigns a pair of global  
+ *   attribute values :  
+ *    . "yytext" : a pointer to the lexeme (character string, not null term.)  
+ *    . "yyleng" : an integer giving the length of the lexeme (in chars.)  
+ *   The tokens returned by the scanner is used to direct the syntax analysis  
+ *   in the parser-function.  
+ * - If the token is ID (ie. boolean vExpression identifier), there are many  
+ *   possible lexemes for the same pattern, and the scanner then inserts the  
+ *   lexeme in a global symboltable "symtable[]" for easy reference by the  
+ *   later stages of the compilation process.  
+ * - The simple input string format does not warrant implementation of any  
+ *   error recovery/transformation or any special buffering scheme.  
+ *-2*/ Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+/*+2 MODULE BOOL.C =========================================================*/
+/*** NAME   02     ********** PARSER ****************************************/
+/*== SYNOPSIS ==============================================================*/
+/*  * DESCRIPTION                Syntax analyzer  
+ * Hierachial analysis (= syntax analysis or parsing) where tokens are  
+ * grouped hierachially into grammatical phrases (a parse tree).  
+ * We construct a "predictive parser" (relying on our context-free grammer  
+ * with no left-recursion and unambigous FIRST-set for all productions) :  
+ * For each lookahead symbol L, we :  
+ *  - Determine the grammatical production G, given by "L in FIRST(G)";  
+ *  - Advance the input stream to the next token (read next L);  
+ *  - Call the procedure P implementing G, where P :  
+ *     . for each nonterminal calls a sub-procedure (with possible "recursive  
+ *       descent" calls to lower nonterminal procedures)  
+ *     . may call on a code generator to vEmit code according to the semantic  
+ *       actions indicated in a translation scheme for the grammer.  
+ *       The code is emitted into the global string "aEmitStr" (declared  
+ *       static for this module), the address of which is returned to the  
+ *       calling function as a "handle".  
+ *-2*/  Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+/*+2 MODULE BOOL.C =========================================================*/
+/*** NAME   03     ********** EMITTER ***************************************/
+/*== SYNOPSIS ==============================================================*/
+/*   * DESCRIPTION                Intermediate code generator  
+ * Generates an intermediate representation of the input string (aInfix)  
+ * in the form of a postfix string (="reverse polish notation") suitable  
+ * for subsequent interpretation by an abstract (ie. software) stack machine.  
+ * The input string syntax (a boolean expression) is extremely simple  
+ * consisting of only identifiers and boolean operands; - No variables or  
+ * control structures (apart from paranthetical nesting) are allowed, and  
+ * hence the postfix syntax does not have to take into account assignments  
+ * (l-values vs. r-values), control flow (jump instructions) et. al.  
+ * The syntax of the generated postfix string is as follows :  
+ *  - for boolean operators we store their token value with the high bit on;  
+ *    The token value for the boolean operators is identical to their lexeme  
+ *    representation (range [0...127]), so the range for stored operators  
+ *    is [128...255]. No operator attributes are stored in the symbol table.  
+ *  - for boolean identifiers we store their slot in the symbol table. Legal  
+ *    values for symbol table slots are [1...SYMMAX], where SYMMAX <= 127  
+ *    (to prevent collision with the value range for operators).  
+ *  - the postfix string is ended by a normal string terminator ('\0').  
+ *    It is allocated as a global static string in this module, but it's  
+ *    address is returned to the caller of parse as a handle.  
+ *-2*/Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+/*+2 MODULE BOOL.C =========================================================*/
+/*** NAME   04     ********** SYMBOL ****************************************/
+/*== SYNOPSIS ==============================================================*/
+/*  * DESCRIPTION                Symbol-table manager  
+ * Records input string identifiers in a symbol table, ie. a data structure  
+ * containing a record for each identifier, w. fields for various attributes  
+ * (in this case : a lexeme pointer and a boolean/flag value : "fValue").  
+ *  - The SCANNER enters the lexeme pointer into the symbol table for each  
+ *    new boolean vExpression identifier (the boolean attribute is undefined).  
+ *  - The PARSER calls the EMITTER to lookup identifiers and enter their  
+ *    symbol table slot into the intermediate code (ie. the postfix string).  
+ *-2*/ Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+/*+2 MODULE BOOL.C =========================================================*/
+/*** NAME   05     ********* INTERPRETER ************************************/
+/*== SYNOPSIS ==============================================================*/
+/*  
+ * DESCRIPTION               Stack machine  
+ *
+ * Interprets a postfix representation of a boolean vExpression to T or F.  
+ *  
+ * The syntactic structure of the boolean vExpression is captured (by the  
+ * compiler frontend) as an "abstract syntax tree" in the condensed form of  
+ * a postfix string (cf. format specified by the EMITTER function). This  
+ * "internal form" is passed to the interpreter function as parameter.  
+ *  
+ * The actual evaluation is performed by an abstract stack machine, which  
+ * reads the postfix string from left to right (corresponding to a "depth  
+ * first evaluation" of the abstract syntax tree), and :  
+ *  - pushes operand values onto the stack; An operand is represented in the  
+ *    postfix string as a "value number", ie. an index into the symbol table.  
+ *    The operand value (a boolean attribute "fValue") is retrieved from the  
+ *    symbol table and pushed on the stack  *  - performing operator actions :  
+ *     . popping boolean operands as required (cf. operator arity)  
+ *     . executing the boolean operation (using C-language boolean functions)  
+ *     . pushing the boolean fResult  
+ * until the whole postfix string is evaluated (ie. EOI is encountered), and  
+ * the result resides as the top stack-element.  
+ *  
+ * The abstract stack machine is implemented as a collection of general macro  
+ * definitions (in the header file "stack.h"). This implementation is chosen  
+ * for maximum execution speed, but the extensive use of macro "side effects"  
+ * (in the form of stack pointer arithmetic) and the use of unchecked stack-  
+ * operations does require some programming care.  
+ *-2*/Tue Feb 17 16:54:24 CET 2026
+CCITT CRC (REVERSE) for   bool.c   is	[CFDD]
+
+
+
+
+
+
+END EXTRACTION
+
+

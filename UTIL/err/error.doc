@@ -1,0 +1,184 @@
+
+
+
+
+
+Wed Feb 18 13:57:38 CET 2026
+CCITT CRC (REVERSE) for  error.h   is	[1F2C]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ ######  #####   #####    ####   #####           #    #
+ #       #    #  #    #  #    #  #    #          #    #
+ #####   #    #  #    #  #    #  #    #          ######
+ #       #####   #####   #    #  #####    ###    #    #
+ #       #   #   #   #   #    #  #   #    ###    #    #
+ ######  #    #  #    #   ####   #    #   ###    #    #
+
+
+
+
+
+
+/*+1=======================================================================*/ 
+/*   MODULE                    ERROR.H                                     */ 
+/*=========================================================================*/ 
+/*   FUNCTION      Header file for module ERROR.C (and user modules).  
+ *  
+ *   SYSTEM        Standard (ANSI/ISO) C.  
+ *                 Tested on PC/MS DOS 5.0 (MSC 600A).  
+ *  
+ *   SEE ALSO      Modules : ERROR.C  
+ *  
+ *   PROGRAMMER    Allan Dystrup.  
+ *  
+ *   COPYRIGHT     (c) Allan Dystrup, 1991  
+ *  
+ *   VERSION       $Header: d:/cwk/kf/error/RCS/error.h 1.1 92/10/25 17:13:10  
+ *                 Allan_Dystrup Exp Locker: Allan_Dystrup $  
+ *                 ----------------------------------------------------------  
+ *                 $Log: error.h $  
+ *                 Revision 1.1  92/10/25  17:13:10  Allan_Dystrup  
+ *                 Initial revision
+ *
+ *                 Revision 1.2 2025/12/02 11:00:00	 Allan_Dystrup
+ *		  Port to UBUNTU Linux on Win.10/WSL, Using CLion
+ *
+ *-1========================================================================*/  Wed Feb 18 13:57:38 CET 2026
+CCITT CRC (REVERSE) for  error.h   is	[1F2C]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Wed Feb 18 13:57:38 CET 2026
+CCITT CRC (REVERSE) for  error.c   is	[614D]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ ######  #####   #####    ####   #####            ####
+ #       #    #  #    #  #    #  #    #          #    #
+ #####   #    #  #    #  #    #  #    #          #
+ #       #####   #####   #    #  #####    ###    #
+ #       #   #   #   #   #    #  #   #    ###    #    #
+ ######  #    #  #    #   ####   #    #   ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/ 
+/*   MODULE                    ERROR.C                                      */ 
+/*==========================================================================*/ 
+/* FUNCTION   This module implements a common function for error reporting  
+ *             for the super-project : "FIND".  
+ *  
+ * SYSTEM      Standard (ANSI/ISO) C.  
+ *             Tested on PC/MS DOS 5.0  
+ *  
+ * SEE ALSO    ERROR.H (and application modules such as: BOOL.C, AC.C)  
+ *  
+ * PROGRAMMER  Allan Dystrup  
+ *  
+ * COPYRIGHT   (c) Allan Dystrup   
+ *
+ * VERSION     $Header: d:/cwk/kf/error/RCS/error.c 1.1 92/10/25 17:13:30  
+ *             Allan_Dystrup Exp Locker: Allan_Dystrup $  
+ *             --------------------------------------------------------------  
+ *             $Log: error.c $  
+ *             Revision 1.1  92/10/25  17:13:30  Allan_Dystrup  
+ *             Initial revision
+ *
+ *             Revision 1.2 2025/12/02 11:00:00	 Allan_Dystrup
+ *			  Port to UBUNTU Linux on Win.10/WSL, Using CLion
+ *-1========================================================================*/ Wed Feb 18 13:57:38 CET 2026
+CCITT CRC (REVERSE) for  error.c   is	[614D]
+
+/*+2 MODULE ERROR.C ========================================================*/
+/*   NAME   00                     main                                     */ 
+/*== SYNOPSIS ==============================================================*/ 
+int main() { /* DESCRIPTION  
+ *    Test driver for module error.c :  
+ *    Dump all ErrorMessages to stderr, using vError() for printout.  
+ *-2*/Wed Feb 18 13:57:38 CET 2026
+CCITT CRC (REVERSE) for  error.c   is	[614D]
+
+/*+2 MODULE ERROR.C ========================================================*/ 
+/*   NAME   01                     vError                                   */ 
+/*== SYNOPSIS ==============================================================*/ 
+PUBLIC void vError(
+	ERRNUM type,       /* Error type, cf. enum errors			*/
+	char *param )      /* Further description of error location */ 
+{ 
+/* DESCRIPTION  
+ *    Simple error management:  
+ *      1. Report error  
+ *      2. If fatal, return exit status 'failure' to parent process  
+ *-2*/    Wed Feb 18 13:57:38 CET 2026
+CCITT CRC (REVERSE) for  error.c   is	[614D]
+
+
+
+
+
+
+END EXTRACTION
+
+

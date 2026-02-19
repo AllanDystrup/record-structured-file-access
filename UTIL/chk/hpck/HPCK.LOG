@@ -1,0 +1,35 @@
+621c647142a0:vmalloc  size = 4
+621c6471429e : 00 [
+621c6471429f : 00 [
+621c647142a0 : aa [ª] <= leading known pattern
+621c647142a1 : aa [ª] 
+621c647142a2 : 23 [#] <= address of malloc buffer
+621c647142a3 : 23 [#] 
+621c647142a4 : 23 [#] 
+621c647142a5 : 23 [#] 
+621c647142a6 : aa [ª] <= trailing known pattern
+621c647142a7 : aa [ª] 
+621c647144a0:vmalloc  size = 6
+621c6471449e : 00 [
+621c6471449f : 00 [
+621c647144a0 : aa [ª] <= leading known pattern
+621c647144a1 : aa [ª] 
+621c647144a2 : 23 [#] <= address of malloc buffer
+621c647144a3 : 23 [#] 
+621c647144a4 : 23 [#] 
+621c647144a5 : 23 [#] 
+621c647144a6 : 23 [#] 
+621c647144a7 : 23 [#] 
+621c647144a8 : aa [ª] <= trailing known pattern
+621c647144a9 : aa [ª] 
+ERROR: Malloc Area Corrupted [ABCDEFGHIJ]
+621c6471429e : 00 [
+621c6471429f : 00 [
+621c647142a0 : aa [ª] <= leading known pattern
+621c647142a1 : aa [ª] 
+621c647142a2 : 41 [A] <= address of malloc buffer
+621c647142a3 : 42 [B] 
+621c647142a4 : 43 [C] 
+621c647142a5 : 44 [D] 
+621c647142a6 : 45 [E] <= trailing known pattern
+621c647142a7 : 46 [F] 
