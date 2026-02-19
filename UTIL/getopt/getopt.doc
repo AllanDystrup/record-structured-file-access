@@ -1,0 +1,224 @@
+
+
+
+
+
+Thu Feb 19 08:32:11 CET 2026
+CCITT CRC (REVERSE) for getopt.h   is	[D730]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+  ####   ######   #####   ####   #####    #####          #    #
+ #    #  #          #    #    #  #    #     #            #    #
+ #       #####      #    #    #  #    #     #            ######
+ #  ###  #          #    #    #  #####      #     ###    #    #
+ #    #  #          #    #    #  #          #     ###    #    #
+  ####   ######     #     ####   #          #     ###    #    #
+
+
+
+
+
+
+/*+1========================================================================*/
+/*   MODULE                       GETOPT.H                                  */
+/*==========================================================================*/
+/*   FUNCTION      Header file for module GETOPT.C (and user modules);
+ *                 #include this file for access to the PUBLIC function
+ *                 for command-line option-parsing defined in getopt.c.
+ *
+ *   SYSTEM        Standard (ANSI/ISO) C,
+ *                 Tested on PC/MS DOS v3.3 (MSC600A) & UNIX SVR3, SVR4 (CC)
+ *
+ *   SEE ALSO      Modules : GENERAL.H, GETOPT.C
+ *
+ *   PROGRAMMER    Allan Dystrup
+ *
+ *   COPYRIGHT     (c) Allan Dystrup, Feb. 1992
+ *
+ *   VERSION       $Header: d:/cwork/index/RCS/getopt.h 0.1 92/08/18 16:00:27
+ *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+ *                 -----------------------------------------------------------
+ *                 $Log:	getopt.h $
+ *                 Revision 0.1  92/08/18  16:00:27  Allan_Dystrup
+ *                 PREREL (ALFA1)
+ * 
+ *-1========================================================================*/Thu Feb 19 08:32:11 CET 2026
+CCITT CRC (REVERSE) for getopt.h   is	[D730]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Thu Feb 19 08:32:11 CET 2026
+CCITT CRC (REVERSE) for getopt.c   is	[91C9]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+  ####   ######   #####   ####   #####    #####           ####
+ #    #  #          #    #    #  #    #     #            #    #
+ #       #####      #    #    #  #    #     #            #
+ #  ###  #          #    #    #  #####      #     ###    #
+ #    #  #          #    #    #  #          #     ###    #    #
+  ####   ######     #     ####   #          #     ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/
+/*   MODULE                       GETOPT.C                                  */
+/*==========================================================================*/
+/*   FUNCTION      Function getopt() in module GETOPT.C gets the next option
+ *                 letter from the command line; The function is an enhanced
+ *                 version of the UNIX C Library function, GETOPT(3).
+ *
+ *   SYSTEM        Standard (ANSI/ISO) C.
+ *                 Tested on PC/MS DOS V.5 & UNIX SVR3, SVR4
+ *
+ *   SEE ALSO      Modules : GENERAL.H, GETOPT.H
+ *
+ *   PROGRAMMER    Allan Dystrup
+ *
+ *   COPYRIGHT     (c) Allan Dystrup, august 1991
+ *
+ *   VERSION       $Header: d:/cwork/index/RCS/getopt.c 0.1 92/08/18 13:45:36
+ *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+ *                 -----------------------------------------------------------
+ *                 $Log:	getopt.c $
+ *                 Revision 0.1  92/08/18  13:45:36  Allan_Dystrup
+ *                 PREREL (ALFA1)
+ *
+ *   REFERENCES
+ *
+ *   USAGE         option = getopt (argc, argv, optstring);
+ *                 <argc>      # arguments in <argv>
+ *                 <argv>      Argument value array, i.e., an array of pointers
+ *                             to the "words" extracted from the command line.
+ *                 <optstring> The set of recognized options.  Each character in
+ *                             the string is a legal option; any other character
+ *                             encountered as an option in the command line is
+ *                             an illegal option and an error message is displayed.
+ *                             If a character is followed by a colon in <optstring>,
+ *                             the option expects an argument.
+ *
+ *   RETURN        <option>    Returns the next option letter from the cmd line :
+ *                             '?'     is returned in the case of an illegal
+ *                                     option letter or a missing option argument.
+ *                             NONOPT  is returned if a non-option argument is
+ *                                     is encountered or the command line scan is
+ *                                     completed (also see <optarg> below for
+ *                                     both cases).
+ *                 <optarg>    Returns the text of an option's argument or of
+ *                             a non-option argument.  NULL is returned if an
+ *                             option has no argument or if the command line
+ *                             scan is complete. For illegal options or missing
+ *                             option arguments, OPTARG returns a pointer to
+ *                             the trailing portion of the defective ARGV.
+ *
+ *   CONTROL       <opterr>    Controls whether or not GETOPT prints out an
+ *                             error message upon detecting an illegal option
+ *                             or a missing option argument.  A non-zero value
+ *                             enables error messages; zero disables them.
+ *                 <optind>    Is the index in ARGV of the command line argument
+ *                             that GETOPT will examine next.  GETOPT recognizes
+ *                             changes to this variable.  Arguments can be skipped
+ *                             by incrementing OPTIND outside of GETOPT and the
+ *                             command line scan can be restarted by resetting
+ *                             OPTIND to either 0 or 1.
+ *
+ *-1========================================================================*/Thu Feb 19 08:32:11 CET 2026
+CCITT CRC (REVERSE) for getopt.c   is	[91C9]
+
+/*+2 MODULE GETOPT.C =======================================================*/
+/*   NAME   01                 getopt()                                     */
+/*== SYNOPSIS ==============================================================*/
+PUBLIC int
+getopt(argc, argv, pzOptStr)
+    int     argc;              /* Argument count */
+    char    **argv;            /* Argument vector */
+    char    *pzOptStr;         /* String of valid options */
+{
+/* DESCRIPTION
+ *
+ *   1: Check if caller has restarted or advanced the scan by modifying <optind>
+ *   2: Scan command line & retrieve next option and/or argument ... :
+ *      2.1: Retrieve NON-OPTION ARGUMENT from <optarg>, ie. :
+ *           no option marker "-", or past end-of-options indicator "--"
+ *      2.2: Retrieve OPTION from group (marked "-") w. possible ARGUMENT.
+ *           2.2.1: If END-OF-GROUP, advance to next group, ie. slot in argv[]
+ *           2.2.2: Retrieve option to <option>
+ *           2.2.3: If END-OF-OPTIONS, set indicator & advance to next group
+ *           2.2.4: Check option, - if invalid print error message & return '?'
+ *      2.3: Retrieve OPTION ARGUMENT to <optarg>, - if any.
+ *           2.3.1: Flush-up argument : rest of current <argv>
+ *           2.3.2: Separate argument : whole of next <argv>
+ * 3:  Return next option or (if none) next non-option arg.
+ *-2*/Thu Feb 19 08:32:11 CET 2026
+CCITT CRC (REVERSE) for getopt.c   is	[91C9]
+
+
+
+
+
+
+END EXTRACTION
+
+

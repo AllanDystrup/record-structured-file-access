@@ -1,0 +1,61 @@
+#=============================================================================
+# <PROJ>\BM\MAKEFILE
+#=============================================================================
+# FUNCTION "Plain vanilla" makefile for project bm :
+# Boyer-Moore single string search.
+# SYSTEM Standard (ANSI/ISO) C.
+# Tested on PC/MS DOS 5.0 (MSC 600A).
+# SEE ALSO Modules : ERROR.C, BM.H/C
+# PROGRAMMER Allan Dystrup.
+# COPYRIGHT (c) Allan Dystrup, 1991
+# VERSION $Header: d:/cwk/kf/bm/RCS/makefile 1.1 92/10/25 17:03:29
+# Allan_Dystrup Exp Locker: Allan_Dystrup $
+# -------------------------------------------------------------
+# $Log: makefile $
+# Revision 1.1 92/10/25 17:03:29 Allan_Dystrup
+# Initial revision
+#
+#=============================================================================
+#============================================================================
+# Directories and files
+#============================================================================
+HF = ..\h\general.h .\bm.h
+CF = bm.c
+OF = bm$O ..\error\error.obj ..\bool\bool.obj
+#============================================================================
+# Compilation options
+#============================================================================
+# Normal
+CFLAGS += /c /I..\h /I..\bool /I..\error /Za /Od /W4
+LFLAGS +=
+# For CodeView
+#CFLAGS += /c /I..\h /I..\bool /I..\error /Za /Zi /Od /W4
+#LFLAGS += /CO
+#============================================================================
+# Dependencies
+#============================================================================
+# ---EXE---
+bm$E: makefile $(OF)
+cp makefile makefile.s
+$(LD) $(LDFLAGS) $(OF),bm$E,,;
+# ---OBJ---
+bm$O: bm.c $(HF)
+cp bm.c bm.s
+# RELEASE
+# $(CC) -c $(CFLAGS) bm.c
+# MAIN
+# $(CC) -c $(CFLAGS) /Fo.\$@ -DMAIN bm.c
+# MAIN-DEBUG
+$(CC) -c $(CFLAGS) /Fo.\$@ -DMAIN -DDEBUG bm.c
+# ---Miscelaneous---
+print :
+pr -n -f bm.h bm.c | lp
+clean :
+rm -f *.s *.bak *.map slt
+ls -Cqp
+realclean :
+rm -f *$O *.s *.bak *.map slt
+ls -Cqp
+# END makefile (project BM)
+#=============================================================================
+

@@ -1,0 +1,615 @@
+
+
+
+
+
+Wed Feb 18 17:30:55 CET 2026
+CCITT CRC (REVERSE) for     ac.h   is	[8B16]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+   ##     ####           #    #
+  #  #   #    #          #    #
+ #    #  #               ######
+ ######  #        ###    #    #
+ #    #  #    #   ###    #    #
+ #    #   ####    ###    #    #
+
+
+
+
+
+
+/*+1========================================================================*/
+/* MODULE                          AC.H                                     */
+/*==========================================================================*/
+/* FUNCTION    Headerfile for AC.C (and user modules)                       */
+/*             (include after general.h)                                    */
+/*                                                                          */
+/* PROGRAMMER  Allan Dystrup                                                */
+/*                                                                          */
+/* COPYRIGHT   (c) Allan Dystrup, Sept. 1991                                */
+/*                                                                          */
+/* VERSION                                                                  */
+/*             Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup	    */
+/*             Port to UBUNTU Linux on Windows10/WSL, Using CLion	    */
+/*-1========================================================================*/Wed Feb 18 17:30:55 CET 2026
+CCITT CRC (REVERSE) for     ac.h   is	[8B16]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+   ##     ####            ####
+  #  #   #    #          #    #
+ #    #  #               #
+ ######  #        ###    #
+ #    #  #    #   ###    #    #
+ #    #   ####    ###     ####
+
+
+
+
+
+
+/*+1=================================FSA====================================*/
+/* MODULE                            AC.C                                   */
+/*==========================================================================*/
+/* FUNCTION   Aho & Corasic algorithm for searching a text for several fixed
+ *             substrings. This module implements a simple "Finite State
+ *             Automaton" (FSA) to locate all occurences of any of a number
+ *             of keywords in a string of text. The algorithm :
+ *             - constructs a Deterministic Finite State Automaton (DFSA)
+ *               for pattern matching from the keywords; Construction of the
+ *               DFSA takes time proportional to the sum of the lengths of
+ *               the keywords, ie. time complexity O(n).
+ *             - then uses the DFSA to process the text in one pass;
+ *               The number of state transitions made by the DFSA in pro-
+ *               cessing the text is independent of the number of keywords.
+ *
+ * SYSTEM      Standard Ansi C.
+ *             Tested on UNIX V.3 and PC/MS DOS V.3.3.
+ *
+ * SEE ALSO    Modules : general.h, bool.h/c, error.h/c
+ *
+ * PROGRAMMER  Allan Dystrup
+ *
+ * COPYRIGHT   (c) Allan Dystrup, SEP. 1991
+ *
+ * VERSION     Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup
+ *             Port to UBUNTU Linux on Windows10/WSL, Using CLion
+ *             ac.c runnable in LINUX, but NOT fully lint'ed!
+ *
+ * REFERENCES  Algorithm : "Efficient String Matching: An Aid to Bibliographic
+ *             Search", Aho & Corasick, CACM, Vol. 18 No. 6 (June '75)
+ *             Implementation : Inspired by the UNIX "fgrep" utility as
+ *             designed by Ian Ashdown, byHeart Software.
+ *
+ * USAGE       ac [<options>] <boolexpr> <file>, where :
+ *                <options>  -N to force a NFSA search (default DFSA)
+ *                           -U to force a case-INsensitive search
+ *                <boolexpr> is a boolean expression of search phrases
+ *                           example: This&^(That/Those)
+ *                           (cf. module: bool.c)
+ *                <file>     is the file to search for boolexpr, line by line.
+ *
+ * EXAMPLE     In IDE (CLion) :  -U FSA&^(Dfsa/Nfsa) ./ac.c
+ *			  In Shell (bash): $ ./ac -U "FSA&^(Dfsa/Nfsa)" ./ac.c
+ *
+ *
+ * BUGS        A simple-minded test-driver :
+ *             - Text is searched on a line-by-line basis
+ *             - Lines are limited to 256 characters.
+ *
+ *
+ *
+ *======================== BIBLIOGRAPHIC SEARCH =============================
+ *
+ * Searching for a simple pattern such as a single word or phrase in a
+ * set of data is adequately solved by algorithms such as "Boyer-Moore" or
+ * "Knuth-Morris-Pratt" (KMP). These algorithms however are not appropriate
+ * in a search for more than one pattern at a time.
+ *
+ * Bibliographic search often requires locating a finite set of keywords
+ * in an arbitrary string of text. The keywords can be represented by a
+ * restricted class of regular expressions (excluding character clases,
+ * closure et. al.). From these simple regular expressions we can construct
+ * an efficient finite state pattern matching machine, which when applied
+ * to an input text will signal whenever it finds a match for a keyword.
+ * The search is performed for all keywords "in parallel" (ie. without back-
+ * tracking), and the execution speed is thus independent of the number of
+ * patterns to be matched. The algorithm also identifies overlapping strings.
+ *  * The pattern matching machine may be combined with a simple stack machine
+ * to evaluate a search criterion expressed as a Boolean function of keywords
+ * and phrases. (This extension of the basic search algorithm is implemented
+ * by the module bool.c, which is called from this module).
+ *====================== PATTERN MATCHING MACHINE ===========================
+ * Let K = {k1, k2, ... ,kn} be the finite set of keywords. By a pattern
+ * matching machine for K we mean a program which given the input text
+ * string X produces as output the locations in X at which keywords in K
+ * appear as substrings.
+ *
+ * The pattern matching machine is constructed as a set of states represen-
+ * ting matched characters in K. The machine successively reads the symbols
+ * in X, making state transitions and emitting output whenever a keyword is
+ * located.
+ *
+ * A pattern matching machine also called a "Finite State Automaton" (FSA)
+ * may be of type nondeterministic or deterministic.
+ * A "Nondeterministic FSA" (NFSA) uses intermediate failure transitions
+ * between keyword states and may thus require more than one state transition
+ * per input symbol.
+ * A "Deterministic FSA" (DFSA) encodes all possible combinations of keyword
+ * characters, but thereby eliminates failure transitions making only one
+ * transition per input symbol.
+ * The desicion to use a NFSA or a DFSA is a classic choice of memory usage
+ * (minimized by NFSA) vs. execution speed (minimized by DFSA). This imple-
+ * mentation gives you both choices.
+ *
+ *=============================== NFSA ======================================
+ * The behavior of the NFSA is described by 3 functions :
+ *  - a goto function G, mapping a pair of (state s, inputSymbol x) into
+ *    a state s' or into the message "fail".
+ *  - a failure function F, mapping a state s into a state s'.
+ *    F is consulted whenever G reports "fail".
+ *  - an output function O, associated with output states, ie. terminal
+ *    states indicating match of a keyword (for all other states, O is empty).
+ *
+ * The operating cycle of the NFSA is defined by :
+ *  1 if transition G(s,x) == s' then
+ *       enter state s' and advance input
+ *       if O(s') != empty then emit O(s')
+ *  2 if transition G(s,x) == "fail" then
+ *       s' = F(s)     // repeat cycle with G(s',x), ie. don't advance input
+ *
+ * The NFSA algorithm is thus :
+ *    BEGIN
+ *      s = 0                  // initialize current state to start state
+ *      FOR i = 1 UNTIL m DO   // proces input text string X = x1x1 ... xm
+ *      BEGIN                  // next operating cycle (each new input char)
+ *        WHILE (G(s, xi) == fail)
+ *           s = F(s)
+ *        s = G(s, xi)
+ *        IF O(s) != empty THEN
+ *          PRINT (i, O(s))    // located keyword O(s) at position i in X
+ *      END
+ *    END
+ *
+ *=============================== DFSA ======================================
+ *
+ * The behavior of the DFSA is described by 2 functions :
+ *  - a next move function M, mapping a pair of (state s, inputSymbol x) into
+ *    a state s'. M replaces the two NFSA functions : G and F.
+ *  - an output function O, identical to the NFSA O-function.
+ *
+ * The operating cycle of the DFSA is characterized by exactly one transition
+ * per input character (ie. failure transitions of the NFSA are eliminated).
+ *
+ * The DFSA algorithm is :
+ *    BEGIN
+ *      s = 0                  // initialize current state to start state
+ *      FOR i = 1 UNTIL m DO   // proces input text string X = x1x1 ... xm
+ *      BEGIN                  // next operating cycle (each new input char)
+ *        s = M(s, xi)         // failure transitions eliminated!
+ *        IF O(s) != empty THEN
+ *          PRINT (i, O(s))    // located keyword O(s) at position i in X
+ *      END
+ *    END
+ *
+ * DIAGNOSTICS Exit status is 0 if any matches are found, 1 if none, 2 for
+ *             error condition.
+ *
+ *-1========================================================================*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+2 MODULE AC.C ===========================================================*/
+/*   NAME   00            Main (Module Testdriver)                          */
+/*== SYNOPSIS ==============================================================*/
+void main(
+	int argc,
+	BYTE** argv)
+{
+/* DESCRIPTION (USAGE)
+ * ac [<options>] <boolexpr> <file>, where :
+ *    <options>  -N to force a NFSA search (default DFSA)
+ *               -U to force a case-INsensitive search
+ *    <boolexpr> is a boolean expression of search phrases
+ *               example: This&^(That/Those)
+ *               The boolexpr is parsed by function pzParse (in bool.c) to :
+ *               - a postfix representation of the Boolean logic tree (pzPostfix)
+ *               - a set of keywords K= {k1,k2,...,kn} to search for (symtable[])
+ *
+ * Search <file> line-by-line for boolean expression <boolexpr> :
+ *    1: Parse command line <options>, if any.
+ *    2: Parse Bool search expression <boolexpr> to postfix string and keyword list
+ *    3: Perform search on <file> ...
+ *       3.1: Initialize AC-search
+ *       3.2: Run AC-search machine (NFSA or DFSA) on each line of input-file <file>
+ *       3.3: Terminate search & Ret status to parent proces: 0 if match, 1 otherwise
+ *-2*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+2 MODULE AC.C===========================================================*/
+/*   NAME   01                 vBuildFsa                                   */
+/*== SYNOPSIS =============================================================*/
+void
+vBuildFsa(int type)
+{
+/* DESCRIPTION
+ * Construct a "Finite State Automaton" (FSA) from the keywords in symtable[]
+ *    1: Build the "go" graph
+ *    2: Build the "failure" and optionally "move" transitions
+ *    3: Dump of FSA for debygging (optional)
+ *
+ *-2*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   01.01              vBuildGoGraph                                */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vBuildGoGraph(void)
+{
+/* DESCRIPTION
+ * Construction of goto graph data structure for the goto function G of FSA.
+ *
+ * The graph is started by one vertex/node : the array representing state 0.
+ *
+ * We now enter each keyword ki into the graph beginning at the start state:
+ * new vertices (states between chars) and edges (transitions on chars) are
+ * added to the graph thus building a complete path that spells out ki.
+ * The output function is defined for the state at which the path terminates.
+ *
+ * Up to this point the graph is a rooted tree. To complete the construction
+ * of the goto function we add a loop from state 0 to state 0 on all input
+ * chars NOT starting a keyword path.
+ *
+ * In summary the algorithm for building the goto graph is  :
+ *    BEGIN
+ *      (1) initialize all transitions out of state-0 to FAIL
+ *      (2) enter all entries in keyword-list symtable[] into the goto graph
+ *      (3) reset all FAIL-transitions out of state-0 to state-0
+ *    END
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   01.02              vBuildKeyword                                */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vBuildKeyword(BYTE* pzWord)
+{
+/* DESCRIPTION
+ * Enter a keyword (text string) into the goto graph;  Note that '\0' can
+ * never be a valid character (Used as C string terminator).
+ *
+ * First run each character of the keyword in turn through the current
+ * partially-built goto graph.
+ *
+ * When a failure occurs, add the remainder of the keyword to the graph
+ * as one new transition and state per char.
+ *
+ * Finally define the output function for the keyword's terminal state.
+ *
+ * The complete algorithm for entering a keyword K into the goto graph is :
+ *    BEGIN 
+ *
+ *       (1) // Run keyword through partially built goto graph until FAIL
+ *           FOR (i = 0, S = 0; G(S, K[i]) != FAIL; i++)
+ *              S = G(S, K[i]) 
+ *
+ *       (2) // Enter remainder of keyword into goto graph (build new states)
+ *           FOR( ; (K[i]; i++)
+ *              BEGIN
+ *                 G(S, K[i]) = newS
+ *                 S = newS
+ *              END 
+ *
+ *       (3) // Define output function for the keyword's terminal state
+ *           O(S) = function(keyword)
+ *    END
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   01.03       vBuildFailMoveTrans                                 */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vBuildFailMoveTrans(int type)
+{
+/* DESCRIPTION
+ * Build the "failure" and optionally "move" transitions from the defined go graph.
+ *
+ * ----------------- Build the failure function F for NFSA ------------------
+ *
+ *   For all states s1 of depth 1 : F(s1) = 0  // depth = 1, loop to state 0
+ *   For all states s2 of depth d > 1          // depth > 1
+ *      For each state s1 of depth d-1 :
+ *         For each valid inputsymbol x
+ *            If defined go-trans : s1 -(x)-> s2
+ *               sf = F(s1)                    // G(0,x) != FAIL
+ *               Execute sf = F(sf) until G(sf, x ) != FAIL
+ *               F(s2) = G(sf, x)
+ *
+ *   Algorithm using queue Q to hold the states :
+ *   BEGIN  *   (1) initialize Q to empty
+ *   (2) FOR each valid inputsymbol x              // depth = 1
+ *          IF ( (s1 = G(0, x)) != 0 )
+ *          BEGIN
+ *             add s1 to Q-tail
+ *             F(s1) = 0
+ *          END
+ *   (3) WHILE ( (s1 = remove from Q-head) != 0 )  // depth > 1
+ *          FOR each valid inputsymbol x
+ *            IF ( (s2 = G(s1, x)) != FAIL )
+ *            BEGIN
+ *               add s2 to Q-tail
+ *               FOR (sf = F(s1); G(sf,x) == FAIL; sf = F(sf))
+ *                  ;
+ *               F(s2) = G(sf, x)
+ *               O(s2) = O(sf) + O(F(sf))
+ *            END
+ *   END
+ *
+ * ------------- Optionally build the move function M for DFSA --------------
+ *
+ *   For all states s1 of depth 1 : M(0, x) = G(0, x)  // depth = 1, use G
+ *   For all states s2 of depth d > 1                  // depth > 1
+ *      For each state s1 of depth d-1 :
+ *         For each valid inputsymbol x
+ *            If defined go-trans : s1 -(x)-> s2
+ *               use this as move-trans
+ *            else
+ *               set move-trans s1 -(x)-> = move-trans(F(s1), x)
+ *
+ *   Algorithm using queue Q to hold the states :
+ *   BEGIN
+ *   (1) initialize Q to empty
+ *   (2) FOR each valid inputsymbol x              // depth = 1
+ *          M(0, x) = G(0, x)
+ *          IF ( (s1 = G(0, x)) != 0 )
+ *             add s1 to Q-tail
+ *   (3) WHILE ( (s1 = remove from Q-head) != 0 )  // depth > 1
+ *          FOR each valid inputsymbol x
+ *             IF ( (s2 = G(s1, x)) != FAIL )
+ *             BEGIN  *                add s2 to Q-tail
+ *                M(s1, x ) = s2
+ *             END ELSE
+ *                M(s1, x) = M(F(s1), x)
+ *   END
+ *
+ * -------------- Combined algorithm for fail and move functions ------------
+ *
+ *   Merged algorithm using queue Q to hold the states :
+ *   BEGIN
+ *   (1) initialize Q to empty
+ *   (2) FOR each valid inputsymbol x              // depth = 1
+ *          M(0, x) = G(0, x)
+ *          IF ( (s1 = G(0, x)) != 0 )
+ *          BEGIN
+ *             add s1 to Q-tail
+ *             F(s1) = 0
+ *          END
+ *   (3) WHILE ( (s1 = remove from Q-head) != 0 )  // depth > 1
+ *          FOR each valid inputsymbol x
+ *             IF ( (s2 = G(s1, x)) != FAIL )
+ *             BEGIN
+ *                add s2 to Q-tail
+ *                FOR (sf = F(s1); G(sf,x) == FAIL; sf = F(sf))
+ *                   ;
+ *                F(s2) = G(sf, x)
+ *                O(s2) = O(sf) + O(F(sf))
+ *                M(s1, x ) = s2
+ *             END ELSE
+ *                M(s1, x) = M(F(s1), x)
+ *   END
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+2 MODULE AC.C===========================================================*/
+/*   NAME   02                fRunFsa                                      */
+/*== SYNOPSIS =============================================================*/
+FLAG
+fRunFsa(
+int            type,                /* Search type : NFSA or DFSA    */
+register BYTE* str,                 /* String to search for keywords */
+BYTE*          pzPostfix)           /* Parsed Boolean expression     */
+{
+/* DESCRIPTION  * Run the finite state automaton with string "str" as input ...
+ *    1: Reset state of symbol-table and go-graph
+ *    2: Run FSA on input-line <str>, and note "hits" on keywords
+ *    3: Evaluate boolean expression, using keyword "hits" from FSA-run
+ *       Return TRUE if match, FALSE otherwise.
+ *-2*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   02.01             psRunTrans                                    */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+sSTATE   *
+psRunTrans(
+	int           type,
+	sSTATE*       psState,
+	register BYTE cText )
+{
+/* DESCRIPTION
+ * Perform one transition from psState via character cText to the next state.
+ * Return a pointer to next state, or - if cText is not on the transition
+ * list - return pointer to failure-state (type NFSA) or NULL (type DFSA).
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   03.01         psAllocState                                      */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+sSTATE*
+psAllocState(void)
+{
+/* DESCRIPTION
+ * Create a new state and return a pointer to it.
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   03.02         psAllocTrans                                      */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+sTRANS*
+psAllocTrans(sSTATE * psState, BYTE cText)
+{
+/* DESCRIPTION
+ * Create a new transition and return a pointer to it
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+2 MODULE AC.C ===========================================================*/
+/*   NAME   03.03           vDelFsa                                         */
+/*== SYNOPSIS ==============================================================*/
+void vDelFsa(void)
+{
+/* DESCRIPTION
+ * Deallocate whole FSA structure (free all node-lists from aState0[])
+ *-2*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   03.04           vDelNode                                        */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vDelNode(sSTATE *psS)
+{
+/* DESCRIPTION
+* Deallocate one list of nodes in FSA structure ...
+ *    1: Remove move-list (for DFSA). NB: states removed via go-list
+ *    2: Remove go-list (for NFSA)
+ *    3: Finally remove state and associated O-function
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   03.05           vAllocQElem                                     */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vAllocQElem(sQELEM ** head_ptr, sQELEM ** tail_ptr, sSTATE * psState)
+{
+/* DESCRIPTION
+ * Add an instance to the tail of a queue
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   03.06           fCheckQElem                                     */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+FLAG
+fCheckQElem(sQELEM * head_ptr, sSTATE * psState)
+{
+/* DESCRIPTION
+ * Check for a specified FSA state in the queue
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   03.07           vDelQElem                                       */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vDelQElem(sQELEM ** head_ptr)
+{
+/* DESCRIPTION
+ * Delete an instance from the head of queue
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   03.08           pzToupperStr                                    */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+BYTE*
+pzToupperStr(register BYTE * str)
+/* DESCRIPTION
+ * Map entire string pointed to by "str" to upper case, - incl. danish ‘›†
+ *-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   04.01           vDumpFsa                                        */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vDumpFsa(int type) {
+/*-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+/*+3 MODULE AC.C -----------------------------------------------------------*/
+/*   NAME   04.02           vDumpNode                                       */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+void
+vDumpNode(int type, sSTATE * s) {
+/*-3*/Wed Feb 18 17:30:56 CET 2026
+CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
+
+
+
+
+
+
+END EXTRACTION
+
+

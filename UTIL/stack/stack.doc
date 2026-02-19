@@ -1,0 +1,166 @@
+
+
+
+
+
+Tue Feb 17 17:14:57 CET 2026
+CCITT CRC (REVERSE) for  stack.h   is	[F9F3]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+  ####    #####    ##     ####   #    #          #    #
+ #          #     #  #   #    #  #   #           #    #
+  ####      #    #    #  #       ####            ######
+      #     #    ######  #       #  #     ###    #    #
+ #    #     #    #    #  #    #  #   #    ###    #    #
+  ####      #    #    #   ####   #    #   ###    #    #
+
+
+
+
+
+
+/*+1============================================================================*/
+/*  MODULE                      STACK.H                                         */
+/*==============================================================================*/
+/*  FUNCTION     Macros for creating stacks of simple objects.			*/
+/*									        */
+/*   SYSTEM        Standard (ANSI/ISO) C.					*/
+/*                 Tested on PC/MS DOS 5.0 (MSC 600A).				*/
+/*							                        */
+/*   PROGRAMMER    Allan Dystrup.				                */
+/*							                        */
+/*   COPYRIGHT     (c) Allan Dystrup: 1991, 2025			        */
+/*									        */
+/*   VERSION       $Header: d:/cwk/kf/h/RCS/stack.h 1.1 92/10/25 17:19:21	*/
+/*                 Allan_Dystrup Exp Locker: Allan_Dystrup $			*/
+/*		  ----------------------------------------------------------	*/
+/*                 $Log: stack.h $						*/
+/*                 Revision 1.1  92/10/25  17:19:21  Allan_Dystrup		*/
+/*                 Initial revision						*/
+/*										*/
+/*                 Revision 1.2 2025/12/02 11:00:00	 Allan_Dystrup		*/
+/*		   Port to UBUNTU  on Win.10/WSL, Using CLion for Linux     	*/
+/*		   Port to Windows 10 native, Using CLion for Windows           */
+/*								                */
+/*-1============================================================================*/Tue Feb 17 17:14:57 CET 2026
+CCITT CRC (REVERSE) for  stack.h   is	[F9F3]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Tue Feb 17 17:14:57 CET 2026
+CCITT CRC (REVERSE) for  stack.c   is	[EF79]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+  ####    #####    ##     ####   #    #           ####
+ #          #     #  #   #    #  #   #           #    #
+  ####      #    #    #  #       ####            #
+      #     #    ######  #       #  #     ###    #
+ #    #     #    #    #  #    #  #   #    ###    #    #
+  ####      #    #    #   ####   #    #   ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/ 
+/*  MODULE                     STACK.C                                      */ 
+/*==========================================================================*/ 
+/*  FUNCTION      Testdriver for stack macro's in header-file STACK.H	    */
+/*									    */
+/*  REVISION	  Revision 1.2 2025/12/02 11:00:00	 Allan_Dystrup	    */
+/*		  Port to UBUNTU Linux on Win.10/WSL, Using CLion	    */
+/*-1========================================================================*/  Tue Feb 17 17:14:57 CET 2026
+CCITT CRC (REVERSE) for  stack.c   is	[EF79]
+
+/*+3 MODULE STACK.C --------------------------------------------------------*/ 
+/*   NAME   00                     main()                                   */ 
+/*-- SYNOPSIS --------------------------------------------------------------*/ 
+void main() { 
+/*   DESCRIPTION  
+ *   Simple testdriver for header file ERROR.H, with a full set of macro defs.  
+ *   for stack operations.  
+ *-3*/           Tue Feb 17 17:14:57 CET 2026
+CCITT CRC (REVERSE) for  stack.c   is	[EF79]
+
+/*+3 MODULE STACK.C --------------------------------------------------------*/ 
+/*   NAME   01                     vError()                                 */ 
+/*-- SYNOPSIS --------------------------------------------------------------*/ 
+void 
+vError(type)    
+	int type; 
+{ 
+/*   DESCRIPTION  
+ *   Each user module must define an appropriate error handling function  
+ *   called 'vError' to catch stack over/under-flow exceptions  
+ *-3*/         Tue Feb 17 17:14:57 CET 2026
+CCITT CRC (REVERSE) for  stack.c   is	[EF79]
+
+
+
+
+
+
+END EXTRACTION
+
+

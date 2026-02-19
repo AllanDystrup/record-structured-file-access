@@ -1,0 +1,118 @@
+/*+1=================================FSA====================================*/
+*             Automaton" (FSA) to locate all occurences of any of a number
+*             - constructs a Deterministic Finite State Automaton (DFSA)
+*               DFSA takes time proportional to the sum of the lengths of
+*             - then uses the DFSA to process the text in one pass;
+*               The number of state transitions made by the DFSA in pro-
+*                <options>  -N to force a NFSA search (default DFSA)
+* A pattern matching machine also called a "Finite State Automaton" (FSA)
+* A "Nondeterministic FSA" (NFSA) uses intermediate failure transitions
+* A "Deterministic FSA" (DFSA) encodes all possible combinations of keyword
+* The desicion to use a NFSA or a DFSA is a classic choice of memory usage
+* (minimized by NFSA) vs. execution speed (minimized by DFSA). This imple-
+*=============================== NFSA ======================================
+*  * The behavior of the NFSA is described by 3 functions :
+* The operating cycle of the NFSA is defined by :
+* The NFSA algorithm is thus :
+*=============================== DFSA ======================================
+* The behavior of the DFSA is described by 2 functions :
+*    a state s'. M replaces the two NFSA functions : G and F.
+  - an output function O, identical to the NFSA O-function.
+* The operating cycle of the DFSA is characterized by exactly one transition
+* per input character (ie. failure transitions of the NFSA are eliminated).
+* The DFSA algorithm is :
+#define NFSA        1
+#define DFSA        2
+typedef struct transition {    	/* FSA transition element -----------  */
+typedef struct state {         	/* FSA state element ----------------- */
+	sTRANS   *psGoList;         /* Ptr to head of "go" list for NFSA   */
+	sTRANS   *psMvList;         /* Ptr to head of "move" list for DFSA */
+	struct state *psFailSt;     /* Ptr to failure state for NFSA       */
+*    <options>  -N to force a NFSA search (default DFSA)
+*       3.2: Run AC-search machine (NFSA or DFSA) on each line of input-file <file>
+	int  type  = DFSA;              /* Type of FSA, default DFSA */
+							type  = NFSA;
+	D(printf("\n\n=============== BUILDING NEW FSA =================\n\n"));
+* Construct a "Finite State Automaton" (FSA) from the keywords in symtable[]
+*    3: Dump of FSA for debygging (optional)
+	/* 3: Dump FSA for debugging (optional) */
+	D(vDumpFsa(NFSA));
+	if (type == DFSA)
+		D(vDumpFsa(DFSA));
+* Construction of goto graph data structure for the goto function G of FSA.
+	/* 1: Initialize FSA State 0 go transition array to : G(0,x) = FAIL */
+		((s = psRunTrans(NFSA, psState, *pzIndex)) != &sFail);
+* ----------------- Build the failure function F for NFSA ------------------
+* ------------- Optionally build the move function M for DFSA --------------
+	/* We also use aState0[] for the DFSA, so for all x M(0,x) = G(0,x) */
+		if (s1 = psRunTrans(NFSA, NULL, cText))
+			if ((s2 = psRunTrans(NFSA, s1, cText)) != &sFail) {
+				for (sf = s1->psFailSt; psRunTrans(NFSA, sf, cText) == &sFail;)
+				s2->psFailSt = psRunTrans(NFSA, sf, cText);
+				if (type == DFSA)
+					s2 = psRunTrans(DFSA, s1->psFailSt, cText);
+			if (type == DFSA && s2)
+int            type,                /* Search type : NFSA or DFSA    */
+*    2: Run FSA on input-line <str>, and note "hits" on keywords
+*    3: Evaluate boolean expression, using keyword "hits" from FSA-run
+	/* 2: Run FSA on input-line <str> */
+	D(puts("RUN FSA ON INPUT ...\n"));
+	if (type == NFSA)
+	/* NFSA : Nondeterministic Finite State Automaton, use go-trans      */
+		while (psRunTrans(NFSA, psState, *str) == &sFail) {
+		psState = psRunTrans(NFSA, psState, *str);
+	else /* type == DFSA */
+	/* DFSA : Deterministic Finite State Automaton, use move-trans       */
+		psState = psRunTrans(DFSA, psState, *str);
+	/* 3: Evaluate boolean expression, using keyword "hits" from FSA-run */
+* list - return pointer to failure-state (type NFSA) or NULL (type DFSA).
+		t = (type == NFSA ? psState->psGoList : psState->psMvList);
+		/* Return pointer to new state, or failure (NFSA) resp. NULL (DFSA) */
+		return (t ? t->psState : (type == NFSA ? &sFail : NULL));
+* Deallocate whole FSA structure (free all node-lists from aState0[])
+* Deallocate one list of nodes in FSA structure ...
+*    1: Remove move-list (for DFSA). NB: states removed via go-list
+*    2: Remove go-list (for NFSA)
+	/* 1: Remove move-list (for DFSA). NB: states removed via go-list */
+	/* 2: Remove go-list (for NFSA) */
+* Check for a specified FSA state in the queue
+		type == NFSA ? "NFSA" : "DFSA");
+	if (type == DFSA)
+		if (s = psRunTrans(NFSA, NULL, cText)) {
+			if ( type == NFSA )
+			else /* type == DFSA */
+	printf(type == NFSA ? "%sFAIL\t-> %p\n" : "", indent, s->psFailSt);
+	for (t = (type == NFSA ? s->psGoList : s->psMvList); t; t = t->psTrans) {
+		if (type == NFSA) 			/* type == NFSA */
+		else if (!fCheckQElem(f, t->psState)) { /* type == DFSA */
+* SEE ALSO    MODULES : GENERAL.H, BOOL.H/C, ERROR.H/C
+* USAGE       AC [<OPTIONS>] <BOOLEXPR> <FILE>, WHERE :
+*                <BOOLEXPR> IS A BOOLEAN EXPRESSION OF SEARCH PHRASES
+*                           (CF. MODULE: BOOL.C)
+*                <FILE>     IS THE FILE TO SEARCH FOR BOOLEXPR, LINE BY LINE.
+* TO EVALUATE A SEARCH CRITERION EXPRESSED AS A BOOLEAN FUNCTION OF KEYWORDS
+* BY THE MODULE BOOL.C, WHICH IS CALLED FROM THIS MODULE).
+*             ERROR CONDITION.
+#INCLUDE "../../../GENERAL.H"
+#INCLUDE "../../BOOL/BOOL.H"
+#INCLUDE "../../ERR/ERROR.H"
+* AC [<OPTIONS>] <BOOLEXPR> <FILE>, WHERE :
+*    <BOOLEXPR> IS A BOOLEAN EXPRESSION OF SEARCH PHRASES
+*               THE BOOLEXPR IS PARSED BY FUNCTION PZPARSE (IN BOOL.C) TO :
+*               - A POSTFIX REPRESENTATION OF THE BOOLEAN LOGIC TREE (PZPOSTFIX)
+* SEARCH <FILE> LINE-BY-LINE FOR BOOLEAN EXPRESSION <BOOLEXPR> :
+*    2: PARSE BOOL SEARCH EXPRESSION <BOOLEXPR> TO POSTFIX STRING AND KEYWORD LIST
+	BYTE *PZPOSTFIX = NULL;         /* POSTFIX STRING FOR PARSED BOOLEAN LOGIC  */
+	FLAG FMATCH = FALSE;            /* TRUE IF MATCH OF <BOOLEXPR> VS FILE LINE */
+	/* 2: PARSE BOOL SEARCH EXPRESSION TO POSTFIX STRING AND KEYWORD LIST */
+		VERROR(EARG000, "ERROR IN INPUT ARGUMENTS");
+		VERROR(EMEM000, (CHAR*) PZWORD);
+	  						VERROR(EMEM001, SYMTABLE[*J].PZLEXPTR);
+BYTE*          PZPOSTFIX)           /* PARSED BOOLEAN EXPRESSION     */
+*    3: EVALUATE BOOLEAN EXPRESSION, USING KEYWORD "HITS" FROM FSA-RUN
+	/* 3: EVALUATE BOOLEAN EXPRESSION, USING KEYWORD "HITS" FROM FSA-RUN */
+	D(PUTS("SYMBOLTABLE BOOLEAN VALUES :"));
+	D(PUTS("POSTFIX BOOLEAN EVALUATION :"));
+		VERROR(EMEM002, "SSTATE");
+		VERROR(EMEM003, "STRANS");
+		VERROR(EMEM004, "SQELEM");

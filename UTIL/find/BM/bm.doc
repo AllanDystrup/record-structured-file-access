@@ -1,0 +1,431 @@
+
+
+
+
+
+Wed Feb 18 15:45:06 CET 2026
+CCITT CRC (REVERSE) for     bm.h   is	[71E6]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ #####   #    #          #    #
+ #    #  ##  ##          #    #
+ #####   # ## #          ######
+ #    #  #    #   ###    #    #
+ #    #  #    #   ###    #    #
+ #####   #    #   ###    #    #
+
+
+
+
+
+
+/*+1========================================================================*/
+/* 								MODULE BM.H 								*/
+/*==========================================================================*/
+/* 
+*  FUNCTION 	Headerfile for BM.C (and user modules)
+*
+*  PROGRAMMER 	Allan Dystrup
+*
+*  COPYRIGHT(c)	Allan Dystrup, Sept 1991.
+*
+*  VERSION		$Header: d:/cwk/kf/bm/RCS/bm.h 1.1 92/10/25 17:02:25
+* 				Allan_Dystrup Exp Locker: Allan_Dystrup $
+*				----------------------------------------------------------
+* 				$Log: bm.h $
+* 				Revision 1.1 92/10/25 17:02:25 Allan_Dystrup
+* 				Initial revision
+*				--------------------
+*				Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup
+*				Port to UBUNTU Linux on Windows10/WSL, Using CLion
+*				Port to Windows 10 native, Using CLion for Windows
+*
+*-1========================================================================*/
+
+#ifndef _BM_H 	/* Make sure bm.h is included only once */
+
+	#define _BM_H 	/* Matching #endif is at End-Of-File    */
+
+	#ifndef GENERAL_H /* bm.c depends on defs. in general.h */
+		#include "../../../general.h"
+	# endif
+	
+	#ifndef ERROR_H /* bm.c depends on defs. in error.h */
+		#include "../../err/error.h"
+	#endif
+
+	# ifndef BOOL_H /* bm.c depends on defs. in bool.h */
+		#include "../../bool/bool.h"
+	#endif
+
+	#ifdef _BM_ALLOC /* Allocate and Init. data structures ? */
+		#define _GLOBAL
+		#define _INIT(x) x
+	#else
+		#define _GLOBAL extern
+		#define _INIT(x)
+	#endif
+
+
+	enum scanType {
+		eScanUD, /* Undefined scan order, - don't use ! */
+		eScanQS, /* Force BM Quick Search algorithm 	*/
+		eScanMS, /* Force BM Maximal Shift algorithm 	*/
+		eScanOM  /* Force BM Optimal Mismatch algorithm */
+		/* eScanNew Add new type of scan order here ... */
+	};
+	
+	_GLOBAL void vBuildBM(enum scanType type, struct entry * symtab);
+	_GLOBAL FLAG fRunBM(BYTE * text);
+	_GLOBAL void vDelBM(void);
+	
+#endif /* #ifndef _BM_H */
+
+
+/* End module bm.h */
+/*==========================================================================*/
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Wed Feb 18 15:45:06 CET 2026
+CCITT CRC (REVERSE) for     bm.c   is	[B199]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ #####   #    #           ####
+ #    #  ##  ##          #    #
+ #####   # ## #          #
+ #    #  #    #   ###    #
+ #    #  #    #   ###    #    #
+ #####   #    #   ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/
+/* 		 		MODULE BM.C 				    */
+/*==========================================================================*/
+/*
+ * 	FUNCTION 	This module implements the Boyer-Moore algorithm
+ * 			for single substring search.
+ *
+ * 	SYSTEM 		Standard C (ANSI/ISO).
+ * 				Tested on PC/MS DOS V.5.0.
+ *
+ * 	SEE ALSO 	general.h error.c/.h bool.c/.h
+ *
+ * 	PROGRAMMER 	Allan Dystrup
+ *
+ * 	COPYRIGHT(c) Allan Dystrup
+ *
+ * 	VERSION 	$Header: d:/cwk/kf/bm/RCS/bm.c 1.1 92/10/25 17:02:46
+ * 			Allan_Dystrup Exp Locker: Allan_Dystrup $
+ * 			---------------------------------------------------------
+ * 			$Log: bm.c $
+ * 			Revision 1.1 92/10/25 17:02:46 Allan_Dystrup
+ * 			Initial revision
+ *			--------------------
+ *			Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup
+ *			Port to UBUNTU Linux on Windows10/WSL, Using CLion
+ *			Port to Windows 10 native, Using CLion for Windows
+ *
+ * 	REFERENCES
+ * 		[1] 	Donald E. Knuth, James H. Morris, Jr. and Vaughan R. Pratt :
+ * 			"Fast pattern matching in strings",
+ * 			SIAM J. COMPUT. Vol. 6, No. 2, June 1977. 
+ *
+ * 		[2] 	Robert S. Boyer andj. Strother Moore :
+ * 			"A fast string searching algorithm",
+ * 			Communications of the ACM, October 1977, Vol. 20, No. 10.  
+ *
+ * 		[3] 	Donald M. Sunday :
+ * 			A very fast substring search algorithm",
+ * 			Communications of the ACM, August 1990, Vol. 33, No. 8.
+ *
+ * 	USAGE	bm [scanOrder] <searchTerm> <inputStream>
+ * 		where:
+ * 		scanOrder:	[-O]	use Optimal Mismatch search
+ * 				[-M]	use Maximal Shift search
+ * 				[-Q]	use Quick Search (default)
+ *
+ * 		searchTerm:		is a simple text string to be found
+ * 					(the search is case sensitive)
+ *
+ * 		inputStream:		is the path to a file to be searched
+ * 					(if empty: stdin is used) 
+ *
+ *========================== SUBSTRING SEARCH ===============================
+ *
+ * An elementary problem in information retrieval is searching for a specific
+ * substring or "pattern" (length p) in a larger string of text (length t),
+ * where pattern and text are composed of characters from a fixed alphabet
+ * (length a).
+ *
+ * 			SF, Straight Forward
+ *
+ * The SF (or "brute force") method consists of first aligning the start of
+ * the pattern with the start of the text, and then performing a left-right
+ * scan of the pattern and a char. by char. comparison with the text.
+ * In case of a mismatch the pattern is shifted right one step, and the text-
+ * pointer is "backed up" to the new position of the pattern start.
+ * The time complexity of SF is :
+ * 	setup time : 	zero
+ * 	worst-case : 	quadratic in O(p*t)
+ * 			ex. find "aaaab" in "aaaaa....aaaaab",
+ * 			ie. match whole pattern FOR EACH char. in the text)
+ * 	average : 	linear in O(t), with const. factor [1...p] near 1.
+ * 			(mismatch usually expected at first char. comparison,
+ * 			in which case there is NO backtracking in the text)
+ *
+ *
+ * 			KMP, Knuth-Morris-Pratt - ref. [1]
+ *
+ * The KMP method performs a left-right pattern scan like SF, but eliminates
+ * "backing up" the text-pointer at character mismatch by first setting up a
+ * transition graph including each character in the pattern string.
+ * The graph is represented by a "next[] array" with an index for each pattern
+ * character giving the new position IN THE PATTERN STRING for backing up THE
+ * PATTERN POINTER in case of character mismatch, thereby shifting the pattern
+ * forward by "delta" characters to align the already MATCHED textstring
+ * (=pattern suffix) with the first leftmost matching pattern prefix/infix.
+ * The KMP delta shift precalculation thus utilizes any reoccuring substrings
+ * in the pattern string, and also eliminates backtracking the textpointer
+ * (if mismatch and no delta shift : start new scan from next textchar)
+ * KMP time complexity :
+ * 	setup time : 	linear in O(p)
+ * 	worst-case : 	linear in O(t), with const. factor = 1
+ * 			(ex. find "abcde" in "fffff....fffabcde")
+ * 	average : 	linear in O(t), with const. factor [1/p...1] near 1.
+ * 			(mismatch usually expected at first char. comparison,
+ * 			in which case KMP delta shift IS NOT utilized at all).
+ *
+ *
+ * 			BM, Boyer-Moore - ref. [2]
+ *
+ * The original BM method performs a "REVERSE" pattern scan (ie. right-left,
+ * unlike SF and KMP), using two predefined shift functions :
+ *   - delta1 :	For each char 'c' in the alphabet, find the rightmost position
+ * 		(i) of c in the pattern (i=0 if c not in pat). Delta1(c) = p-i.
+ *   - delta2 : 	Analogous to the KMP delta function for reoccuring substrings
+ * 		in the pattern : for each pattern suffix find first leftward
+ * 		reoccurence of it (infix or prefix) in the pattern.
+ * 		
+ * In case of mismatch BM uses the larger value of delta1 and delta2 to shift
+ * the pattern forward :
+ *    - either delta1(c) : to the rightmost matching char. 'c' in the pattern,
+ *    however if delta1(c) is to the right of the mismatch-position, then
+ *    the pattern is shifted right by 1,
+ *    - or delta2(c) : to the first leftward pattern prefix/infix matching the
+ *    already matched textstring, cf. KMP algorithm.
+ *    and restarting the scan from the pattern end,
+ * BM time complexity :
+ * 	setup time : 	linear in O(a+p)
+ * 	worst-case : 	- using delta1 alone... : quadratic in O(p*t)
+ * 			- using delta1 & delta2 : linear in O(t)
+ * 	average : 	sub-linear in O(t/p), w. const. factor [1/p...1] near 1/p.
+ * 			(mismatch usually expected at first char. comparison,
+ * 			in which case BM delta shifts ARE fully utilized).
+ *
+ *========================== CHOICE OF ALGORITHM ============================
+ *
+ * The only advantage of SF is that it doesn't require any setup time. For
+ * very simple search situations (small and heterogenous pattern and text)
+ * SF may be worth considering, but as a general basis for bibliographic
+ * search SF is totally inadequate.
+ *
+ * KMP has an advantage when "backing up" the textpointer is inconvenient, or
+ * when searching for a highly self-repetitive pattern in a self-repetitive
+ * text. Under these circumstances the linear worst-case search time makes it
+ * more attractive than SF, but in most actual applications (as for instance
+ * bibliographic search for a single word) KMP is not likely to be signifi-
+ * cantly faster than SF.
+ *
+ * BM is our candidate for a bibliographic one-word search algortihm. The
+ * "sublinear" search time of delta1 makes BM more than three times as fast
+ * as SF or KMP in most practical situations, and with the addition of delta2
+ * we get an algorithm with the same desirable worst-case performance as KMP.
+ * With a small modification of the original BM algorithm it is even possible
+ * to get a simpler and faster implementation that does not depend on a
+ * specific pattern scan order and thus may be coded to avoid backtracking!
+ * The advantage of BM increases with the length of the search pattern (p) and
+ * of the alphabet (a). A bibliographic search for a long keyword or phrase
+ * in a text over the full (255 char) alphabet is an ideal application for BM.
+ *
+ * BM however has one drawback : it can not easily be extended to search for
+ * multiple patterns in a text. For this type of application it is better to
+ * use the technique applied by KMP : building a transition graph (also
+ * called a "Finite State Automaton") to perform the search. This is precisely
+ * the scope of the Aho-Corasic algorithm for multiple string search (see
+ * module ac.c).
+ *
+ *===================== AN IMPROVED BM IMPLEMENTATION =======================
+ *
+ * An improved implementation of the BM algorithm, - cf. ref. [3]
+ *
+ * Delta1.
+ * First note that the pattern string always shifts right by at least one
+ * char. Hence the char. in the text string IMMEDIATELY PAST THE END of the
+ * pattern string must be involved for testing at the next pattern position.
+ * Thus delta1 can be computed for the whole alphabet to be the index of the
+ * first leftward occurence of each char. FROM THE END of the pattern string.
+ * This slightly modified delta1 has the following big advantage :
+ * the shift defined by the new delta1(c) is an ABSOLUTE SHIFT relating to
+ * the text character immediately after the pattern (always >= 1), hence
+ *   (1) delta1 MAY BE USED "STAND ALONE" to code a "quick and clean" BM
+ * 	search (as opposed to using the original BM delta1 SHIFT, which was
+ * 	relative to the mismatch position, requiring a test and shift by
+ * 	max(1, delta2) when the pos. of mismatch was to the left of delta1.
+ *   (2) delta1 does NOT DEPEND ON A SPECIFIC PATTERN SCAN ORDER (as opposed
+ * 	to the original BM, which required a strict right-left "backtracking"
+ * 	textpointer)
+ *
+ * Delta2
+ * For any specific order of scanning the pattern string, one can define a
+ * delta2 shift similar to the KMP delta (left-right scan) or the BM delta2
+ * (right-left scan), thus avoiding the undesirable "quadratic worst case
+ * behaviour" of a BM delta1 stand-alone solution (but at the expense of a
+ * substantially larger setup time).
+ *
+ * Delta1 vs. Delta2.
+ * Empirical evidence indicates a "break even" between delta1 standalone and
+ * delta1+delta2 at a pattern length of about 10-15 characters (in biblio-
+ * graphic search), - ie. a search for a short keyword is best performed by
+ * a delta1 standalone algortihm, while searching for a longer word or phrase
+ * often justifies the initial setup time for delta2.
+  *
+ *-1========================================================================*/Wed Feb 18 15:45:06 CET 2026
+CCITT CRC (REVERSE) for     bm.c   is	[B199]
+
+/*+2=======================================================================*/
+/* 			Main (Module Testdriver) 			   */
+/*=========================================================================*/
+#define MAX_LINE 256
+int
+main(int iArgc, BYTE ** ppzArgv)
+/* Input is a Boolean search expression "str" provided on the command line.
+ * The Boolean expression is parsed by function pzParse (in bool.c) to :
+ *    - a suffix representation of the Boolean logic tree (pzPostfix).
+ *    - a set of keywords K = {k1, k2, ... ,kn} to search for (symtable[]).
+ * In module bm.c we perform a simple search for a keyword or phrase using
+ * the improved Boyer-Moore algorithm. The use of pzParse to scan/parse the
+ * single keyword or phrase is thus somewhat "overkill" (we don't actually
+ * use pzPostfix in this context), but the driver may easily be extended to
+ * run other more advanced search algorithms as for instance the Aho-Corasic
+ * search for multiple substrings in a text.
+ *-2*/Wed Feb 18 15:45:06 CET 2026
+CCITT CRC (REVERSE) for     bm.c   is	[B199]
+
+/*+2========================================================================*/
+/* 				vBuildBM 				    */
+/*==========================================================================*/
+void
+vBuildBM(enum scanType type, struct entry * symtab)
+{
+/* Construct the BM delta shift table(s) from pattern string pzPat.
+ *
+ * 				1 Delta1 table : piDelta1[]
+ * The delta1 table-setup requires two steps :
+ *
+ * 1.1 	First initialize the table to (iPatLen+1) for all characters in the
+ * 		alphabet.
+ *
+ * 1.2 	Then reset the table entries for each char in the pattern to the
+ * 		rightmost position in the pattern of that char.
+ *
+ * 				2 Delta2 table : piDelta2[]
+ * The delta2 shift table piDelta2[] is built in two steps :
+ *
+ * 2.1 	First build the ordered pattern psOrdPat from any ordering spe-
+ * 	cification; The chosen scan-order (set up in array pfScanOrd) may be :
+ * 	   - forward, giving a piDelta2[] = KMP delta
+ * 	   - reverse, giving a piDelta2[] = original BM delta2
+ * 	   - maximal shift (MS), using the max. left shift to sort psOrdPat
+ * 	   - optimal mismatch (OM), using char-frequency to sort psOrdPat
+ * 	   - any other order suitable for the actual implementation
+ * 	For bibliographic search we choose to implement the MS scan order.
+ *
+ * 2.2 	Then construct piDelta2[] in two steps, using the following procedure:
+ * 	If mismatch at scan order position i, ie psOrdPat[i].c !=
+ *  	text[ScanStart+psOrdPat[i].loc], then shift ('overlay') the pattern
+ * 	left to position 'iLShift', so
+ * 	2.2.1	psOrdPat[0].c ... psOrdPat[i-1].c ALL MATCH aligned characters
+ * 		in the shifted pat; - iLShift is the max. value in the range
+ * 		0...psOrdPat[0].loc (= the minimal leftshift to match i chars)
+ * 	2.2.2   psOrdPat[i].c DOES NOT match the aligned character
+ * 		pzPat[ psOrdPat[i].loc - iLShift ]; - this may require
+ * 		repeated left shifting of the pattern.
+ * 	Then delta2 table piDelta2[i] = (psOrdPat[0].loc - iLShift),
+ * 	ie. the required right shift to align reoccuring characters in the
+ * 	pattern (cf. 2.2.1) excluding the mismatched character (cf. 2.2.2)
+ * 	with already matched characters in the text.
+ *-2*/Wed Feb 18 15:45:06 CET 2026
+CCITT CRC (REVERSE) for     bm.c   is	[B199]
+
+
+
+
+
+
+END EXTRACTION
+
+

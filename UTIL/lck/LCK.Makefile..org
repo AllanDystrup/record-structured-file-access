@@ -1,0 +1,322 @@
+#=+1===================================================================#
+#   MODULE              MAKEFILE : PROJECT LCK                         #
+#======================================================================#
+#   FUNCTION      Plain vanilla Makefile for project : "lck";
+#
+#   SYSTEM        DOS  MKS  MAKE version 2.4a, Mortice Kern Systems Inc.
+#                 UNIX	SVR3 & SVR4 MAKE
+#
+#   SEE ALSO      Modules : LCK.H, LCK.C 
+#
+#   PROGRAMMER    Allan Dystrup, DBO/DEC/AD
+#
+#   COPYRIGHT     (c) Allan Dystrup, KommuneData I/S, Sep. 1992
+#
+#   VERSION       $Header: d:/cwork/lck/RCS/makefile 0.1 92/10/28 13:40:22
+#                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+#                 -----------------------------------------------------
+#                 $Log:	makefile $
+#                 Revision 0.1  92/10/28  13:40:22  Allan_Dystrup
+#                 PREREL (ALFA1)
+# 
+#=-1===================================================================#
+
+
+#+2====================================================================#
+#                           MAKE MACROS                                #
+#======================================================================#
+# A separate list of make macro's are provided for each environment
+# supported (pt. PC/MS DOS and UN*X). UNCOMMENT the macro's for the 
+# environment, you wish to use as development platform. You will have
+# to modify the settings, so they correspond to the setup (directories)
+# and tools (DOS: PClint, MKS more et.al.) on your particular machine.
+#
+# The module LCK.H/C uses LowLevel file I/O functions on UN*X (POSIX) 
+# and MSDOS (MSC 600A) to provide a portable interface for record-locking
+# and semaphore operations across the UN*X & PC platforms; - The module
+# should thus always be compiled/linted WITHOUT ANSI ENFORCEMENT!
+#
+# On DOS you may select a specific memory model by setting the macro M 
+# to any of [S|M|L|H].
+
+
+#----------------------------------------------------------------------#
+#                              DOS                                     #
+#----------------------------------------------------------------------#
+
+# 1. ------------------------- CHECK -----------------------------------
+SCAN       =   c:\etc\virchk\scan /SUB /M /CHKHI /BELL /DATE /REPORT $(TEMP)
+XREF       =   xrefc
+TEMP       =   d:\tmp\lcktmp
+TMPCRC    =   .\lck.crc
+MORE       =   c:\etc\mks\bin\more
+LINTROOT = d:\pclint
+LINT     = $(LINTROOT)\lint
+#Choose one of [K&R | ANSI]
+#K&R  - for release, please
+#LINTFLAGS =   +fkp +v -e314 $(LINTROOT)\std.lnt
+#ANSI - for test
+LINTFLAGS  =   +v -e314 $(LINTROOT)\std.lnt
+
+# 2. ------------------------- COMPILE --------------------------------
+#O         =   .obj    /* default */
+#E         =   .exe    /* default */
+CC         =   cl
+M          =   L
+#Choose one of [K&R | ANSI]
+#K&R  - for release, please
+#CRFLAGS    +=  /c /A$M /W1 /Gt /G0 /Fo.\$@
+#CDFLAGS    +=  /c /A$M /W1 /Zd /Zi /Od /Gt /G2 /Fo.\$@ -DMSDOS -DDEBUG
+#ANSI - for test
+CRFLAGS    +=  /c /A$M /Za /W4 /Gt /G0 /Ox /Fo.\$@ -DMSDOS
+CDFLAGS    +=  /c /A$M /Za /W4 /Zd /Zi /Od /G2 /qc /Zr /Fo.\$@ -DMSDOS -DDEBUG
+# Release (R) flags
+# /c       compile without linking
+# /A$M     select memory model (in macro $M)
+# /G<num>  generate instructions for 0:8086, 1:80186, 2:80286
+# /Gd      use standard C (not Pascal) calling convention / Default
+# /Ge      enable calls to stack-checking routine / Default
+# /Gt      place data items > 256 byte in new seg (for far/huge data)
+# /Ox      maximize optimization
+# /Za      enforce ANSI language compability
+# /W4      set compiler warning level to 4 (max)
+# Development/Debugging (D) flags
+# /Od      disable all optimization (for MS CodeView/Debugging)
+# /qc      Invoke quick compile
+# /Zd      generate linenumber info (for MS CodeView/Debugging)
+# /Zi      generate symbolic information (for MS CodeView/Debugging)
+# /Zr      generate code with check for null & out-of-range ptrs (only QC). 
+
+# 3 ------------------------- LINK-----------------------------------
+LD         =   link
+LRFLAGS    +=  /ST:0x2000 /NOI
+LDFLAGS    +=  /ST:0x2000 /CO /LI /M /NOI /NOP
+TAIL       =   ,$@,,;
+# /CO      include symbolic data (for MS CodeView/Debugging) 
+# /INF     display phases of linking
+# /LI      include src-file linenumbers in map-file
+# /M       create map-file with public/global symbol defs
+# /NOI     NO-Ignore-case, destinguish between lower/upper case
+# /NOP     NO-codesegment-packing
+# /ST:xx   stack size (eg: 0x2000)
+
+# 4 ------------------------- I/O ------------------------------------
+EXT        =  b:
+DATE       =  dato
+CPYO       =  cp
+
+
+#----------------------------------------------------------------------#
+#                              UN*X                                    #
+#----------------------------------------------------------------------#
+
+# 1. ------------------------- CHECK -----------------------------------
+#SCAN      =
+#XREF		=   cxref
+#LINT      =   lint
+#LINTFLAGS =   -DMAIN -DUNIX
+#TEMP      =   /tmp/lcktmp
+#TMPCRC    =   ./tmp.crc
+#MORE      =   more
+
+# 2. ------------------------- COMPILE --------------------------------
+#O         =   .o
+#E         =	
+#CC        =   cc -c
+#M         =
+#Choose one of [K&R | ANSI]
+#K&R  - for release, please
+#CRFLAGS   =  -DUNIX 
+#CDFLAGS   =  -g -p -DUNIX -DDEBUG
+#ANSI - for test
+#CRFLAGS   =  -ansi -DUNIX  
+#CDFLAGS   =  -ansi -g -p -DUNIX -DDEBUG
+
+# 3 ------------------------- LINK-----------------------------------
+#LD        =   cc  
+#K&R  - for release, please
+#LRFLAGS   =  -o $@	
+#LDFLAGS   =  -o $@ 
+#ANSI - for test
+#LRFLAGS   =  -ansi -o $@	
+#LDFLAGS   =  -ansi -o $@ 
+#TAIL      =   
+
+# 4 ------------------------- I/O ------------------------------------
+#EXT       =  /dev/rmt/0
+#DATE      =  date
+#LIST      =  find . -depth -print
+#CPYO      =  cpio -ocvdB
+#LOG       =  cpio -itv
+
+
+
+#======================================================================#
+#                          NEW RULES                                   #
+#======================================================================#
+# Definitions of new rules to LINT, INDENT & DOCUMENT source modules;
+# Ex. make <module>.lnt will lint     <module>.c, ie. check the syntax
+#     make <module>.ind will indent   <module>.c, ie. format the source
+#     make <module>.doc will document <module.h/.c>, ie. extract doc.
+
+.SUFFIXES: .ind .lnt .xrf .doc
+
+.c.ind .IGNORE:
+		@echo ===INDENTING/FORMATTING $<===
+		rm $*.bak
+		indent $<
+		@echo DONE!
+
+.c.lnt .IGNORE:
+		@echo ===LINTING $<===
+		rm $(TEMP)
+		$(LINT) $(LINTFLAGS) $< > $(TEMP)
+		$(MORE) $(TEMP)
+		@echo DONE!
+
+.c.xrf .IGNORE:
+		@echo ===CROSS-REFERENCING $<===
+		rm $*.xrf
+		@echo CROSS-REF of module $*.c > $*.xrf
+		$(XREF) $*.c >>  $*.xrf
+		$(MORE) $*.xrf
+		@echo DONE!
+
+.c.doc .IGNORE:
+		@echo ===EXTRACTING DOCUMENTATION $*.h/c ===
+		awk  -f ex.awk  $*.h >   $*.doc
+		awk  -f ex.awk  $*.c >>  $*.doc
+		$(MORE) $*.doc
+		@echo DONE!
+
+
+
+#======================================================================#
+#*************************** LCK:ALL **********************************#
+#======================================================================#
+# Define general dependencies for maintaining the program source complex:
+#    make all ...................: for compiling & linking all modules 
+#    make check .................: for linting all source modules
+#    make clean & make realclean.: for cleaning up intermediary files 
+#    make install & make xfer ...: for instalation & source transfer
+
+HDRS =   lck.h general.h  
+SRCS =   lck.c 
+OBJS =   lck$M$O 
+EXEC =   lck$M$E			
+
+
+all .IGNORE: $(OBJS) $(EXEC)
+# First check these required compile/link settings for release (ie. no main/debug):
+# LCK...: OBJ-RELEASE (no-link)    Locking functions 
+# Then run a "make realclean" before the "make all"
+		@echo DONE!
+
+
+crc .IGNORE: $(SRCS)
+		@echo ===CHECKSUMMING SRC===
+		@echo -------------------------------------------------- >>  $(TEMP)
+		@echo DATE:       >   $(TMPCRC)
+		$(DATE)           >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TEMP)
+		@echo SIZE.H:     >>  $(TMPCRC)
+		ls -Fglp $(HDRS)  >>  $(TMPCRC)
+		wc  $(HDRS)       >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TEMP)
+		@echo SIZE.C:     >>  $(TMPCRC)
+		ls -Fglp $(SRCS)  >>  $(TMPCRC)
+		wc  $(SRCS)       >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TEMP)
+		@echo SIZE.O(BJ): >>  $(TMPCRC)
+		ls -Fglp $(OBJS)  >>  $(TMPCRC)
+		ls -Fglp $(EXEC)  >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TEMP)
+		@echo CRC:        >>  $(TMPCRC)
+		crc lck.h         >>  $(TMPCRC)
+		crc lck.c         >>  $(TMPCRC)
+		@echo -------------------------------------------------- >>  $(TEMP)
+		$(MORE) $(TMPCRC)
+		@echo To print: DOS [copy $(TMPCRC) LPTn:]  or  UNIX [lp $(TMPCRC)]
+		@echo DONE!
+
+scn .IGNORE: $(SRCS)
+		@echo ===PCDOS VIRUSCHECKING SRC===
+		$(SCAN) d:\cwork\lck 
+		$(MORE) $(TEMP)
+		@echo To print: DOS [copy $(TEMP) LPTn:]
+		@echo DONE!
+
+lint .IGNORE: $(SRCS)
+		@echo ===CHECKING/LINTING SRC===
+		rm $(TEMP)
+		$(LINT) $(LINTFLAGS) lck.c >  $(TEMP)
+		$(MORE) $(TEMP)
+		@echo .
+		@echo To print: DOS [copy $(TEMP) LPTn:]  or  UNIX [lp $(TEMP)]
+		@echo DONE!
+
+clean .IGNORE:
+		@echo ===CLEANING UP===
+		rm  *.bak  *.sav  *.map  *.new *.lnt core
+		ls -CFp
+		@echo DONE!
+
+realclean .IGNORE:
+		@echo ===CLEANING ALL===
+		rm  *.bak  *.sav  *.new  *$O  *.map  *.lnt core
+		ls -CFp
+		@echo DONE!
+
+install:
+		@echo ===INSTALLING ACCESS PACKAGE===
+		# to be implemented
+		@echo Coming real soon!
+
+xferd:
+		@echo ===TRANSFERRING PROJECT MODULES TO EXTERNAL MEDIUM===
+		@echo ===NB: First run a "make all" w. correct settings===
+		@echo === Remember to install external medium in drive ===
+		$(CPYO) $(TMPCRC) $(HDRS) $(SRCS) $(EXT)
+		$(SCAN) $(EXT)
+		@echo DONE!
+
+xferu:
+		@echo ===TRANSFERRING PROJECT MODULES TO EXTERNAL MEDIUM===
+		@echo ===NB: First run a "make all" w. correct settings===
+		@echo === Remember to install external medium in drive ===
+		$(LIST) | $(CPYO) > $(EXT)
+		$(LOG) < $(EXT) > ./tmp.log
+		$(MORE) ./tmp.log
+		@echo DONE!
+
+
+
+#======================================================================#
+#*************************** LCK:LCK **********************************#
+#======================================================================#
+# Module for portable file locking and semaphore operations : POSIX/MSC
+
+lck$M$E:	lck$M$O 
+#-----------------------------------------------------------------------
+		@echo ===LINKING lck$M$E===
+#EXE-MAIN
+#		$(LD) $(LRFLAGS) lck$M$O $(TAIL)
+#EXE-MAIN/DEBUG
+		$(LD) $(LDFLAGS) lck$M$O $(TAIL)
+
+
+lck$M$O:	lck.c lck.h
+#-----------------------------------------------------------------------
+		@echo ===COMPILING lck$M$O===
+#OBJ-RELEASE
+#		$(CC) $(CRFLAGS) lck.c
+#OBJ-MAIN
+#		$(CC) $(CRFLAGS) -DMAIN lck.c
+#OBJ-MAIN/DEBUG
+		$(CC) $(CDFLAGS) -DMAIN lck.c
+
+
+
+# End of module makefile (for project "LCK")                           #
+#=-2===================================================================#
+

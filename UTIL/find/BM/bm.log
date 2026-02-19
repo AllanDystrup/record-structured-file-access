@@ -1,0 +1,360 @@
+ * 	FUNCTION 	This module implements the Boyer-Moore algorithm
+ * 	PROGRAMMER 	Allan Dystrup
+ * 	COPYRIGHT(c) Allan Dystrup
+ * 			Allan_Dystrup Exp Locker: Allan_Dystrup $
+ * 			Revision 1.1 92/10/25 17:02:46 Allan_Dystrup
+ *			Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup
+ * 			"Fast pattern matching in strings",
+ * 	USAGE	bm [scanOrder] <searchTerm> <inputStream>
+ * 		scanOrder:	[-O]	use Optimal Mismatch search
+ * 		searchTerm:		is a simple text string to be found
+ * 		inputStream:		is the path to a file to be searched
+ * 					(if empty: stdin is used) 
+ * An elementary problem in information retrieval is searching for a specific
+ * substring or "pattern" (length p) in a larger string of text (length t),
+ * where pattern and text are composed of characters from a fixed alphabet
+ * the pattern with the start of the text, and then performing a left-right
+ * scan of the pattern and a char. by char. comparison with the text.
+ * In case of a mismatch the pattern is shifted right one step, and the text-
+ * pointer is "backed up" to the new position of the pattern start.
+ * The time complexity of SF is :
+ * 	setup time : 	zero
+ * 	worst-case : 	quadratic in O(p*t)
+ * 			ie. match whole pattern FOR EACH char. in the text)
+ * 	average : 	linear in O(t), with const. factor [1...p] near 1.
+ * 			(mismatch usually expected at first char. comparison,
+ * The KMP method performs a left-right pattern scan like SF, but eliminates
+ * "backing up" the text-pointer at character mismatch by first setting up a
+ * transition graph including each character in the pattern string.
+ * The graph is represented by a "next[] array" with an index for each pattern
+ * character giving the new position IN THE PATTERN STRING for backing up THE
+ * PATTERN POINTER in case of character mismatch, thereby shifting the pattern
+ * (=pattern suffix) with the first leftmost matching pattern prefix/infix.
+ * The KMP delta shift precalculation thus utilizes any reoccuring substrings
+ * in the pattern string, and also eliminates backtracking the textpointer
+ * KMP time complexity :
+ * 	setup time : 	linear in O(p)
+ * 	average : 	linear in O(t), with const. factor [1/p...1] near 1.
+ * 			(mismatch usually expected at first char. comparison,
+ * The original BM method performs a "REVERSE" pattern scan (ie. right-left,
+ * unlike SF and KMP), using two predefined shift functions :
+ *   - delta1 :	For each char 'c' in the alphabet, find the rightmost position
+ * 		(i) of c in the pattern (i=0 if c not in pat). Delta1(c) = p-i.
+ * 		in the pattern : for each pattern suffix find first leftward
+ * 		reoccurence of it (infix or prefix) in the pattern.
+ * the pattern forward :
+ *    - either delta1(c) : to the rightmost matching char. 'c' in the pattern,
+ *    however if delta1(c) is to the right of the mismatch-position, then
+ *    the pattern is shifted right by 1,
+ *    - or delta2(c) : to the first leftward pattern prefix/infix matching the
+ *    and restarting the scan from the pattern end,
+ * BM time complexity :
+ * 	setup time : 	linear in O(a+p)
+ * 	worst-case : 	- using delta1 alone... : quadratic in O(p*t)
+ * 	average : 	sub-linear in O(t/p), w. const. factor [1/p...1] near 1/p.
+ * 			(mismatch usually expected at first char. comparison,
+ * The only advantage of SF is that it doesn't require any setup time. For
+ * very simple search situations (small and heterogenous pattern and text)
+ * SF may be worth considering, but as a general basis for bibliographic
+ * KMP has an advantage when "backing up" the textpointer is inconvenient, or
+ * when searching for a highly self-repetitive pattern in a self-repetitive
+ * more attractive than SF, but in most actual applications (as for instance
+ * bibliographic search for a single word) KMP is not likely to be signifi-
+ * BM is our candidate for a bibliographic one-word search algortihm. The
+ * as SF or KMP in most practical situations, and with the addition of delta2
+ * we get an algorithm with the same desirable worst-case performance as KMP.
+ * With a small modification of the original BM algorithm it is even possible
+ * to get a simpler and faster implementation that does not depend on a
+ * specific pattern scan order and thus may be coded to avoid backtracking!
+ * The advantage of BM increases with the length of the search pattern (p) and
+ * of the alphabet (a). A bibliographic search for a long keyword or phrase
+ * in a text over the full (255 char) alphabet is an ideal application for BM.
+ * multiple patterns in a text. For this type of application it is better to
+ * use the technique applied by KMP : building a transition graph (also
+ * called a "Finite State Automaton") to perform the search. This is precisely
+ * the scope of the Aho-Corasic algorithm for multiple string search (see
+ * An improved implementation of the BM algorithm, - cf. ref. [3]
+ * First note that the pattern string always shifts right by at least one
+ * pattern string must be involved for testing at the next pattern position.
+ * Thus delta1 can be computed for the whole alphabet to be the index of the
+ * first leftward occurence of each char. FROM THE END of the pattern string.
+ * the text character immediately after the pattern (always >= 1), hence
+ * 	search (as opposed to using the original BM delta1 SHIFT, which was
+ * 	relative to the mismatch position, requiring a test and shift by
+ * 	max(1, delta2) when the pos. of mismatch was to the left of delta1.
+ *   (2) delta1 does NOT DEPEND ON A SPECIFIC PATTERN SCAN ORDER (as opposed
+ * 	textpointer)
+ * For any specific order of scanning the pattern string, one can define a
+ * behaviour" of a BM delta1 stand-alone solution (but at the expense of a
+ * substantially larger setup time).
+ * Empirical evidence indicates a "break even" between delta1 standalone and
+ * delta1+delta2 at a pattern length of about 10-15 characters (in biblio-
+ * graphic search), - ie. a search for a short keyword is best performed by
+ * a delta1 standalone algortihm, while searching for a longer word or phrase
+ * often justifies the initial setup time for delta2.
+#include <ctype.h>
+/* 				Typedefs 			    	    */
+typedef struct patScanElem { /* Struct. of element in scan ordered pattern */
+	int loc;				/* Location of the character c in the pattern  */
+	BYTE c;					/* Value of character in pattern at location   */
+PRIVATE BYTE *pzPat; 		/* Ptr. to pattern string */
+PRIVATE int iPatLen; 		/* Length of pattern string */
+PRIVATE int *piDelta1; 		/* Ptr. to Delta1 shift array for all chars */
+PRIVATE float *pfScanOrd; 	/* Ptr. to scan priorrity array for chars */
+PRIVATE sPAT *psOrdPat; 	/* Ptr. to scan orederd elements of pattern */
+PRIVATE int *piDelta2; 		/* Ptr. to Delta2 shift array for pat. chars */
+PRIVATE enum scanType eScanOrder = eScanUD; /* Initially undefined */
+/* 			Function Prototypes 				    */
+PRIVATE int iShCompMS(sPAT * psPat1, sPAT * psPat2);
+PRIVATE int iShCompOM(sPAT * psPat1, sPAT * psPat2);
+/* The option of using an arbitrary scan order in the improved BM algorithm
+* requires a rather convoluted procedure for setting up the piDelta2-shifts.
+* the BM table-setup. The notation of the macro parameters uses the following 
+* 	_P   : 	pointer to start of zero-terminated pattern string
+* 	_p   : 	pointer for scanning the pattern string
+*	_s     	pointer to array of scan order priority for characters
+* 	_OP  : 	pointer to start of list of ordered structures 'patScanElem'
+* 	_o   : 	pointer for scanning the _OP list
+D( 	printf("\n\nDUMP of BM table "#_arr"[] ...\n"); 	\
+		printf(" %x[%c]:%04.1f%c", 			\
+#define DUMPMS(_typ,_o,_p,_s,_len) \
+D(	printf("\n\nDUMP of "#_typ" scan ordered string "#_o" ...\n"); \
+		printf("\t"#_o"[%02d]="#_p"[%02d]=%c "#_s"[%02d]=%04.1f\n", \
+#define DUMPOM(_typ,_o,_p,_s,_len) \
+D( 	printf("\n\nDUMP of "#_typ" scan ordered string "#_o" ...\n"); 	\
+		printf("\t"#_o"[%02d]="#_p"[%02d]=%c "#_s"[%c]=%04.1f\n", \
+#define DUMPD2(_typ,_arr,_len) \
+D( 	printf("\nDUMP of "#_typ" BM table "#_arr"[] ...\n"); 	\
+		printf("\t"#_arr"[%02d]=%02d\n", _i, _arr[_i]); );
+#define DUMPSH(_typ,_len,_OP,_o,_P,_j) \
+D( 	printf("\t iLShift=%d OP[%02ld]=P[%02d]=%c P[%02d]=%c\t"#_typ"\n", \
+main(int iArgc, BYTE ** ppzArgv)
+/* Input is a Boolean search expression "str" provided on the command line.
+ * The Boolean expression is parsed by function pzParse (in bool.c) to :
+ *    - a suffix representation of the Boolean logic tree (pzPostfix).
+ * In module bm.c we perform a simple search for a keyword or phrase using
+ * the improved Boyer-Moore algorithm. The use of pzParse to scan/parse the
+ * single keyword or phrase is thus somewhat "overkill" (we don't actually
+ * use pzPostfix in this context), but the driver may easily be extended to
+ * search for multiple substrings in a text.
+	BYTE *pbArg; 			/* Char in argument string */
+	int eScanOrder = eScanUD;  /* Type of pattern scan order */
+	FILE *fileInpFd; 		/* File descriptor for input file */
+	BYTE pzInpBuffer[MAX_LINE];  /* String buffer for input file */
+	BYTE *pzPostfix; 		/* Ptr. to postfix boolean logic */
+	BYTE *pbNL; 			/* Prt. to newline character */
+	/* 1: Parse command line option */
+	while (--iArgc && (*++ppzArgv)[0] == '-')
+		for (pbArg = ppzArgv[0] + 1; *pbArg != '\0'; pbArg++)
+			switch (toupper(*pbArg)) {
+				case 'O': /* Force an Optimal Mismatch search */
+					//printf("\n\n--- allowed switches : [MOQ] ! ---\n\n");
+	/* 2: Parse Bool search expression to postfix string and keyword list */
+	D(printf("\n\n=============== BUILDING NEW BM =================\n\n"));
+	D(puts("PARSE INPUT STRING ..."));
+	D(printf("\t%s\n", *ppzArgv));
+	pzPostfix = pzParse(*ppzArgv++);
+	for (i = 1; symtable[i].pzLexptr; i++)
+	if (--i > 1 || !symtable[i].pzLexptr) {
+		printf("\n\n--- exactly one search phrase, please! ---\n\n");
+	eScanOrder = (strlen(symtable[1].pzLexptr) <= 15 ? eScanQS : eScanMS);
+	fileInpFd = (iArgc ? fopen(*ppzArgv, "r") : stdin);
+	while (fgets(pzInpBuffer, MAX_LINE, fileInpFd)) {
+		D(printf("Line %d:%s", ++iLineNum, (const char*) pzInpBuffer);)
+		if (pbNL = strchr(pzInpBuffer, '\n'))
+			*pbNL = '\0';	/* Replace newline w. string term. */
+		if (fMatch = fRunBM(pzInpBuffer)) {
+			puts((const char*) pzInpBuffer);
+	/* Return status to the parent process: 1 if match, 0 if none */
+vBuildBM(enum scanType type, struct entry * symtab)
+/* Construct the BM delta shift table(s) from pattern string pzPat.
+ * 				1 Delta1 table : piDelta1[]
+ * The delta1 table-setup requires two steps :
+ * 		alphabet.
+ * 1.2 	Then reset the table entries for each char in the pattern to the
+ * 		rightmost position in the pattern of that char.
+ * 				2 Delta2 table : piDelta2[]
+ * The delta2 shift table piDelta2[] is built in two steps :
+ * 2.1 	First build the ordered pattern psOrdPat from any ordering spe-
+ * 	cification; The chosen scan-order (set up in array pfScanOrd) may be :
+ * 	   - forward, giving a piDelta2[] = KMP delta
+ * 	   - reverse, giving a piDelta2[] = original BM delta2
+ * 	   - maximal shift (MS), using the max. left shift to sort psOrdPat
+ * 	   - optimal mismatch (OM), using char-frequency to sort psOrdPat
+ * 	   - any other order suitable for the actual implementation
+ * 	For bibliographic search we choose to implement the MS scan order.
+ * 2.2 	Then construct piDelta2[] in two steps, using the following procedure:
+ * 	If mismatch at scan order position i, ie psOrdPat[i].c !=
+ *  	text[ScanStart+psOrdPat[i].loc], then shift ('overlay') the pattern
+ * 	left to position 'iLShift', so
+ * 	2.2.1	psOrdPat[0].c ... psOrdPat[i-1].c ALL MATCH aligned characters
+ * 		in the shifted pat; - iLShift is the max. value in the range
+ * 		0...psOrdPat[0].loc (= the minimal leftshift to match i chars)
+ * 	2.2.2   psOrdPat[i].c DOES NOT match the aligned character
+ * 		pzPat[ psOrdPat[i].loc - iLShift ]; - this may require
+ * 		repeated left shifting of the pattern.
+ * 	Then delta2 table piDelta2[i] = (psOrdPat[0].loc - iLShift),
+ * 	pattern (cf. 2.2.1) excluding the mismatched character (cf. 2.2.2)
+	BYTE *p;	/* Ptr. to scan through pattern string */
+	sPAT *o;	/* Ptr. to scan through ordered pattern */
+	pzPat = symtab[1].pzLexptr;/* Pattern, -scanned by module bool.c */
+	iPatLen = strlen((char *) pzPat); /* Pattern length */
+	eScanOrder = type; /* Requested type of pattern scan order */
+	pfScanOrd = NULL; /* Defined in comp. functions below */
+	/* Allocate the Delta1 shift table piDelta1[] */
+	if (!(piDelta1 = (int *) malloc(sizeof(int) * (UCHAR_MAX + 1))))
+	/* 1.1 Initialize the piDelta1[] table for all characters in the alphabet */
+	for (i = 0; i <= UCHAR_MAX; i++) /* mismatch -> 1. char after pattern */
+	piDelta1[i] = iPatLen + 1;
+	/* 1.2 Reset piDelta1[] entries for each of the pattern characters */
+	for (p = pzPat; *p; p++) /* match -> last position in pattern */
+	piDelta1[*p] = iPatLen - (p - pzPat);
+	DUMPD1(piDelta1, UCHAR_MAX);
+		/* Alloc. structures for psOrdPat and Delta2 shift table piDelta2[] */
+		if (!(psOrdPat = (sPAT *) malloc(sizeof(sPAT) * (iPatLen + 1)))
+		|| !(piDelta2 = (int *) malloc(sizeof(int) * (iPatLen + 1))))
+		/* Build the scan-ordered pattern from the pfScanOrd array */
+		/* using qsort to sort the pattern chars after max left shift */
+		for (i = 0, p = pzPat, o = psOrdPat; i <= iPatLen; ++i, ++p, ++o) {
+			o->c = *p; /* \0 for i == iPatLen */
+			qsort(psOrdPat, iPatLen, sizeof(sPAT), iShCompMS);
+			DUMPMS(MS - sorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+		case eScanOM: /* Optimal Msimatch search */
+			qsort(psOrdPat, iPatLen, sizeof(sPAT), iShCompOM);
+			DUMPOM(OM - sorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+		/* ----------- place code of the scan order comp.func below */
+			/* Must be a defined type of search ! */
+		/* First init piDelta2[] with the minimum matching left shift */
+		/* so psOrdPat[0].c ... psOrdPat[i-1].c match aligned characters */
+		for (piDelta2[0] = iLShift = i = 1; i < iPatLen; ++i) {
+			piDelta2[i] = iLShift;
+		DUMPD2(initialized, piDelta2, iPatLen);
+		/* Then for each piDelta2[i] check that : psOrdPat[i].c != */
+		/* pzPat[psOrdPat[i].loc-iLShift]; - if not, repeat search for a */
+			iLShift = piDelta2[i]; /* get initial matching shift */
+			o = psOrdPat + i;
+			D(printf("\n piDelta2[%02d],INITIAL LSHIFT : %d\n", i, iLShift));
+			/* Require left shift INSIDE pattern! */
+				if ((j = (psOrdPat[i].loc - iLShift)) < 0) {
+				DUMPSH(Ignore, iLShift, psOrdPat, o, pzPat, j);
+			if (psOrdPat[i].c != pzPat[j]) {
+				DUMPSH(OK, iLShift, psOrdPat, o, pzPat, j);
+			DUMPSH(RESET, iLShift, psOrdPat, o, pzPat, j);
+		piDelta2[i] = iLShift; /* set final shift */
+	DUMPD2(corrected, piDelta2, iPatLen);
+/* 				iShCompMS 				    */
+iShCompMS(sPAT * psPat1, sPAT * psPat2)
+/* Compare 2 elements of the scan ordered pattern according to a precalcula-
+* ted table 'pfScanOrd' of each element-character's maximal left shift.
+	/* First call: Build the pfScanOrd array for each char in pattern pzPat */
+	/* of the minimal left shift to the last position of the char in pzPat */
+	/* (or to the 1. character of pzPat if no match). */
+	if (pfScanOrd == NULL) {
+		if (!(pfScanOrd = (float *) malloc(sizeof(float) * (iPatLen + 1))))
+			vError(EMEM007, "iShCompMS");
+			for (j = i - 1; j >= 0 && pzPat[j] != pzPat[i]; --j);
+			pfScanOrd[i] = (float) (i - j);
+		DUMPMS(unsorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+	dsh = (int) (pfScanOrd[psPat2->loc] - pfScanOrd[psPat1->loc]);
+	return (dsh ? dsh : psPat2->loc - psPat1->loc);
+/* 				iShCompOM 				    */
+iShCompOM(sPAT * psPat1, sPAT * psPat2)
+/* Compare 2 elements of the scan ordered pattern according to a precalculated
+* table 'pfScanOrd' of each element-character's frequency in the alphabet. */
+	/* First call: Build the pfScanOrd array for each char in the alphabet */
+	/* of freq. of the chars in the targetlanguage based on the alphabet. */
+	if (pfScanOrd == NULL) {
+		if (!(pfScanOrd = (float *) malloc(sizeof(float) * (UCHAR_MAX + 1))))
+			vError(EMEM008, "iShCompOM");
+		pfScanOrd[i] = 0.1f;
+		/* English text alphabet frequency */
+		pfScanOrd['e'] = 11.1f;
+		pfScanOrd['a'] = 8.9f;
+		pfScanOrd['i'] = 7.8f;
+		pfScanOrd['r'] = 7.4f;
+		pfScanOrd['t'] = 7.1f;
+		pfScanOrd['o'] = 6.9f;
+		pfScanOrd['n'] = 6.8f;
+		pfScanOrd['s'] = 5.6f;
+		pfScanOrd['l'] = 5.5f;
+		pfScanOrd['c'] = 4.5f;
+		pfScanOrd['u'] = 3.6f;
+		pfScanOrd['m'] = 3.2f;
+		pfScanOrd['d'] = 3.2f;
+		pfScanOrd['p'] = 3.1f;
+		pfScanOrd['h'] = 2.9f;
+		pfScanOrd['g'] = 2.4f;
+		pfScanOrd['b'] = 2.3f;
+		pfScanOrd['y'] = 2.0f;
+		pfScanOrd['f'] = 1.5f;
+		pfScanOrd['w'] = 1.1f;
+		pfScanOrd['k'] = 1.1f;
+		pfScanOrd['v'] = 1.0f;
+		pfScanOrd['x'] = 0.3f;
+		pfScanOrd['j'] = 0.2f;
+		pfScanOrd['z'] = 0.2f;
+		pfScanOrd['q'] = 0.2f;
+		/* Danish text alphabet frequency */
+		DUMPD1(pfScanOrd, UCHAR_MAX);
+		DUMPOM(unsorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+	fq = pfScanOrd[psPat1->c] - pfScanOrd[psPat2->c];
+	return (int) (fq ? (fq > 0 ? 1 : -1) : psPat2->loc - psPat1->loc);
+* chars in psOrdPat, such that all chars from psOrdPat[i-1].c to
+* psOrdPat[0].c in the scan ordered pattern matches the chars in the pattern
+* pzPat after a left shift of 'iLShift' (ie. we match reoccuring chars in the
+* pattern at a distance of iLShift positions).
+	sPAT *o; 	/* Ptr. to scan ordered pattern */
+	D(printf("\n\t MATCHSHIFT psOrdPat[%02d...00] :\n", i - 1));
+		for (o = psOrdPat + i - 1; o >= psOrdPat; o--) {
+			/* in range 0...psOrdPat[j].loc */
+				DUMPSH(Ignore, iLShift, psOrdPat, o, pzPat, j);
+			if (o->c != pzPat[j]) { /* mismatch at position j */
+				DUMPSH(Mismatch, iLShift, psOrdPat, o, pzPat, j);
+			DUMPSH(MATCH, iLShift, psOrdPat, o, pzPat, j); /* matched one more */
+		if (o < psOrdPat) /* matched all psOrdPat[0]...psOrdPat[i] */
+	D(printf("\t LSHIFT : %d\n", iLShift));
+/* 			psOrdPat<----o---->psOrdPat+iPatLen
+* Scan ordered pattern: [xxxxxxxxxxx]
+* 			pzPat<-----p--->pzPat+iPatLen
+	BYTE 	*p; 	/* Ptr. to scan through pattern */
+	sPAT 	*o; 	/* Ptr. to scan ordered pattern */
+	BYTE 	*S = T; /* Ptr to shift the pattern through text */
+			D(puts("\nTRACE of BM Quick Search ...\n"));
+				D(printf("Pat:\t%s\n", pzPat));
+				D(printf("Txt:\t%s\n", S));
+				/* scan through pattern string while match in text */
+				D(printf("\tMATCH:["));
+				for (p = pzPat, t = S; *p && *p == *t; p++, t++)
+					D(printf("%c", *t));
+				if (*p) { /* no : MISMATCH */
+					D(printf("]\n\tFAIL.:[%c<>%c]", *p, *t));
+					iD1 = piDelta1[*(S + iPatLen)]; /* get delta1 */
+					D(printf("\n\tSHIFT:piDelta1[%c]=%03d\n", *(S + iPatLen),
+					S += iD1; /* shift pattern */
+					D(puts("]\n\tCOMPLETE!\n"));
+					return (TRUE); /* might return position (1+S-T) */
+			break; /* unreachable,- defensive programming */
+			D(puts("\nTRACE of BM ScanOrder Search ...\n"));
+				D(printf("Pat:\t%s\n", pzPat));
+				D(printf("Txt:\t%s\n", S));
+				/* scan through ordered pattern while match in text */
+				D(printf("\tMATCH:["));
+				for (o = psOrdPat; o->c && o->c == *(S + o->loc); o++)
+					D(printf("%c", *(S + o->loc)));
+					D(printf("]\n\tFAIL.:pos.%03d [%c<>%c]\n",
+					iD1 = piDelta1[*(S + iPatLen)]; /* get delta1 */
+					iD2 = piDelta2[o - psOrdPat]; /* get delta2 */
+					D(printf("\tSHIFT:piDelta1[%c] =%03d\n", *(S + iPatLen),iD1));
+					D(printf("\t piDelta2[%03ld]=%03d\n", o - psOrdPat, iD2));
+					D(printf("\t MAX =%03d\n", (iD1 > iD2 ? iD1 : iD2)));
+					S += (iD1 > iD2 ? iD1 : iD2); /* use max for pattern shift*/
+					D(puts("]\n\tCOMPLETE!\n"));
+					return (TRUE); /* might return position (1+S-T) */
+			break; /* unreachable,- defensive programming */
+		default: /* Must be a defined type of search ! */
+			free(piDelta2);
+			free(psOrdPat);
+			free(pfScanOrd);
+			free(piDelta1);
+		default: /* Must be a defined type of search ! */
+	D(puts("\nData structures deallocated ..."));
