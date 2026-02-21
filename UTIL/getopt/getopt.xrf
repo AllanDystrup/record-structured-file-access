@@ -1,0 +1,274 @@
+XC ... 'C' Concordance Utility   getopt.c                   Page 1
+
+1       1: /*+1========================================================================*/
+2       2: /*   MODULE                       GETOPT.C                                  */
+3       3: /*==========================================================================*/
+4       4: /*   FUNCTION      Function getopt() in module GETOPT.C gets the next option
+5       5:  *                 letter from the command line; The function is an enhanced
+6       6:  *                 version of the UNIX C Library function, GETOPT(3).
+7       7:  *
+8       8:  *   SYSTEM        Standard (ANSI/ISO) C.
+9       9:  *                 Tested on PC/MS DOS V.5 & UNIX SVR3, SVR4
+10     10:  *
+11     11:  *   SEE ALSO      Modules : GENERAL.H, GETOPT.H
+12     12:  *
+13     13:  *   PROGRAMMER    Allan Dystrup
+14     14:  *
+15     15:  *   COPYRIGHT     (c) Allan Dystrup, august 1991
+16     16:  *
+17     17:  *   VERSION       $Header: d:/cwork/index/RCS/getopt.c 0.1 92/08/18 13:45:36
+18     18:  *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+19     19:  *                 -----------------------------------------------------------
+20     20:  *                 $Log:	getopt.c $
+21     21:  *                 Revision 0.1  92/08/18  13:45:36  Allan_Dystrup
+22     22:  *                 PREREL (ALFA1)
+23     23:  *
+24     24:  *   REFERENCES
+25     25:  *
+26     26:  *   USAGE         option = getopt (argc, argv, optstring);
+27     27:  *                 <argc>      # arguments in <argv>
+28     28:  *                 <argv>      Argument value array, i.e., an array of pointers
+29     29:  *                             to the "words" extracted from the command line.
+30     30:  *                 <optstring> The set of recognized options.  Each character in
+31     31:  *                             the string is a legal option; any other character
+32     32:  *                             encountered as an option in the command line is
+33     33:  *                             an illegal option and an error message is displayed.
+34     34:  *                             If a character is followed by a colon in <optstring>,
+35     35:  *                             the option expects an argument.
+36     36:  *
+37     37:  *   RETURN        <option>    Returns the next option letter from the cmd line :
+38     38:  *                             '?'     is returned in the case of an illegal
+39     39:  *                                     option letter or a missing option argument.
+40     40:  *                             NONOPT  is returned if a non-option argument is
+41     41:  *                                     is encountered or the command line scan is
+42     42:  *                                     completed (also see <optarg> below for
+43     43:  *                                     both cases).
+44     44:  *                 <optarg>    Returns the text of an option's argument or of
+45     45:  *                             a non-option argument.  NULL is returned if an
+46     46:  *                             option has no argument or if the command line
+47     47:  *                             scan is complete. For illegal options or missing
+48     48:  *                             option arguments, OPTARG returns a pointer to
+49     49:  *                             the trailing portion of the defective ARGV.
+50     50:  *
+51     51:  *   CONTROL       <opterr>    Controls whether or not GETOPT prints out an
+52     52:  *                             error message upon detecting an illegal option
+53     53:  *                             or a missing option argument.  A non-zero value
+54     54:  *                             enables error messages; zero disables them.
+55     55:  *                 <optind>    Is the index in ARGV of the command line argument
+56     56:  *                             that GETOPT will examine next.  GETOPT recognizes
+
+XC ... 'C' Concordance Utility   getopt.c                   Page 2
+
+57     57:  *                             changes to this variable.  Arguments can be skipped
+58     58:  *                             by incrementing OPTIND outside of GETOPT and the
+59     59:  *                             command line scan can be restarted by resetting
+60     60:  *                             OPTIND to either 0 or 1.
+61     61:  *
+62     62:  *-1========================================================================*/
+63     63: 
+64     64: 
+65     65: /* =========================================================================*/
+66     66: /*                            Includes                                      */
+67     67: /* =========================================================================*/
+68     68: 
+69     69: /* Standard c (ANSI/ISO) headerfiles */
+70     70: #include  <stdio.h>            /* STDC I/O definitions. */
+71     71: #include  <string.h>           /* STDC String functions. */
+72     72: 
+73     73: /* Project headerfile */
+74     74: #define _GETOPT_ALLOC
+75     75: #include  "getopt.h"           /* GETOPT(3) definitions. */
+76     76: 
+77     77: 
+78     78: 
+79     79: /* =========================================================================*/
+80     80: /*                            Global var's                                  */
+81     81: /* =========================================================================*/
+82     82: 
+83     83: /* Private variables. */
+84     84: PRIVATE int iEndOptind   = 0;  /* Position of "--" in group */
+85     85: PRIVATE int iLastOptind  = 0;  /* Last index in argv[] */
+86     86: PRIVATE int iGroupOffset = 1;  /* Offset in argv[current] */
+87     87: 
+88     88: 
+89     89: 
+90     90: /*+2 MODULE GETOPT.C =======================================================*/
+91     91: /*   NAME   01                 getopt()                                     */
+92     92: /*== SYNOPSIS ==============================================================*/
+93     93: PUBLIC int
+94     94: getopt(argc, argv, pzOptStr)
+95     95:     int     argc;              /* Argument count */
+96     96:     char    **argv;            /* Argument vector */
+97     97:     char    *pzOptStr;         /* String of valid options */
+98     98: {
+99     99: /* DESCRIPTION
+100   100:  *
+101   101:  *   1: Check if caller has restarted or advanced the scan by modifying <optind>
+102   102:  *   2: Scan command line & retrieve next option and/or argument ... :
+103   103:  *      2.1: Retrieve NON-OPTION ARGUMENT from <optarg>, ie. :
+104   104:  *           no option marker "-", or past end-of-options indicator "--"
+105   105:  *      2.2: Retrieve OPTION from group (marked "-") w. possible ARGUMENT.
+106   106:  *           2.2.1: If END-OF-GROUP, advance to next group, ie. slot in argv[]
+107   107:  *           2.2.2: Retrieve option to <option>
+108   108:  *           2.2.3: If END-OF-OPTIONS, set indicator & advance to next group
+109   109:  *           2.2.4: Check option, - if invalid print error message & return '?'
+110   110:  *      2.3: Retrieve OPTION ARGUMENT to <optarg>, - if any.
+111   111:  *           2.3.1: Flush-up argument : rest of current <argv>
+112   112:  *           2.3.2: Separate argument : whole of next <argv>
+
+XC ... 'C' Concordance Utility   getopt.c                   Page 3
+
+113   113:  *   3: Return next option or (if none) next non-option arg.
+114   114:  *-2*/
+115   115: 
+116   116:     char     *pzGroup = NULL;  /* Current argument string : argv[current] */
+117   117:     char     *s       = NULL;  /* Pointer for locating option in pzOptStr */
+118   118:     char     cOption  = ' ';   /* Option retrieved from pzGroup */
+119   119: 
+120   120: 
+121   121:     /* 1: Reset pointers, if caller forced restart or advance of the scan */
+122   122:     /* Scan restart */
+123   123:     if (optind <= 0) {
+124   124:        iEndOptind  = 0;
+125   125:        iLastOptind = 0;
+126   126:        optind = 1;
+127   127:     }
+128   128: 
+129   129:     /* Scan advance */
+130   130:     if (optind != iLastOptind)
+131   131:        iGroupOffset = 1;
+132   132: 
+133   133: 
+134   134:     /* 2: Scan command line & retrieve next option and/or argument */
+135   135:     for (cOption = ' ', optarg = NULL;
+136   136:          optind < argc;
+137   137:          optind++, iGroupOffset = 1, cOption = ' ') {
+138   138: 
+139   139:        pzGroup = argv[optind];
+140   140: 
+141   141: 
+142   142:        /*---------------------------------------------------------------------*/
+143   143:        /* 2.1: Retrieve NON-OPTION ARGUMENT from <optarg>                     */
+144   144:        /* ie.: no option marker "-", or past end-of-options indicator "--"    */
+145   145: 
+146   146:        if ( (pzGroup[0] != '-') ||
+147   147:             ((iEndOptind > 0) && (optind > iEndOptind))) {
+148   148: 
+149   149:            if (optind == iLastOptind)
+150   150:                continue;
+151   151: 
+152   152:            /* Return NONOPT (cOption = ' ') and argument. */
+153   153:            optarg = pzGroup;
+154   154:            break;
+155   155:        }
+156   156: 
+157   157: 
+158   158:        /*---------------------------------------------------------------------*/
+159   159:        /* 2.2: Retrieve OPTION from pzGroup (marked "-") w. possible ARGUMENT */
+160   160: 
+161   161:        /* 2.2.1: If END-OF-GROUP, advance to next pzGroup, ie. slot in argv[] */
+162   162:        if (iGroupOffset >= (int) strlen(pzGroup))
+163   163:            continue;
+164   164: 
+165   165:        /* 2.2.2: Retrieve option to <cOption> */
+166   166:        cOption = pzGroup[iGroupOffset++];
+167   167: 
+168   168:        /* 2.2.3: If END-OF-OPTIONS, set indicator & advance to next pzGroup */
+
+XC ... 'C' Concordance Utility   getopt.c                   Page 4
+
+169   169:        if (cOption == '-') {
+170   170:            iEndOptind = optind;    /* Mark end-of-options position. */
+171   171:            continue;
+172   172:        }
+173   173: 
+174   174:        /* 2.2.4: Check option, - if invalid print error message & return '?' */
+175   175:        s = strchr(pzOptStr, cOption);
+176   176:        if (s == NULL) {
+177   177:            if (opterr)
+178   178:                (void) fprintf(stderr, "%s: illegal option -- %c\n",
+179   179:                               argv[0], cOption);
+180   180: 
+181   181:            /* Return '?' and offending argument */
+182   182:            cOption = '?';
+183   183:            optarg  = &pzGroup[iGroupOffset - 1];
+184   184:            break;
+185   185: 
+186   186:        }
+187   187: 
+188   188: 
+189   189:        /*---------------------------------------------------------------------*/
+190   190:        /* 2.3: Retrieve OPTION ARGUMENT to <optarg>, - if any                 */
+191   191: 
+192   192:        /* Option expecting an argument ? */
+193   193:        if (*++s == ':') {
+194   194: 
+195   195:            /* 2.3.1: Flush-up argument : rest of current <argv> */
+196   196:            if (iGroupOffset < (int) strlen(pzGroup)) {
+197   197:                optarg = &pzGroup[iGroupOffset];
+198   198:                iGroupOffset = strlen(pzGroup);
+199   199:            }
+200   200:            else {
+201   201:            /* 2.3.2: Separate argument : whole of next <argv> */
+202   202:                if ((++optind < argc) && (*argv[optind] != '-')) {
+203   203:                    optarg = argv[optind];
+204   204:                }
+205   205:                else {
+206   206:                    if (opterr)
+207   207:                        (void) fprintf(stderr, "%s: option requires an argument -- %c\n",
+208   208:                            argv[0], cOption);
+209   209:                    cOption = '?';
+210   210:                    optarg = &pzGroup[iGroupOffset - 1];
+211   211:                    iGroupOffset = 1;
+212   212:                }
+213   213: 
+214   214:            }
+215   215:            break;
+216   216: 
+217   217:        } /* END[2.3] Retrieve OPTION ARGUMENT */
+218   218:        break;
+219   219: 
+220   220:     } /* END[2]: cmd.line scan */
+221   221: 
+222   222: 
+223   223:     /* 3: Return the option and ("optionally") its argument. */
+224   224:     iLastOptind = optind;
+
+XC ... 'C' Concordance Utility   getopt.c                   Page 5
+
+225   225:     return ((cOption == ' ') ? NONOPT : (int) cOption);
+226   226: 
+227   227: } /* END function getopt() */
+228   228: 
+229   229: 
+230   230: 
+231   231: /* END of module GETOPT.C                                                   */
+232   232: /*==========================================================================*/
+233   233: 
+XC ... 'C' Concordance Utility                              Page 6
+
+_GETOPT_ALLOC       :   74 
+argc                :   94   95  136  202 
+argv                :   94   96  139  179  202  203  208 
+cOption             :  118  135  137  166  169  175  179  182  208  209  225  225 
+fprintf             :  178  207 
+getopt              :   94 
+iEndOptind          :   84  124  147  147  170 
+iGroupOffset        :   86  131  137  162  166  183  196  197  198  210  211 
+iLastOptind         :   85  125  130  149  224 
+NONOPT              :  225 
+NULL                :  116  117  135  176 
+optarg              :  135  153  183  197  203  210 
+opterr              :  177  206 
+optind              :  123  126  130  136  137  139  147  149  170  202  202  203  224 
+PRIVATE             :   84   85   86 
+PUBLIC              :   93 
+pzGroup             :  116  139  146  153  162  166  183  196  197  198  210 
+pzOptStr            :   94   97  175 
+s                   :  117  175  176  193 
+stderr              :  178  207 
+strchr              :  175 
+strlen              :  162  196  198 
+void                :  178  207 
+
+

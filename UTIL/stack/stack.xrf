@@ -1,0 +1,73 @@
+XC ... 'C' Concordance Utility   stack.c                    Page 1
+
+1       1: /*+1========================================================================*/ 
+2       2: /*  MODULE                     STACK.C                                      */ 
+3       3: /*==========================================================================*/ 
+4       4: /*  FUNCTION      Testdriver for stack macro's in header-file STACK.H	    */
+5       5: /*									    */
+6       6: /*  REVISION	  Revision 1.2 2025/12/02 11:00:00	 Allan_Dystrup	    */
+7       7: /*		  Port to UBUNTU Linux on Win.10/WSL, Using CLion	    */
+8       8: /*-1========================================================================*/  
+9       9: #include <stdio.h> 
+10     10: #include "./stack.h"     
+11     11: 
+12     12: 
+13     13: #ifdef MAIN
+14     14: /*+3 MODULE STACK.C --------------------------------------------------------*/ 
+15     15: /*   NAME   00                     main()                                   */ 
+16     16: /*-- SYNOPSIS --------------------------------------------------------------*/ 
+17     17: void main() { 
+18     18: /*   DESCRIPTION  
+19     19:  *   Simple testdriver for header file ERROR.H, with a full set of macro defs.  
+20     20:  *   for stack operations.  
+21     21:  *-3*/           
+22     22: 	int       i;     
+23     23: 
+24     24: 	stack_dcl(postfix, int, 50);  
+25     25:    
+26     26: 	stack_clear(postfix);  
+27     27:    
+28     28: 	for (i = 0; i < 50; i++)     
+29     29: 		push(postfix, i);     
+30     30: 		
+31     31: 
+32     32: 	for (i = 0; i < 51; i++)     
+33     33: 		printf("stack[%d]=%d\n", i, pop(postfix));
+34     34: }   
+35     35: 
+36     36: 
+37     37: /*+3 MODULE STACK.C --------------------------------------------------------*/ 
+38     38: /*   NAME   01                     vError()                                 */ 
+39     39: /*-- SYNOPSIS --------------------------------------------------------------*/ 
+40     40: void 
+41     41: vError(type)    
+42     42: 	int type; 
+43     43: { 
+44     44: /*   DESCRIPTION  
+45     45:  *   Each user module must define an appropriate error handling function  
+46     46:  *   called 'vError' to catch stack over/under-flow exceptions  
+47     47:  *-3*/         
+48     48: 
+49     49: 	printf("Stack error %d\n", type);
+50     50: }
+51     51: #endif
+52     52: 
+53     53: /* END module STACK.C                                                       */
+54     54: /*==========================================================================*/
+55     55: 
+XC ... 'C' Concordance Utility                              Page 2
+
+i                   :   22   28   28   28   29   32   32   32   33 
+MAIN                :   14 
+main                :   17 
+pop                 :   33 
+postfix             :   24   26   29   33 
+printf              :   33   49 
+push                :   29 
+stack_clear         :   26 
+stack_dcl           :   24 
+type                :   41   42   49 
+vError              :   41 
+void                :   17   40 
+
+

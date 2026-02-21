@@ -3,7 +3,7 @@
 
 
 
-Tue Feb 17 17:14:57 CET 2026
+Sat Feb 21 12:59:56 CET 2026
 CCITT CRC (REVERSE) for  stack.h   is	[F9F3]
 
 
@@ -67,7 +67,7 @@ CCITT CRC (REVERSE) for  stack.h   is	[F9F3]
 /*		   Port to UBUNTU  on Win.10/WSL, Using CLion for Linux     	*/
 /*		   Port to Windows 10 native, Using CLion for Windows           */
 /*								                */
-/*-1============================================================================*/Tue Feb 17 17:14:57 CET 2026
+/*-1============================================================================*/Sat Feb 21 12:59:56 CET 2026
 CCITT CRC (REVERSE) for  stack.h   is	[F9F3]
 
 
@@ -82,7 +82,7 @@ END EXTRACTION
 
 
 
-Tue Feb 17 17:14:57 CET 2026
+Sat Feb 21 12:59:57 CET 2026
 CCITT CRC (REVERSE) for  stack.c   is	[EF79]
 
 
@@ -130,7 +130,7 @@ CCITT CRC (REVERSE) for  stack.c   is	[EF79]
 /*									    */
 /*  REVISION	  Revision 1.2 2025/12/02 11:00:00	 Allan_Dystrup	    */
 /*		  Port to UBUNTU Linux on Win.10/WSL, Using CLion	    */
-/*-1========================================================================*/  Tue Feb 17 17:14:57 CET 2026
+/*-1========================================================================*/  Sat Feb 21 12:59:57 CET 2026
 CCITT CRC (REVERSE) for  stack.c   is	[EF79]
 
 /*+3 MODULE STACK.C --------------------------------------------------------*/ 
@@ -140,7 +140,7 @@ void main() {
 /*   DESCRIPTION  
  *   Simple testdriver for header file ERROR.H, with a full set of macro defs.  
  *   for stack operations.  
- *-3*/           Tue Feb 17 17:14:57 CET 2026
+ *-3*/           Sat Feb 21 12:59:57 CET 2026
 CCITT CRC (REVERSE) for  stack.c   is	[EF79]
 
 /*+3 MODULE STACK.C --------------------------------------------------------*/ 
@@ -153,7 +153,7 @@ vError(type)
 /*   DESCRIPTION  
  *   Each user module must define an appropriate error handling function  
  *   called 'vError' to catch stack over/under-flow exceptions  
- *-3*/         Tue Feb 17 17:14:57 CET 2026
+ *-3*/         Sat Feb 21 12:59:57 CET 2026
 CCITT CRC (REVERSE) for  stack.c   is	[EF79]
 
 

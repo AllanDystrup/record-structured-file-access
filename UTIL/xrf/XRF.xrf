@@ -1,0 +1,1141 @@
+XC ... 'C' Concordance Utility   XRF.c                      Page 1
+
+1       1: /**********************************************************
+2       2:       XC  -  A 'C' Concordance Utility
+3       3:       Version 1.0   January, 1982
+4       4:       Copyright (c) 1982 by Philip N. Hisley
+5       5:               Philip N. Hisley
+6       6:               548H Jamestown Court
+7       7:               Edgewood, Maryland 21040
+8       8:               (301) 679-4606
+9       9: 
+10     10:       Released for non-commercial distribution only
+11     11:       Converted to IBM/PC CI/C86 by David N. Smith, May/June 1983
+12     12:       with enhancements and Lattice compiler support in Dec. 1983.
+13     13:               David N. Smith
+14     14:               44 Ole Musket Lane
+15     15:               Danbury, CT 06810
+16     16:               (203) 748-5934
+17     17: 
+18     18:       Changes Copyright (c) 1983 by David N. Smith
+19     19:       PC Enhancements include:
+20     20:            1)  Nested #INCLUDE statements
+21     21:            2)  Single spaced cross-reference list
+22     22:            3)  Removal of tabbing on output device
+23     23:                (Since many printers don't support it)
+24     24:            4)  #INCLUDE statements with both "--" and <-->
+25     25:                syntax and with a full fileid in the quotes.
+26     26:            5)  Multiple input filenames on command line.
+27     27: 
+28     28:         // -------------------------------------------------------
+29     29:         Changes (no copyright) Feb. 2026 by Allan Dystrup [AD]
+30     30:         Ported to C11 on WSL Ubuntu LINUX:
+31     31:             1) #included some C11 header files
+32     32:             2) defined function prototypes
+33     33:             3) increased some const values (MAX_REF, MAX_ALPHA)
+34     34:             4) some optional DEBUG output to troubleshoot faults
+35     35:             5) removed deprecated 'Lattice' compiler support
+36     36:             5) a bit of code reformatting, to make it (sort of) readable
+37     37:             DISCLAIMER: The code does what is described in the Abstract
+38     38:             BUT: It needs restructuring and robust memory handling!
+39     39:         // --------------------------------------------------------
+40     40: **+2 **************************************************************
+41     41: 	XRF.C
+42     42:        	Abstract:
+43     43:       	'XRF.C' is a cross-reference utility for 'C' programs.
+44     44:       	Its has the ability to handle nested include files
+45     45:       	to a depth of 8 levels and properly processes nested
+46     46:      	comments as supported by BDS C. Option flags support
+47     47:       	the following features:
+48     48:       		- Routing of list output to disk
+49     49:      		- Cross-referencing of reserved words
+50     50:      		- Processing of nested include files
+51     51:      		- Generation of listing only
+52     52:      		
+53     53:       	Usage: xc <filename> <flag(s)>
+54     54:       	Flags: 	-i            = Enable file inclusion
+55     55:              	-l            = Generate listing only
+56     56:              	-r            = Cross-ref reserved words
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 2
+
+57     57:              	-o <filename> = Write output to named file
+58     58:              
+59     59: **-2**************************************************************/
+60     60: 
+61     61: #include <stdio.h>
+62     62: #include <stdlib.h>
+63     63: #include <string.h>
+64     64: #include <ctype.h>
+65     65: 
+66     66: //#define DEBUG
+67     67: #ifdef DEBUG
+68     68: #   define  D(x) x              /* define debug trace */
+69     69: #   else
+70     70: #   define  D(x)                /* ignore debug trace  */
+71     71: #endif  /* DEBUG */
+72     72: 
+73     73: #ifndef  TRUE
+74     74: #define  TRUE        1
+75     75: #define  FALSE       0
+76     76: #endif
+77     77: 
+78     78: // Const Values (Redefined [AD]) -----------------------------------------
+79     79: #define  ERROR      	-1
+80     80: #define  MAX_REF     	200  	/* maximum refs per ref-block */
+81     81: #define  MAX_LEN     	30      /* maximum identifier length  */
+82     82: #define  MAX_WRD    	2000    /* maximum number of identifiers */
+83     83: #define  MAX_ALPHA  	500     /* maximum alpha chain heads */
+84     84: #define  REFS_PER_LINE  15      /* output formatting: maximum refs per line */
+85     85: #define  LINES_PER_PAGE 60	/* output formatting */
+86     86: #define  MAXCOL     	110     /* default maximum column number for listing line */
+87     87: #define  MINCOL     	30      /* minimum value for -w option */
+88     88: #define  FF         	0x0C    /* formfeed */
+89     89: 
+90     90: 
+91     91: // Structure types --------------------------------------------------------
+92     92: struct  rf_blk {
+93     93:                  int  ref_item[MAX_REF];
+94     94:                  int  ref_cnt;
+95     95:                } onerf;
+96     96: 
+97     97: struct  id_blk {
+98     98:                  char  id_name[MAX_LEN];
+99     99:                  struct id_blk *alpha_lnk;
+100   100:                  struct rf_blk *top_lnk;
+101   101:                  struct rf_blk *lst_lnk;
+102   102:                } oneid;
+103   103: 
+104   104: struct id_blk *id_vector[MAX_WRD];
+105   105: 
+106   106: struct alpha_hdr { struct id_blk *alpha_top;
+107   107:                    struct id_blk *alpha_lst;
+108   108:                  };
+109   109: 
+110   110: struct alpha_hdr alpha_vector[MAX_ALPHA];
+111   111: 
+112   112: 
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 3
+
+113   113: // Global Variables (Hmmmmm...) ----------------------------------------
+114   114: int     linum;          /* line number */
+115   115: int     edtnum;         /* edit line number */
+116   116: int     fil_cnt;        /* active file index */
+117   117: int     wrd_cnt;        /* token count */
+118   118: int     pagno;          /* page number */
+119   119: int     id_cnt;         /* number of unique identifiers */
+120   120: int     rhsh_cnt;       /* number of conflict hits */
+121   121: int     filevl;         /* file level  */
+122   122: int     paglin;         /* page line counter */
+123   123: int     dummy;          /* dummy integer */
+124   124: int     maxcol=MAXCOL;  /* maximum right column for listing line */
+125   125: int     prt_ref;
+126   126: char    act_fil[MAX_LEN];
+127   127: char    lst_fil[MAX_LEN];
+128   128: char    gbl_fil[MAX_LEN];
+129   129: FILE    *f_lst_fil;
+130   130: int     i_flg,
+131   131:         o_flg,
+132   132:         r_flg,
+133   133:         l_flg;
+134   134: //long atoi();
+135   135: 
+136   136: char*   MyAlloc(int i);   // malloc "i" # bytes
+137   137: 
+138   138: 
+139   139: 
+140   140: // Function prototypes (AD) -------------------------------------------------
+141   141: void    use_err();
+142   142: char*   MyAlloc(int i);             // malloc "i" # bytes
+143   143: int     proc_file(char*, int);
+144   144: void    prnt_tbl();
+145   145: int     lst_err();
+146   146: void    get_include_fileid(char*, FILE*);
+147   147: int     chk_token(char*);
+148   148: void    nl();
+149   149: void    prt_hdr();
+150   150: int     get_token(FILE*, char*, int*, int*, int);
+151   151: void    put_token(char*, int);
+152   152: void    echo(char);
+153   153: void    echochar(char);
+154   154: char    rdchr(FILE*, int*, int);
+155   155: int     fil_chr(FILE*, int*);
+156   156: void    chain_alpha(struct id_blk*, char*);
+157   157: int     abs(int);
+158   158: 
+159   159: 
+160   160: 
+161   161: /*************************************************************************/
+162   162: /*                              MAIN                                     */
+163   163: /*************************************************************************/
+164   164: int
+165   165: main(p_argc, p_argv)
+166   166:     int     p_argc;
+167   167:     char    **p_argv;
+168   168: {
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 4
+
+169   169:     // ARGUMENT PARSING ===================================================
+170   170:     char  *arg;
+171   171:     int argc;
+172   172:     char **argv;
+173   173:     char c;
+174   174:     int i;
+175   175:     argc = p_argc;
+176   176:     argv = p_argv;
+177   177:     if (argc < 2) use_err();
+178   178:     i_flg=r_flg=o_flg=l_flg=FALSE;
+179   179: 
+180   180:     while(--argc != 0)
+181   181:      { if(*(arg=*++argv) == '-')
+182   182:         {switch(*++arg)
+183   183:          {
+184   184:            case 'i':
+185   185:            case 'I': i_flg++;
+186   186:                      break;
+187   187:            case 'r':
+188   188:            case 'R': r_flg++;
+189   189:                      break;
+190   190:            case 'l':
+191   191:            case 'L':  l_flg++;
+192   192:                       break;
+193   193:            case 'o':
+194   194:            case 'O': { o_flg++;
+195   195:                        if(--argc == 0) use_err();
+196   196:                        strcpy(lst_fil,*++argv);
+197   197:                        if(lst_fil[0] == '-') use_err();
+198   198:                         break;}
+199   199:            case 'w':
+200   200:            case 'W': { if(--argc == 0) use_err();
+201   201:                        i = atoi(*++argv);
+202   202:                        if( i<=MINCOL || i>=255 ) use_err();
+203   203:                        maxcol = i;
+204   204:                        break;
+205   205:                        }
+206   206:            default: use_err();
+207   207:          }
+208   208:        }
+209   209:      }
+210   210: 
+211   211: 
+212   212:     // OUTPUT FILE  ===================================================
+213   213:      if(o_flg)
+214   214:        {if( (f_lst_fil=fopen(lst_fil,"w")) == NULL)
+215   215:         { printf("ERROR: Unable to create list file - %s\n",lst_fil);
+216   216:           exit(0);}
+217   217:        printf("XC ... 'C' Concordance Utility  v1.0\n\n");
+218   218:         }
+219   219:     prt_ref = FALSE;
+220   220: 
+221   221: 
+222   222:     // INPUT FILE  ===================================================
+223   223:     for(linum=0;linum < MAX_WRD;linum++) {
+224   224:        id_vector[linum] = NULL; }
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 5
+
+225   225: 
+226   226:     for(linum=0;linum < MAX_ALPHA;linum++)
+227   227:      {
+228   228:        alpha_vector[linum].alpha_top =
+229   229:        alpha_vector[linum].alpha_lst = NULL;
+230   230:      }
+231   231: 
+232   232:     fil_cnt = wrd_cnt = linum = 0;
+233   233:     filevl=paglin=pagno=edtnum=0;
+234   234:     id_cnt=rhsh_cnt=0;
+235   235:     argc = p_argc;  argc--;
+236   236:     argv = p_argv;
+237   237: 
+238   238:     while(argc--) {
+239   239:        strcpy(gbl_fil,*++argv);
+240   240:        if(*gbl_fil == '-')  break;
+241   241:        proc_file(gbl_fil,dummy);
+242   242:        }
+243   243: 
+244   244:     if(!l_flg) {
+245   245:       gbl_fil[0] = '\0';
+246   246:       prnt_tbl();
+247   247:       printf("\nAllowable Symbols: %d\n",MAX_WRD);
+248   248:       printf("Unique    Symbols: %d\n",id_cnt);}
+249   249: 
+250   250:     if(o_flg) {
+251   251:      nl();
+252   252:      /* if(fprintf(f_lst_fil,"%c",CPMEOF) == ERROR) lst_err(); */
+253   253:      fclose(f_lst_fil);
+254   254:     }
+255   255: }
+256   256: 
+257   257: 
+258   258: /*************************************************************************/
+259   259: int
+260   260: lst_err()
+261   261: { printf("\nERROR: Write error on list output file - %s\n",
+262   262:    lst_fil);
+263   263:   exit(0);
+264   264: }
+265   265: 
+266   266: 
+267   267: /*************************************************************************/
+268   268: void
+269   269: use_err()
+270   270:        { printf("\nERROR: Invalid parameter specification\n\n");
+271   271:        printf("Usage: xc <filename>... <flag(s)>\n\n");
+272   272:        printf("Flags: -i            = Enable file inclusion\n");
+273   273:        printf("       -l            = Generate listing only\n");
+274   274:        printf("       -r            = Cross-reference reserved words\n");
+275   275:        printf("       -o <outfile>  = Write output to named file\n");
+276   276:        printf("       -w width      = Width of output page; default=78\n");
+277   277:        printf("Flags must follow all input file names");
+278   278:        exit(0); }
+279   279: 
+280   280: 
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 6
+
+281   281: /*************************************************************************/
+282   282: int
+283   283: proc_file(filnam,incnum)
+284   284: char    *filnam;
+285   285: int      incnum;        /* prev. included line number (return to caller) */
+286   286: {
+287   287:   char  token[MAX_LEN]; /* token buffer */
+288   288:   int   eof_flg;        /* end-of-file indicator */
+289   289:   int   tok_len;        /* token length */
+290   290:   FILE  *infile;        /* input file */
+291   291:   strcpy(act_fil,filnam);
+292   292:   edtnum=0;
+293   293:   if((infile=fopen(filnam,"r")) == NULL)
+294   294:       {printf("\nERROR: Unable to open input file: %s\n",filnam);
+295   295:         return 0;}  /* ignore error */
+296   296: 
+297   297:   if(filevl++ == 0) prt_hdr();
+298   298:   eof_flg = FALSE;
+299   299:   do {
+300   300:        if(get_token(infile,token,&tok_len,&eof_flg,0))
+301   301:           if(chk_token(token))
+302   302:              {
+303   303:              if(strcmp(token,"#include") == 0)
+304   304:                 {
+305   305:                 get_include_fileid(token,infile);
+306   306:                 if(!i_flg) continue;
+307   307:                 else
+308   308:                    {
+309   309:                    nl();
+310   310:                    edtnum=proc_file(token,edtnum);
+311   311:                    strcpy(act_fil,filnam);
+312   312:                    continue;
+313   313:                    }
+314   314:                 }
+315   315:             put_token(token,linum);
+316   316:             }
+317   317:      } while (!eof_flg);
+318   318:      filevl -= 1;
+319   319:      fclose(infile);
+320   320:      return( incnum );
+321   321: }
+322   322: 
+323   323: 
+324   324: /*************************************************************************/
+325   325: void
+326   326: get_include_fileid(token,infile)
+327   327: 	char *token;
+328   328: 	FILE *infile;
+329   329: {
+330   330:    char c, term;
+331   331:    while ( (term=getc(infile)) == ' ' )  echo(term);
+332   332:    echo(term);
+333   333:    if ( term=='<' ) term='>';   /* terminator is > or " */
+334   334:    if ( (term!='>') && (term!='"') )
+335   335:       {
+336   336:       printf("Error scanning #INCLUDE fileid: %c\n", term);
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 7
+
+337   337:       exit(1);
+338   338:       }
+339   339:    do {
+340   340:       if ( (c = getc(infile)) != ' ')
+341   341:          {
+342   342:          *token++ = c;
+343   343:          echo(c);
+344   344:          }
+345   345:       else
+346   346:          echo(c);
+347   347:       }
+348   348:       while ( c!=term );
+349   349:    *--token = '\0';
+350   350: }
+351   351: 
+352   352: 
+353   353: /*************************************************************************/
+354   354: void
+355   355: echo(c)
+356   356: 	char c;
+357   357: {
+358   358:    static int col = 11;
+359   359:    int i;
+360   360:    echochar(c);
+361   361:    if( c == '\n' )
+362   362:       col = 11;
+363   363:    else if( ++col > maxcol )  {
+364   364:       col = 11;
+365   365:       paglin++;
+366   366:       echochar('\n');
+367   367:       for( i=1; i<=11; i++ )  echochar(' ');
+368   368:       }
+369   369: }
+370   370: 
+371   371: void
+372   372: echochar(c)
+373   373: char c;
+374   374: {
+375   375:    if(o_flg)  {
+376   376:       if(fprintf(f_lst_fil,"%c",c) == ERROR)  lst_err();
+377   377:       }
+378   378:    else
+379   379:       printf("%c",c);
+380   380: }
+381   381: 
+382   382: 
+383   383: /*************************************************************************/
+384   384: int
+385   385: get_token(infile,g_token,g_toklen,g_eoflg,g_flg)
+386   386: FILE    *infile;
+387   387: char    *g_token;
+388   388: int     *g_toklen;
+389   389: int     *g_eoflg;
+390   390: int     g_flg;
+391   391: /*
+392   392:         'getoken' returns the next valid identifier or
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 8
+
+393   393:         reserved word from a given file along with the
+394   394:         character length of the token and an end-of-file
+395   395:         indicator
+396   396: */
+397   397: {
+398   398: int     c;
+399   399: char    *h_token;
+400   400: char    tmpchr;
+401   401: h_token = g_token;
+402   402: gtk:
+403   403: *g_toklen = 0;
+404   404: g_token = h_token;
+405   405: /*
+406   406:         Scan and discard any characters until an alphabetic or
+407   407:         '_' (underscore) character is encountered or an end-of-file
+408   408:         condition occurs
+409   409: */
+410   410: 
+411   411: while( (!isalpha(*g_token = rdchr(infile,g_eoflg,g_flg)))
+412   412:   && !*g_eoflg
+413   413:   && *g_token != '_'
+414   414:   && *g_token != '0'
+415   415:   && *g_token != '#');
+416   416: if(*g_eoflg) return(FALSE);
+417   417: *g_toklen += 1;
+418   418: /*
+419   419:         Scan and collect identified alpanumeric token until
+420   420:         a non-alphanumeric character is encountered or and
+421   421:         end-of-file condition occurs
+422   422: */
+423   423: if(g_flg) tmpchr = '.';
+424   424:      else tmpchr = '_';
+425   425: 
+426   426: while( (isalpha(c=rdchr(infile,g_eoflg,g_flg))
+427   427:         || isdigit(c)
+428   428:         || c == '_'
+429   429:         || c == tmpchr)
+430   430:      && !*g_eoflg)
+431   431:         {
+432   432:          if(*g_toklen < MAX_LEN)
+433   433:           { *++g_token = c;
+434   434:           *g_toklen += 1; }
+435   435:         }
+436   436: /*
+437   437:         Check to see if a numeric hex or octal constant has
+438   438:         been encountered ... if so dump it and try again
+439   439: */
+440   440:         if (*h_token == '0') goto gtk;
+441   441: /*
+442   442:         Tack a NULL character onto the end of the token
+443   443: */
+444   444:  *++g_token = NULL;
+445   445: /*
+446   446:         Screen out all #token strings except #include
+447   447: */
+448   448: if (*h_token == '#' && strcmp(h_token,"#include")) goto gtk;
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 9
+
+449   449:  return(TRUE);
+450   450: }
+451   451: 
+452   452: /*************************************************************************/
+453   453: int
+454   454: fil_chr(infile,f_eof)
+455   455:     FILE *infile;
+456   456:     int *f_eof;
+457   457:    {
+458   458:     int fc;
+459   459:     fc=getc(infile);
+460   460: 
+461   461:     if (fc == EOF) {
+462   462:         *f_eof = TRUE;
+463   463:         fc = (int) NULL;
+464   464:     }
+465   465:     return(fc);
+466   466: }
+467   467: 
+468   468: 
+469   469: /*************************************************************************/
+470   470: char
+471   471: rdchr(infile,r_eoflg,rd_flg)
+472   472: int     *r_eoflg;
+473   473: FILE    *infile;
+474   474: int     rd_flg;
+475   475: /*
+476   476:         'rdchr' returns the next valid character in a file
+477   477:         and an end-of-file indicator. A valid character is
+478   478:         defined as any which does not appear in either a
+479   479:         commented or a quoted string ... 'rdchr' will correctly
+480   480:         handle comment tokens which appear within a quoted
+481   481:         string
+482   482: */
+483   483: {
+484   484: int     c;
+485   485: int     q_flg;          /* double quoted string flag */
+486   486: int     q1_flg;         /* single quoted string flag */
+487   487: int     cs_flg;         /* comment start flag */
+488   488: int     ce_flg;         /* comment end flag */
+489   489: int     c_cnt;          /* comment nesting level */
+490   490: int     t_flg;          /* transparency flag */
+491   491: q_flg = FALSE;
+492   492: q1_flg = FALSE;
+493   493: cs_flg = FALSE;
+494   494: ce_flg = FALSE;
+495   495: t_flg = FALSE;
+496   496: c_cnt  = 0;
+497   497: rch:
+498   498: /*
+499   499:         Fetch character from file
+500   500: */
+501   501: c=fil_chr(infile,r_eoflg);
+502   502: if(*r_eoflg) return(c);   /* EOF encountered */
+503   503: if(c == '\n')
+504   504:                 nl();
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 10
+
+505   505:              else
+506   506:                 echo(c);
+507   507: if(rd_flg) return(c);
+508   508: if(t_flg) { t_flg = !t_flg;
+509   509:             goto rch;}
+510   510: if(c == '\\') { t_flg = TRUE;
+511   511:                 goto rch;}
+512   512: /*
+513   513:         If the character is not part of a quoted string
+514   514:         check for and process commented strings...
+515   515:         nested comments are handled correctly but unbalanced
+516   516:         comments are not ... the assumption is made that
+517   517:         the syntax of the program being xref'd is correct
+518   518: */
+519   519: if (!q_flg && !q1_flg) {
+520   520:      if (c == '*' && c_cnt && !cs_flg) { ce_flg = TRUE;
+521   521:                       goto rch;}
+522   522:      if (c == '/' && ce_flg) { c_cnt -= 1;
+523   523:                           ce_flg = FALSE;
+524   524:                           goto rch; }
+525   525:      ce_flg = FALSE;
+526   526:      if (c == '/') { cs_flg = TRUE;
+527   527:                 goto rch; }
+528   528:      if (c == '*' && cs_flg) { c_cnt += 1;
+529   529:                           cs_flg = FALSE;
+530   530:                           goto rch; }
+531   531:      cs_flg = FALSE;
+532   532:      if (c_cnt) goto rch;
+533   533: }
+534   534: /*
+535   535:         Check for and process quoted strings
+536   536: */
+537   537: if ( c == '"' && !q1_flg) { q_flg =  !q_flg; /* toggle quote flag */
+538   538:                         goto rch;}
+539   539: if (q_flg) goto rch;
+540   540: if (c == '\'') { q1_flg = !q1_flg; /* toggle quote flag */
+541   541:                 goto rch; }
+542   542: if (q1_flg) goto rch;
+543   543: /*
+544   544:         Valid character ... return to caller
+545   545: */
+546   546: return(c);
+547   547: }
+548   548: 
+549   549: 
+550   550: /*************************************************************************/
+551   551: int
+552   552: chk_token(c_token)
+553   553: char    *c_token;
+554   554: {
+555   555:   char  u_token[MAX_LEN];
+556   556:   int   i;
+557   557:     {
+558   558:       if(r_flg) return(TRUE);
+559   559:       i = 0;
+560   560:       do { u_token[i] = toupper(c_token[i]); }
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 11
+
+561   561:          while (c_token[i++] != NULL);
+562   562:       switch(u_token[0]) {
+563   563:         case 'A': if (strcmp(u_token,"AUTO") == 0) return(FALSE);
+564   564:                   break;
+565   565:         case 'B': if (strcmp(u_token,"BREAK") == 0) return(FALSE);
+566   566:                   break;
+567   567:         case 'C': if (strcmp(u_token,"CHAR") == 0) return (FALSE);
+568   568:                   if (strcmp(u_token,"CONTINUE") == 0) return (FALSE);
+569   569:                   if (strcmp(u_token,"CASE") == 0) return (FALSE);
+570   570:                   break;
+571   571:         case 'D': if(strcmp(u_token,"DOUBLE") == 0) return(FALSE);
+572   572:                   if(strcmp(u_token,"DO") == 0) return(FALSE);
+573   573:                   if(strcmp(u_token,"DEFAULT") == 0) return(FALSE);
+574   574:                   break;
+575   575:         case 'E': if(strcmp(u_token,"EXTERN") == 0) return(FALSE);
+576   576:                   if(strcmp(u_token,"ELSE") == 0) return(FALSE);
+577   577:                   if(strcmp(u_token,"ENTRY") == 0) return(FALSE);
+578   578:                   break;
+579   579:         case 'F': if(strcmp(u_token,"FLOAT") == 0) return(FALSE);
+580   580:                   if(strcmp(u_token,"FOR") == 0) return(FALSE);
+581   581:                   break;
+582   582:         case 'G': if(strcmp(u_token,"GOTO") == 0) return(FALSE);
+583   583:                   break;
+584   584:         case 'I': if(strcmp(u_token,"INT") == 0) return(FALSE);
+585   585:                   if(strcmp(u_token,"IF") == 0) return(FALSE);
+586   586:                   break;
+587   587:         case 'L': if(strcmp(u_token,"LONG") == 0) return(FALSE);
+588   588:                   break;
+589   589:         case 'R': if(strcmp(u_token,"RETURN") == 0) return(FALSE);
+590   590:                   if(strcmp(u_token,"REGISTER") == 0) return(FALSE);
+591   591:                   break;
+592   592:         case 'S': if(strcmp(u_token,"STRUCT") == 0) return(FALSE);
+593   593:                   if(strcmp(u_token,"SHORT") == 0) return(FALSE);
+594   594:                   if(strcmp(u_token,"STATIC") == 0) return(FALSE);
+595   595:                   if(strcmp(u_token,"SIZEOF") == 0) return(FALSE);
+596   596:                   if(strcmp(u_token,"SWITCH") == 0) return(FALSE);
+597   597:                   break;
+598   598:         case 'T': if(strcmp(u_token,"TYPEDEF") == 0) return(FALSE);
+599   599:                   break;
+600   600:         case 'U': if(strcmp(u_token,"UNION") == 0) return(FALSE);
+601   601:                   if(strcmp(u_token,"UNSIGNED") == 0) return(FALSE);
+602   602:                   break;
+603   603:         case 'W': if(strcmp(u_token,"WHILE") == 0) return(FALSE);
+604   604:                   break; }
+605   605:         }
+606   606:   return(TRUE);
+607   607: }
+608   608: 
+609   609: 
+610   610: /*************************************************************************/
+611   611: /*
+612   612:    Install parsed token and line reference in linked structure
+613   613: */
+614   614: void
+615   615: put_token(p_token,p_ref)
+616   616: char *p_token;
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 12
+
+617   617: int  p_ref;
+618   618: {
+619   619:   int  hsh_index;
+620   620:   int  i;
+621   621:   int  j;
+622   622:   int  d;
+623   623:   int  found;
+624   624: 
+625   625:   struct id_blk *idptr;
+626   626:   struct rf_blk *rfptr;
+627   627:   struct id_blk *alloc_id();
+628   628:   struct rf_blk *alloc_rf();
+629   629:   struct rf_blk *add_rf();
+630   630: 
+631   631:   if(l_flg) return;
+632   632:   j=0;
+633   633:   for (i=0; p_token[i] != NULL; i++)  /* Hashing algorithm is far from */
+634   634:   {                                   /* optimal but is adequate for a */
+635   635:       j = j * 10 + p_token[i];        /* memory-bound index vector!    */
+636   636:    }
+637   637:   hsh_index = abs(j) % MAX_WRD;
+638   638:   found = FALSE;
+639   639:   d = 1;
+640   640:   do {
+641   641:        idptr = id_vector[hsh_index];
+642   642:        if(idptr == NULL) {
+643   643:          id_cnt++;
+644   644:          idptr = id_vector[hsh_index] = alloc_id(p_token);
+645   645:          chain_alpha(idptr,p_token);
+646   646:          idptr->top_lnk = idptr->lst_lnk = alloc_rf(p_ref);
+647   647:          found = TRUE;
+648   648:        }
+649   649:        else
+650   650:        if(strcmp(p_token,idptr->id_name) == 0) {
+651   651:          idptr->lst_lnk = add_rf(idptr->lst_lnk,p_ref);
+652   652:            found = TRUE;
+653   653:          }
+654   654:        else
+655   655:        { hsh_index += d;
+656   656:          d += 2;
+657   657:          rhsh_cnt++;
+658   658:          if (hsh_index >= MAX_WRD)
+659   659:             hsh_index -= MAX_WRD;
+660   660:          if (d == MAX_WRD) {
+661   661:             printf("\nERROR: Symbol table overflow\n");
+662   662:             exit(0);
+663   663:          }
+664   664:        }
+665   665:       } while (!found);
+666   666: }
+667   667: 
+668   668: 
+669   669: /*************************************************************************/
+670   670: void
+671   671: chain_alpha(ca_ptr,ca_token)
+672   672: struct id_blk *ca_ptr;
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 13
+
+673   673: char  *ca_token;
+674   674: {
+675   675:   char  c;
+676   676:   int   f;
+677   677:   struct id_blk *cur_ptr;
+678   678:   struct id_blk *lst_ptr;
+679   679:   c = ca_token[0];
+680   680:   if(c == '_') c = 0;
+681   681:     else
+682   682:       if (isupper(c))  c=1+((c-'A')*2);
+683   683:       else             c=2+((c-'a')*2);
+684   684:   if(alpha_vector[c].alpha_top == NULL)
+685   685:     { alpha_vector[c].alpha_top =
+686   686:       alpha_vector[c].alpha_lst = ca_ptr;
+687   687:       ca_ptr->alpha_lnk = NULL;
+688   688:       return;
+689   689:     }
+690   690: /* check to see if new id_blk should be inserted between
+691   691:    the alpha_vector header block and the first id_blk in
+692   692:    the current alpha chain
+693   693: */
+694   694:  if(strcmp(alpha_vector[c].alpha_top->id_name,ca_token) >0)
+695   695:   {
+696   696:     ca_ptr->alpha_lnk=alpha_vector[c].alpha_top;
+697   697:     alpha_vector[c].alpha_top=ca_ptr;
+698   698:     return;
+699   699:   }
+700   700:   if(strcmp(alpha_vector[c].alpha_lst->id_name,ca_token) < 0)
+701   701:     { alpha_vector[c].alpha_lst->alpha_lnk = ca_ptr;
+702   702:       ca_ptr->alpha_lnk = NULL;
+703   703:       alpha_vector[c].alpha_lst=ca_ptr;
+704   704:       return;
+705   705:     }
+706   706:   cur_ptr = alpha_vector[c].alpha_top;
+707   707:   while(strcmp(cur_ptr->id_name,ca_token) < 0)
+708   708:    { lst_ptr = cur_ptr;
+709   709:      cur_ptr = lst_ptr->alpha_lnk;
+710   710:    }
+711   711:   lst_ptr->alpha_lnk = ca_ptr;
+712   712:   ca_ptr->alpha_lnk = cur_ptr;
+713   713:   return;
+714   714: }
+715   715: 
+716   716: 
+717   717: /*************************************************************************/
+718   718: struct id_blk *alloc_id(aid_token)
+719   719:   char  *aid_token;
+720   720:   {
+721   721:     int  ai;
+722   722:     struct id_blk *aid_ptr;
+723   723:     aid_ptr = (struct id_blk *) MyAlloc(sizeof(struct id_blk));
+724   724:     if( aid_ptr == 0) {
+725   725:         printf("\nERROR: Unable to allocate identifier block\n");
+726   726:        exit(0);
+727   727:      }
+728   728:      ai=0;
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 14
+
+729   729:      do {
+730   730:           aid_ptr->id_name[ai] = aid_token[ai];
+731   731:         } while (aid_token[ai++] != NULL);
+732   732:      return (aid_ptr);
+733   733: }
+734   734: 
+735   735: 
+736   736: /*************************************************************************/
+737   737: struct rf_blk *alloc_rf(arf_ref)
+738   738:   int  arf_ref;
+739   739:   {
+740   740:     int ri;
+741   741:     struct rf_blk *arf_ptr;
+742   742:     if((arf_ptr = (struct rf_blk *) MyAlloc(sizeof(struct rf_blk))) == 0) {
+743   743:       printf("\nERROR: Unable to allocate reference block\n");
+744   744:       exit(0);
+745   745:     }
+746   746:     arf_ptr->ref_item[0] = arf_ref;
+747   747:     arf_ptr->ref_cnt = 1;
+748   748:     for(ri=1;ri<MAX_REF;ri++)
+749   749:       arf_ptr->ref_item[ri] = NULL;
+750   750:     return (arf_ptr);
+751   751:   }
+752   752: 
+753   753: 
+754   754: /*************************************************************************/
+755   755: struct rf_blk *add_rf(adr_ptr,adr_ref)
+756   756:   struct rf_blk *adr_ptr;
+757   757:   int adr_ref;
+758   758:   {
+759   759:     struct rf_blk *tmp_ptr;
+760   760:     tmp_ptr = adr_ptr;
+761   761:     if(adr_ptr->ref_cnt == MAX_REF) {
+762   762:       tmp_ptr = adr_ptr->ref_cnt = alloc_rf(adr_ref);
+763   763:     }
+764   764:     else
+765   765:     { adr_ptr->ref_item[adr_ptr->ref_cnt++] = adr_ref;
+766   766:     }
+767   767:     return (tmp_ptr);
+768   768:   }
+769   769: 
+770   770: /*************************************************************************/
+771   771: void
+772   772: prnt_tbl()
+773   773: {  int prf_cnt;
+774   774:    int pti;
+775   775:    int pref;
+776   776:    int lin_cnt;
+777   777:    struct id_blk *pid_ptr;
+778   778:    struct rf_blk *ptb_ptr;
+779   779:   prt_ref = TRUE;
+780   780:   prt_hdr();
+781   781:   for (pti=0;pti<MAX_ALPHA;pti++)
+782   782:   { if ((pid_ptr = alpha_vector[pti].alpha_top) != NULL)
+783   783:       { do
+784   784:      { if(o_flg)
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 15
+
+785   785:          {if(fprintf(f_lst_fil,"%-20.19s: ",pid_ptr->id_name) == ERROR)
+786   786:             lst_err();}
+787   787:        else
+788   788:           printf("%-20.19s: ",pid_ptr->id_name);
+789   789:        ptb_ptr=pid_ptr->top_lnk;
+790   790:        lin_cnt=prf_cnt=0;
+791   791:        do { if(prf_cnt == MAX_REF)
+792   792:               { prf_cnt=0;
+793   793:                 ptb_ptr = ptb_ptr->ref_cnt;
+794   794:               }
+795   795:            if(ptb_ptr > MAX_REF)
+796   796:             {
+797   797:              if((pref=ptb_ptr->ref_item[prf_cnt++]) != 0)
+798   798:                 { if(o_flg)
+799   799:                  {if(fprintf(f_lst_fil,"%4d ",pref) == ERROR) lst_err();}
+800   800:                 else
+801   801:                 printf("%4d ",pref);
+802   802:                 if (++lin_cnt == REFS_PER_LINE)
+803   803:                     { nl();
+804   804:                       if(o_flg)
+805   805:                          {if(fprintf(f_lst_fil,"                      ") == ERROR) lst_err();}
+806   806:                       else
+807   807:                          printf("                      ");
+808   808:                       lin_cnt=0;
+809   809:                     }
+810   810:                 }
+811   811:               } else pref=0;
+812   812:            } while (pref);
+813   813:         nl();
+814   814:         } while ((pid_ptr=pid_ptr->alpha_lnk) != NULL);
+815   815:       }
+816   816:    }/*for*/
+817   817:    echo( '\n' );
+818   818: }
+819   819: 
+820   820: 
+821   821: /*************************************************************************/
+822   822: void
+823   823: prt_hdr()
+824   824: {
+825   825:   if (pagno++ != 0)    { echo( '\n' ); echo( FF ); }
+826   826:   if (o_flg)
+827   827:    {if(fprintf(f_lst_fil,
+828   828:           "XC ... 'C' Concordance Utility   %-20s       Page %d",
+829   829:      gbl_fil,pagno) == ERROR) lst_err();}
+830   830:   else
+831   831:    printf("XC ... 'C' Concordance Utility   %-20s       Page %d",
+832   832:      gbl_fil,pagno);
+833   833:   echo('\n');
+834   834:   paglin = 3;
+835   835:   nl();
+836   836: }
+837   837: 
+838   838: 
+839   839: /*************************************************************************/
+840   840: void
+
+XC ... 'C' Concordance Utility   XRF.c                      Page 16
+
+841   841: nl()
+842   842: {
+843   843:   echo('\n');
+844   844:   if(++paglin >= LINES_PER_PAGE) prt_hdr();
+845   845:     else
+846   846:   if(!prt_ref) {
+847   847:     if(o_flg) {
+848   848:        if(fprintf(f_lst_fil,"%-4d %4d: ",    ++linum,++edtnum) == ERROR)
+849   849:        lst_err();
+850   850:        }
+851   851:     else
+852   852:        printf("%-4d %4d: ",    ++linum,++edtnum);
+853   853:     if(o_flg)
+854   854:        if(linum % 60 == 1)
+855   855:           printf("\n<%d> ",linum);
+856   856:        else {
+857   857:           printf(".");
+858   858:           fflush(stdout);
+859   859:           }
+860   860:     }
+861   861:  return;
+862   862: }
+863   863: 
+864   864: 
+865   865: /*************************************************************************/
+866   866: int
+867   867: abs(i)
+868   868: int i;
+869   869: {
+870   870:    if (i<0) return(-i);
+871   871:    else     return( i);
+872   872: }
+873   873: 
+874   874: 
+875   875: int NumMalloc = 0;
+876   876: /*************************************************************************/
+877   877: char*
+878   878:     MyAlloc(i)    // malloc i bytes
+879   879: int i;
+880   880: {
+881   881:     char* k;
+882   882:     char* j = malloc(i+1);
+883   883: 
+884   884:     for (k=j; k < (j+i); k++) {
+885   885:         *k = ((j-k) % 5 == 0 ?  '|' : '-');
+886   886:     }
+887   887:     *k= '\0';
+888   888:     NumMalloc++;
+889   889:     D( printf("\n%d. malloc[%d]: [%s]\n", NumMalloc, i, j); )
+890   890:     return j;
+891   891: }
+XC ... 'C' Concordance Utility                              Page 17
+
+AD                  :   78  140 
+ARGUMENT            :  169 
+abs                 :  157  637  867 
+act_fil             :  126  291  311 
+add_rf              :  629  651  755 
+adr_ptr             :  755  756  760  761  762  765  765 
+adr_ref             :  755  757  762  765 
+ai                  :  721  728  730  730  731 
+aid_ptr             :  722  723  724  730  732 
+aid_token           :  718  719  730  731 
+alloc_id            :  627  644  718 
+alloc_rf            :  628  646  737  762 
+alpha_hdr           :  106  110 
+alpha_lnk           :   99  687  696  701  702  709  711  712  814 
+alpha_lst           :  107  229  686  700  701  703 
+alpha_top           :  106  228  684  685  694  696  697  706  782 
+alpha_vector        :  110  228  229  684  685  686  694  696  697  700  701  703  706  782 
+arf_ptr             :  741  742  746  747  749  750 
+arf_ref             :  737  738  746 
+arg                 :  170  181  182 
+argc                :  171  175  177  180  195  200  235  235  238 
+argv                :  172  176  181  196  201  236  239 
+atoi                :  134  201 
+bytes               :  137  143  879 
+Const               :   78 
+c                   :  173  330  340  342  343  346  348  355  356  360  361  372  373  376  379 
+                       398  426  427  428  429  433  484  501  502  503  506  507  510  520  522 
+                       526  528  537  540  546  675  679  680  680  682  682  682  683  683  684 
+                       685  686  694  696  697  700  701  703  706 
+c_cnt               :  489  496  520  522  528  532 
+c_token             :  552  553  560  561 
+ca_ptr              :  671  672  686  687  696  697  701  702  703  711  712 
+ca_token            :  671  673  679  694  700  707 
+ce_flg              :  488  494  520  522  523  525 
+chain_alpha         :  156  645  671 
+chk_token           :  147  301  552 
+col                 :  358  362  363  364 
+cs_flg              :  487  493  520  526  528  529  531 
+cur_ptr             :  677  706  707  708  709  712 
+D                   :   68   70  889 
+DEBUG               :   67   68 
+d                   :  622  639  655  656  660 
+define              :   68   70 
+dummy               :  123  241 
+EOF                 :  461 
+ERROR               :   79  376  785  799  805  829  848 
+echo                :  152  331  332  343  346  355  506  817  825  825  833  843 
+echochar            :  153  360  366  367  372 
+edtnum              :  115  233  292  310  310  848  852 
+eof_flg             :  288  298  300  317 
+exit                :  216  263  278  337  662  726  744 
+FALSE               :   75  178  219  298  416  491  492  493  494  495  523  525  529  531  563 
+                       565  567  568  569  571  572  573  575  576  577  579  580  582  584  585 
+                       587  589  590  592  593  594  595  596  598  600  601  603  638 
+FF                  :   88  825 
+FILE                :  129  146  150  154  155  212  222  290  328  386  455  473 
+
+XC ... 'C' Concordance Utility                              Page 18
+
+Function            :  140 
+f                   :  676 
+f_eof               :  454  456  462 
+f_lst_fil           :  129  214  253  376  785  799  805  827  848 
+fc                  :  458  459  461  463  465 
+fclose              :  253  319 
+fflush              :  858 
+fil_chr             :  155  454  501 
+fil_cnt             :  116  232 
+filevl              :  121  233  297  318 
+filnam              :  283  284  291  293  294  311 
+fopen               :  214  293 
+found               :  623  638  647  652  665 
+fprintf             :  376  785  799  805  827  848 
+Global              :  113 
+g_eoflg             :  385  389  411  413  416  426  430 
+g_flg               :  385  390  411  423  426 
+g_token             :  385  387  401  404  411  413  414  415  433  444 
+g_toklen            :  385  388  403  417  432  434 
+gbl_fil             :  128  239  240  241  245  829  832 
+get_include_fileid  :  146  305  326 
+get_token           :  150  300  385 
+getc                :  331  340  459 
+gtk                 :  402  440  448 
+Hmmmmm              :  113 
+h_token             :  399  401  404  440  448  448 
+hsh_index           :  619  637  641  644  655  658  659 
+INPUT               :  222 
+i                   :  136  142  174  201  202  202  203  359  367  367  367  556  559  560  560 
+                       561  620  633  633  633  635  867  868  870  870  871  878  878  879  882 
+                       884  889 
+i_flg               :  130  178  185  306 
+id_blk              :   97   99  104  106  107  156  625  627  672  677  678  718  722  723  723 
+                       777 
+id_cnt              :  119  234  248  643 
+id_name             :   98  650  694  700  707  730  785  788 
+id_vector           :  104  224  641  644 
+idptr               :  625  641  642  644  645  646  646  650  651  651 
+incnum              :  283  285  320 
+infile              :  290  293  300  305  319  326  328  331  340  385  386  411  426  454  455 
+                       459  471  473  501 
+isalpha             :  411  426 
+isdigit             :  427 
+isupper             :  682 
+j                   :  621  632  635  635  637  882  884  884  885  889  890 
+k                   :  881  884  884  884  885  885  887 
+LINES_PER_PAGE      :   85  844 
+l_flg               :  133  178  191  244  631 
+lin_cnt             :  776  790  802  808 
+linum               :  114  223  223  223  224  226  226  226  228  229  232  315  848  852  854 
+                       855 
+lst_err             :  145  260  376  786  799  805  829  849 
+lst_fil             :  127  196  197  214  215  262 
+lst_lnk             :  101  646  651  651 
+lst_ptr             :  678  708  709  711 
+MAXCOL              :   86  124 
+
+XC ... 'C' Concordance Utility                              Page 19
+
+MAX_ALPHA           :   83  110  226  781 
+MAX_LEN             :   81   98  126  127  128  287  432  555 
+MAX_REF             :   80   93  748  761  791  795 
+MAX_WRD             :   82  104  223  247  637  658  659  660 
+MINCOL              :   87  202 
+MyAlloc             :  136  142  723  742  878 
+main                :  165 
+malloc              :  136  142  878  882 
+maxcol              :  124  203  363 
+NULL                :  214  224  229  293  444  463  561  633  642  684  687  702  731  749  782 
+                       814 
+NumMalloc           :  875  888  889 
+nl                  :  148  251  309  504  803  813  835  841 
+OUTPUT              :  212 
+o_flg               :  131  178  194  213  250  375  784  798  804  826  847  853 
+oneid               :  102 
+onerf               :   95 
+PARSING             :  169 
+p_argc              :  165  166  175  235 
+p_argv              :  165  167  176  236 
+p_ref               :  615  617  646  651 
+p_token             :  615  616  633  635  644  645  650 
+paglin              :  122  233  365  834  844 
+pagno               :  118  233  825  829  832 
+pid_ptr             :  777  782  785  788  789  814  814 
+pref                :  775  797  799  801  811  812 
+prf_cnt             :  773  790  791  792  797 
+printf              :  215  217  247  248  261  270  271  272  273  274  275  276  277  294  336 
+                       379  661  725  743  788  801  807  831  852  855  857  889 
+prnt_tbl            :  144  246  772 
+proc_file           :  143  241  283  310 
+prototypes          :  140 
+prt_hdr             :  149  297  780  823  844 
+prt_ref             :  125  219  779  846 
+ptb_ptr             :  778  789  793  793  795  797 
+pti                 :  774  781  781  781  782 
+put_token           :  151  315  615 
+q1_flg              :  486  492  519  537  540  540  542 
+q_flg               :  485  491  519  537  537  539 
+REFS_PER_LINE       :   84  802 
+Redefined           :   78 
+r_eoflg             :  471  472  501  502 
+r_flg               :  132  178  188  558 
+rch                 :  497  509  511  521  524  527  530  532  538  539  541  542 
+rd_flg              :  471  474  507 
+rdchr               :  154  411  426  471 
+ref_cnt             :   94  747  761  762  765  793 
+ref_item            :   93  746  749  765  797 
+rf_blk              :   92  100  101  626  628  629  737  741  742  742  755  756  759  778 
+rfptr               :  626 
+rhsh_cnt            :  120  234  657 
+ri                  :  740  748  748  748  749 
+Structure           :   91 
+stdout              :  858 
+strcmp              :  303  448  563  565  567  568  569  571  572  573  575  576  577  579  580 
+                       582  584  585  587  589  590  592  593  594  595  596  598  600  601  603 
+
+XC ... 'C' Concordance Utility                              Page 20
+
+                       650  694  700  707 
+strcpy              :  196  239  291  311 
+TRUE                :   74   74  449  462  510  520  526  558  606  647  652  779 
+t_flg               :  490  495  508  508  508  510 
+term                :  330  331  331  332  333  333  334  334  336  348 
+tmp_ptr             :  759  760  762  767 
+tmpchr              :  400  423  424  429 
+tok_len             :  289  300 
+token               :  287  300  301  303  305  310  315  326  327  342  349 
+top_lnk             :  100  646  789 
+toupper             :  560 
+types               :   91 
+u_token             :  555  560  562  563  565  567  568  569  571  572  573  575  576  577  579 
+                       580  582  584  585  587  589  590  592  593  594  595  596  598  600  601 
+                       603 
+use_err             :  141  177  195  197  200  202  206  269 
+Values              :   78 
+Variables           :  113 
+void                :  141  144  146  148  149  151  152  153  156  269  326  355  372  615  671 
+                       772  823  841 
+wrd_cnt             :  117  232 
+x                   :   68   68   70 
+
+

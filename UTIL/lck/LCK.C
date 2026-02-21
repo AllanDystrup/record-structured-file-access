@@ -735,7 +735,7 @@ main(argc, argv, envp)
  * SEE ALSO
  *    Study the implementation of function iPLock() for an example of direct
  *    call to the portable "low level" interface PFCNTL.
- */
+ *-1*/
 
     char      pzPath[] = "./LCK.tst1";  /* Name of testfile for locking */
     char      pzDum[]  = "./LCK.tst2";  /* Name of dummy file/string */
@@ -995,7 +995,7 @@ main(argc, argv, envp)
     exit(EXIT_SUCCESS);
 
 }
-/*-1 END main() */
+/* END main() */
 
 
 

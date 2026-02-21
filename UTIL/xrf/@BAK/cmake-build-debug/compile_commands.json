@@ -1,0 +1,8 @@
+[
+{
+  "directory": "C:/Users/allan/CLionProjects/ACCESS/UTIL/xrf/cmake-build-debug",
+  "command": "C:\\PROGRA~1\\JETBRA~1\\CLION2~1.3\\bin\\mingw\\bin\\gcc.exe -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles\\xrf.dir\\XRF.c.obj -c C:\\Users\\allan\\CLionProjects\\ACCESS\\UTIL\\xrf\\XRF.c",
+  "file": "C:/Users/allan/CLionProjects/ACCESS/UTIL/xrf/XRF.c",
+  "output": "C:/Users/allan/CLionProjects/ACCESS/UTIL/xrf/cmake-build-debug/CMakeFiles/xrf.dir/XRF.c.obj"
+}
+]

@@ -105,8 +105,7 @@ log .IGNORE :
 	cat $(TARGET).txt
 
 
-# [6] DOC ------- make -f SS.makefile doc ----------	
-
+# [6] DOC ------- make -f STACK.makefile doc ----------	
 doc:	
 	cp ../ext/EX*  .
 	-rm -f $(TARGET).doc
@@ -115,8 +114,15 @@ doc:
 	-rm -f ex.* EX.*
 	ls -al ./$(TARGET)
 	more $(TARGET).doc
-	
 
+xref:
+	  ------- make -f STACK.Makefile xref -------
+	rm -f $(TARGET).xrf
+	../xrf/XRF $(TARGET).c -o $(TARGET).xrf
+	ls -al
+	more $(TARGET).xrf
+
+	
 
 # END makefile
 #=============================================================================

@@ -1,5 +1,5 @@
 #============================================================================#
-# Project 	CLionProjects\access\lck\MAKEFILE
+# Project 	CLionProjects\access\XRF\MAKEFILE
 #	For command-line build, i.e. outside the:
 #     	C:\Program Files\JetBrains\CLion 2025.3\bin\clion64.exe IDE ninja env.
 #============================================================================#
@@ -8,7 +8,7 @@
 # SYSTEM 	Standard: ANSI/ISO C99 (1992); Ported to ISO/IEC C11 (2025).
 #		Tested on PC/MS DOS 5.0 (MSC 600A), Windows 10 and WSL/UBUNTU.
 #
-# SEE ALSO 	lck.c lck.h
+# SEE ALSO 	XRF.c 
 #
 # PROGRAMMER 	Allan Dystrup.
 # 		COPYRIGHT (c) Allan Dystrup, 1991, 2025.
@@ -27,22 +27,23 @@
 #
 #		----- Switch to Ubuntu for Linux build tools
 #		C:\Users\allan>		wsl -d Ubuntu -u allan
-#		allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan$ cd ./CLionProjects/accessMU/lck
+#		allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan$ cd ./CLionProjects/ACCESS/UTIL/xref
+# 		allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/ACCESS/UTIL/xref$
 #
 #		----- Clean and build default target
-# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/ACCESS/UTIL/lck$ make -f LCK.Makefile realclean
-# 			rm -f lck.o
-# 			rm -f lck
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/ACCESS/UTIL/XRF$ make -f XRF.Makefile realclean
+# 			rm -f XRF.o
+# 			rm -f XRF
 #
-# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/ACCESS/UTIL/lck$ make -f LCK.Makefile
-# 			gcc -DMAIN -DDEBUG -DUNIX -g -c lck.c -o lck.o
-# 			gcc lck.o -Wall -lm -o lck
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/ACCESS/UTIL/XRF$ make -f XRF.Makefile
+# 			gcc -DMAIN -DDEBUG -DUNIX -g -c XRF.c -o XRF.o
+# 			gcc XRF.o -Wall -lm -o XRF
 #
 #		----- Test the build executable
-# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/ACCESS/UTIL/lck$ make -f LCK.Makefile test
-#			./lck
+# allan@LAPTOP-6UIHQ2QE:/mnt/c/Users/allan/CLionProjects/ACCESS/UTIL/XRF$ make -f XRF.Makefile test
+#			./XRF
 #			KMD Portable Locking Functions (Testdriver), Version 0.1
-#			MOD[LCK.C] VER[0.1.0 Exp] DAT[92/08/31] DEV[ad divdec]
+#			MOD[XRF.C] VER[0.1.0 Exp] DAT[92/08/31] DEV[ad divdec]
 #			Copyright (c) Allan Dystrup 1992
 #
 #			Enter code (H:HELP) [r|w|R|W|uU|sS|tT|mM|fF|gG|bB|hH|qQ] -> h
@@ -54,66 +55,46 @@ TARGETOS = UNIX
 
 
 # [0] FILES ------------------------------------------------------------------
-TARGET = lck
-HEADER = $(TARGET).h
+TARGET = XRF
 SOURCE = $(TARGET).c
 OBJECT = $(TARGET).o
 
-.PRECIOUS: $(SOURCE) $(HEADER)
+.PRECIOUS: $(SOURCE)
 default: $(TARGET)
 
 
-# [1] CLEAN ----- make -f LCK.Makefile realclean ------------------------------
+# [1] CLEAN ----- make -f XRF.Makefile realclean ------------------------------
 clean:
 	-rm -f $(OBJECT)
 	ls -al
 
 realclean:
 	-rm -f $(OBJECT)
-	-rm -f $(TARGET)
+	-rm -f $(TARGET).xrf
 	ls -al
 
 
-# [2] BUILD ----- make -f LCK.Makefile ---------------------------------------
+# [2] BUILD ----- make -f XRF.Makefile ---------------------------------------
 CC = gcc
-CFLAGS = -DMAIN -DDEBUG -D$(TARGETOS) -g
-# CFLAGS =  -D$(TARGETOS) -g
+CFLAGS = -DDEBUG -g
 
-#	----- OBJ -----
-$(OBJECT):	$(SOURCE) $(HEADER)
+#	----- OBJ
+$(OBJECT):	$(SOURCE) 
 	$(CC) $(CFLAGS) -c $(SOURCE) -o $(OBJECT)
-
-# 	----- EXE ----- 
+	
+# 	----- EXE ------------------------------------------------------------ 
 LIBS = -lm
 $(TARGET):	$(OBJECT)
 	$(CC) $(OBJECT) -Wall $(LIBS) -o $(TARGET)
 	ls -al
 	
 
-# [3] TEST ----- make -f LCK.Makefile test -----------------------------------
+# [3] TEST ----- make -f XRF.Makefile test -----------------------------------
 test:
-	./lck
-
-
-
-# [4] DOC ----- make -f LCK.Makefile doc -----------------------------------
-doc:	
-	cp ../ext/EX*  .
-	-rm -f $(TARGET).doc
-	awk -f EX.AWK  $(HEADER)   > $(TARGET).doc
-	awk -f EX.AWK  $(SOURCE)  >> $(TARGET).doc
-	-rm -f ex.* EX.*
+	-rm -f XRF.xrf
+	./xrf ./xrf.c -o XRF.xrf
 	ls -al
-	more $(TARGET).doc
-
-
-xref:
-	  ------- make -f LCK.Makefile xref -------
-	rm -f $(TARGET).xrf
-	../xrf/XRF $(TARGET).c -o $(TARGET).xrf
-	ls -al
-	more $(TARGET).xrf
-
+	more ./XRF.xrf
 
 # END makefile
 #=============================================================================

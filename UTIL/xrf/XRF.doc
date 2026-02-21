@@ -1,0 +1,76 @@
+
+
+
+
+
+Sat Feb 21 13:07:29 CET 2026
+CCITT CRC (REVERSE) for    XRF.c   is	[9630]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+#     # ######  #######
+ #   #  #     # #                 ####
+  # #   #     # #                #    #
+   #    ######  #####            #
+  # #   #   #   #         ###    #
+ #   #  #    #  #         ###    #    #
+#     # #     # #         ###     ####
+
+
+
+
+
+
+**+2 **************************************************************
+	XRF.C
+       	Abstract:
+      	'XRF.C' is a cross-reference utility for 'C' programs.
+      	Its has the ability to handle nested include files
+      	to a depth of 8 levels and properly processes nested
+     	comments as supported by BDS C. Option flags support
+      	the following features:
+      		- Routing of list output to disk
+     		- Cross-referencing of reserved words
+     		- Processing of nested include files
+     		- Generation of listing only
+     		
+      	Usage: xc <filename> <flag(s)>
+      	Flags: 	-i            = Enable file inclusion
+             	-l            = Generate listing only
+             	-r            = Cross-ref reserved words
+             	-o <filename> = Write output to named file
+             
+**-2**************************************************************/Sat Feb 21 13:07:29 CET 2026
+CCITT CRC (REVERSE) for    XRF.c   is	[9630]
+
+
+
+
+
+
+END EXTRACTION
+
+

@@ -1,0 +1,1995 @@
+XC ... 'C' Concordance Utility   lck.c                      Page 1
+
+1       1: /*+1========================================================================*/
+2       2: /*  MODULE                        LCK.C                                     */
+3       3: /*==========================================================================*/
+4       4: /*  FUNCTION       This module implements a UNIX/MSDOS portable interface for
+5       5:  *                 file sharing and record locking, based on the X/Open XPG3
+6       6:  *                 (POSIX.1) definition of file control functions.
+7       7:  *
+8       8:  *                 In a UNIX environment the module's portable functions map
+9       9:  *                 directly to the X/Open equivalents (open and fcntl), while
+10     10:  *                 in a MSDOS environment the portable functions call on com-
+11     11:  *                 piler specific procedures (MSC sopen, locking) to "imitate"
+12     12:  *                 the X/Open functionality.
+13     13:  *
+14     14:  *                 The module offers a "HighLevel" API for portable WRITE-
+15     15:  *                 locks : iPLock(), and a "VeryHighLevel" API for portable
+16     16:  *                 semaphore operations : iPSem().
+17     17:  *
+18     18:  *  SYSTEM         !NB: NOT Standard C, - uses compiler specific routines NB!
+19     19:  *                 Portable across UN*X (POSIX) and MSDOS (MS C compiler) :
+20     20:  *                 - UNIX SVR3&4 (DG CC using standard POSIX system interface)
+21     21:  *                 - PC/MSDOS V33&50 (MSC60A using MS specific ANSI C extensions)
+22     22:  *
+23     23:  *  SEE ALSO       Modules: LCK.H, MAKEFILE
+24     24:  *
+25     25:  *  PROGRAMMER     Allan Dystrup, DIVDEC/AD
+26     26:  *
+27     27:  *  COPYRIGHT      (c) Allan Dystrup, Kommunedata I/S November 1991.
+28     28:  *
+29     29:  *  VERSION        $Header: d:/cwork/lck/RCS/lck.c 0.1 92/11/10 16:37:29
+30     30:  *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+31     31:  *                 -----------------------------------------------------------
+32     32:  *                 $Log:	lck.c $
+33     33:  *                 Revision 0.1  92/11/10  16:37:29  Allan_Dystrup
+34     34:  *                 PREREL (ALFA1)
+35     35:  *
+36     36:  *  REFERENCES     X/Open Company Ltd. [1989] : X/Open Portability Guide
+37     37:  *                    Issue 3 (XPG3), XSI System Interface and Headers
+38     38:  *                    Prentice Hall, Englewood Cliffs, New Jersey 07632
+39     39:  *                 Microsoft Corp. [1990] : Microsoft C Reference
+40     40:  *                    for MS OS/2 and MS-DOS Operating Systems.
+41     41:  *                    Microsoft Corporation.
+42     42:  *                 IBM Corp. [1984] : PC Hardware Reference Library
+43     43:  *                    Technical Reference, 6361459
+44     44:  *                    International Business Machines Corp.
+45     45:  *
+46     46:  *  USAGE          Module LCK.C features the following public routines for
+47     47:  *                 file sharing and record locking under MSDOS and UNIX.
+48     48:  *                 See the headerfile LCK.H for a detailed description of
+49     49:  *                 the user accessible datastructures and interface functions.
+50     50:  *                     POPEN()         // Open a file for sharing & locking
+51     51:  *                     PFCNTL          // LowLevel locking operation on file
+52     52:  *                     iPLock()        // HighLevel locking operation on file
+53     53:  *                     iPSem()         // VeryHiglLevel semaphore operations
+54     54:  *
+55     55:  *  DOC            Documentation is incorporated into the module and may be
+56     56:  *                 extracted (using a utility such as ex.awk) :
+
+XC ... 'C' Concordance Utility   lck.c                      Page 2
+
+57     57:  *                    Level 0 : Module doc. (detailed technical research)
+58     58:  *                    Level 1 : Module doc. (history, design, testdriver)
+59     59:  *                    Level 2 : PUBLIC functions (module program interface, "API")
+60     60:  *                    Level 3 : major PRIVATE functions (design)
+61     61:  *                    Level 4 : minor PRIVATE functions (support)
+62     62:  *
+63     63:  *  BUGS           The purpose of this module is to provide a DOS/UNIX system
+64     64:  *                 independent interface to file sharing and record locking.
+65     65:  *                 This can only be achieved using SYSTEM SPECIFIC FUNCTIONS
+66     66:  *                 so the PORTABILITY of the module is LIMITED to :
+67     67:  *                    MSDOS >= Version 3, and MS C 6.0 Compiler
+68     68:  *                    UNIX SV >= R3, and X/Open XPG3 compliant C Compiler Lib.
+69     69:  *                 The module will not compile in a strict standard C (ANSI)
+70     70:  *                 environment!!!
+71     71:  *
+72     72:  *+0============================= BACKGROUND =================================
+73     73:  *
+74     74:  *                      THE PROBLEM : MUTUAL EXCLUSION
+75     75:  * There are occations when multiple concurrent processes want to share a
+76     76:  * resource.  It is essential, that some form of mutual exclusion is enforced,
+77     77:  * so that only one process at a time can access the resource.
+78     78:  * Consider the classical Writers-problem of more users updating a record-
+79     79:  * structured sequential file; - Each user processes must be able to :
+80     80:  *    1 read any record
+81     81:  *    2 update the record
+82     82:  *    3 write back the record
+83     83:  * The problem stems from the following "race condition" : in the time it
+84     84:  * takes for a single process to execute the three steps, another process may
+85     85:  * start performing the same three steps on the same record, - chaos will
+86     86:  * result!
+87     87:  *
+88     88:  *
+89     89:  *                      THE SOLUTION : LOCKING
+90     90:  * What we need is a synchronization mechanism to prevent the processes from
+91     91:  * interfering with one another : a process should be able to set a LOCK on
+92     92:  * an object, so that no other process can access this same object until the
+93     93:  * first process is done and releases its LOCK. A program section accessing
+94     94:  * a shared object is called a "critical section", and the locking mechanism
+95     95:  * must ensure that conflicting critical sections do not overlap, thereby
+96     96:  * guaranteing mutual exclusive access to the shared object.
+97     97:  *
+98     98:  *
+99     99:  *                      LOCKING : RANGE
+100   100:  * The "resolution" of the locking function may be coarse (file) or fine grained
+101   101:  * (byte range).
+102   102:  *    FILE   LOCKING (F) : locks an entire file (eg UNIX rwx--x--x permission)
+103   103:  *    RECORD LOCKING (R) : locks only a specified part ("record") of the file.
+104   104:  *
+105   105:  *
+106   106:  *                      LOCKING : STRICTNESS
+107   107:  * Operating systems may impose loose (advisory) or strong (mandatory) locking
+108   108:  * control.
+109   109:  *    ADVISORY LOCKING (A): the operating system maintains full knowledge of
+110   110:  *    which files have been locked by which process, but it does not prevent
+111   111:  *    a process from writing to a file locked by another process. This type
+112   112:  *    of locking may be used by a group of cooperating processes.
+
+XC ... 'C' Concordance Utility   lck.c                      Page 3
+
+113   113:  *
+114   114:  *    MANDATORY LOCKING (M): The operating system checks every read and write
+115   115:  *    request, to verify that the operation does not interfere with a lock
+116   116:  *    held by any process. This strict kind of locking must be imposed, if
+117   117:  *    the processes accessing the shared ressource can not be controlled by
+118   118:  *    the system designer in advance.
+119   119:  *
+120   120:  * ------------------------------ DETAILS ------------------------------------
+121   121:  *
+122   122:  *                      LOCKING : SYSTEM IMPLEMENTATION
+123   123:  * The LOCK-function is composed of a test- and set-operation ("IF record locked
+124   124:  * THEN not-available ELSE lock") and these two atomic parts must be executed
+125   125:  * as ONE consecutive operation. Only the operating system has complete control
+126   126:  * over process scheduling, so only a system call can enforce an indivisible
+127   127:  * test-&-set-LOCK function. Modern operating system normally offer a DEDICATED
+128   128:  * system call for the locking operation :
+129   129:  *
+130   130:  *    UNIX : Berkley 4.3BSD : A  , F  : int flock(int fd, int c);
+131   131:  *           System  VR3... : A  , F&R: int fcntl(int fd, int cmd, ...)
+132   132:  *
+133   133:  *    MSDOS: DOS >=  v 3.1  : M  , F&R: The MSDOS system interface is simply
+134   134:  *           a series of (at times undocumented!) software interrupts, and the
+135   135:  *           handling of exclusive file access is a rather complex "cludge"
+136   136:  *           evolved by combining some of these interrupt procedures :
+137   137:  *
+138   138:  *           1 SYSTEM CALL API (INT 20H-27H)
+139   139:  *             The SYSTEM CALL interface to MSDOS is through SW INT 20H-27H
+140   140:  *             (with INT 30H-3FH reserved for "future use").
+141   141:  *
+142   142:  *           2 FUNCTION REQUEST CALL (INT 21H)
+143   143:  *             INT 21H is the general MSDOS FUNCTION REQUEST interrupt, with
+144   144:  *             subfunctions 00H-62H (in register AH) providing a series of OS
+145   145:  *             services for device I/O, management of files, memory & processes.
+146   146:  *             Of special interest for file access operations are the sub-func.:
+147   147:  *             2.1 DOS INT 3DH Open_a_file(char *fname, int faccess)
+148   148:  *                 The low level file-open system function specifying file
+149   149:  *                 access(A) & sharing(S) mode. Using S=100 ("deny-none")
+150   150:  *                 will defer control of concurrent access to the locking
+151   151:  *                 operation (INT 5CH)
+152   152:  *             2.2 DOS INT 5CH Lock/Unlock_File_Access(cmd,fd,offset,range)
+153   153:  *                 The dedicated system function for (un-)locking a range of
+154   154:  *                 bytes in a file
+155   155:  *
+156   156:  *           3 GENERAL MULTIPLEXING & REDIRECTING (INT 2FH)
+157   157:  *             INT 2FH (originally a vector for communication between DOS and
+158   158:  *             PRINT.COM) has evolved to a general MSDOS MULTIPLEX interrupt
+159   159:  *             providing a place to "hook in" any TSR IPC service; Multiplex
+160   160:  *             subfunctions 00H-7FH (in reg. AH) are reserved for DOS, while
+161   161:  *             80H-FFH are available for application use.
+162   162:  *             Starting with MSDOS 3.0, subfunctions 11xx were introduced as
+163   163:  *             a general REDIRECTOR INTERFACE : many MSDOS FUNCTION-REQUESTS
+164   164:  *             (INT 21H) will be redirected through INT 2FH,11xx for possible
+165   165:  *             interception & modification by application programs :
+166   166:  *             Ex : DOS OPEN   (21H-3D<MD>H) -> MULTIPLEX OPEN   (2FH-1116H)
+167   167:  *                  DOS LOCK   (21H-5C00H)   -> MULTIPLEX LOCK   (2FH-110AH)
+168   168:  *                  DOS UNLOCK (21H-5C01H)   -> MULTIPLEX UNLOCK (2FH-110BH)
+
+XC ... 'C' Concordance Utility   lck.c                      Page 4
+
+169   169:  *             This design provides a stream-level (ie. FCB vs. File-handle
+170   170:  *             independent) access to device I/O for application programs,
+171   171:  *             and a clean interface for implementing "virtual devices" (com-
+172   172:  *             pared to hooking into INT 21H or writing a new device driver).
+173   173:  *
+174   174:  *           4 SHARING (SHARE.EXE)
+175   175:  *             MSDOS >= 3.1 provides the program SHARE.EXE for basic mutual
+176   176:  *             exclusion extensions to DOS. The program loads as a TSR, and
+177   177:  *             installs itself in the chain of INT 2FH handlers (if the call
+178   178:  *             is not for a subfunction 10xx, control is passed to the next
+179   179:  *             handler in the chain). In this way SHARE can monitor all file
+180   180:  *             access and arbitrate filesharing & -locking in a multitasking
+181   181:  *             or/and networked environment. Together with a network redirector
+182   182:  *             (see below) SHARE can provide mutual exclusive access to remote
+183   183:  *             files on a LAN.
+184   184:  *
+185   185:  *             DOS INT 21(44H) is the general MSDOS low level device-IOCTL;
+186   186:  *             Subfunction 0BH (reg. AL) was introduced with v. 3.0 as a
+187   187:  *             means for resetting ("tuning") the retry count (default 3) and
+188   188:  *             delay loop count (default 1) in case of share/lock conflicts.
+189   189:  *
+190   190:  *           5 VIRTUAL DEVICES (IFS)
+191   191:  *             The INT 2FH (11xxH) redirector interface of the multiplex INT
+192   192:  *             has been used to implement a number of INSTALLABLE FILE SYSTEMS
+193   193:  *             (IFS's) as for instance :
+194   194:  *              - MSCDEX.EXE (Microsoft CD-ROM Extension program
+195   195:  *              - IFSFUNC.EXE (MSDOS 4.0 for support of disks > 32MB)
+196   196:  *              - REDIRECTOR (network redirector for NetBIOS based LANs)
+197   197:  *                The redirector hooks into INT 2FH and traps 11xxH-calls for
+198   198:  *                mapping logical drives to remote physical disks; The mapping
+199   199:  *                is effected by one or more TSR/Device Driver modules, by :
+200   200:  *                 - packing OS system calls (device/file requests) into Server-
+201   201:  *                   Message-Blocks (SMB), which are passed by INT 2AH to a
+202   202:  *                 - Session Level module, where they each are packed into a
+203   203:  *                   Network-Control-Block (NCB) and send by INT 5CH to the
+204   204:  *                 - Transport Level module (NetBIOS) for further Data Link
+205   205:  *                   expedition by "virtual circuit" to a remote server.
+206   206:  *                   Common DOS redirectors ("INT 2FH,11xxH hook" TSR's) are :
+207   207:  *                    - REDIR.EXE (IBM PC LAN)
+208   208:  *                    - MSREDIR.EXE (MS NET)
+209   209:  *                    - WRKSTA.EXE (MSLM >=2.0 IBMLS >=1.2)
+210   210:  *                   The newest DOS/OS2 redirectors (WRKSTA.EXE) include support
+211   211:  *                   for named pipes & mail slots.
+212   212:  *
+213   213:  *           6 PEER-TO-PEER SESSION (NetBIOS)
+214   214:  *             The actual SESSION-LEVEL communication between the two OS'es
+215   215:  *             is done by the peer-to-peer NetBIOS protocol stack (TSR's):
+216   216:  *                Application -INT21H->             MSDOS FUNCTION REQUEST
+217   217:  *                DOS         -INT2FH(11xxH)->      MSDOS MULTIPLEX CHAIN
+218   218:  *                SHARE       -INT2FH(10xxH)->      (1) MUTUAL EXCLUSION
+219   219:  *                REDIRECTOR  -INT2AH-(SMB)->       (2) NET REDIRECTOR
+220   220:  *                NET         -INT5CH-(NCB)->       SESSION:REC/SRV/MES
+221   221:  *                NetBIOS     -INT5CH-(CCB)->       TRANSPORT:DATAGR/VIR.CIRC.
+222   222:  *                DataLink    ... etc               LLC/MAC/PHYSICAL LAYERS
+223   223:  *
+224   224:  *    OS/2 : USHORT DosFileLocks(HFILE hf, PFILELOCK pfUnLock, PFILELOCK pfLock);
+
+XC ... 'C' Concordance Utility   lck.c                      Page 5
+
+225   225:  *           Will unlock and/or lock region(s) in a file specified by the
+226   226:  *           pointer(s) to structure(s) : pfUnLock and pfLock (optionally NULL).
+227   227:  *           Unlock is performed before lock, and OS/2 supports overlapping
+228   228:  *           locks, BUT ONLY EXCLUSIVE (NOT SHARED) LOCKS.
+229   229:  *
+230   230:  * An alternative to using a dedicated system call for implementing the mutual
+231   231:  * exclusion mechanism is to rely on a FILE SYSTEM function for providing
+232   232:  * the exclusive access; This practice of using a dummy file as a "semaphore"
+233   233:  * has been a common practice in (early) UNIX versions. The locking may be
+234   234:  * based on one of the following file system calls :
+235   235:  *  - link() : fails if the link name already exists
+236   236:  *  - creat(): fails if the file exists & the caller lacks Write-permission
+237   237:  *  - open() : fails if the file exists (flag O_CREAT & O_EXCL, 4.3BSD & SysV)
+238   238:  *
+239   239:  *
+240   240:  *                      LOCKING : C IMPLEMENTATION
+241   241:  * The C language library normally offers a high level API to the "raw" opera-
+242   242:  * ting system call interface. For sharing and locking operations we may use :
+243   243:  *
+244   244:  *    UNIX : SysVR3 C : int lockf(int fd, int cmd, long size);
+245   245:  *
+246   246:  *    MSDOS: The sopen() function of MS/BORLAND C provides a high-level API to
+247   247:  *           the DOS INT 21H-3DxxH Open_a_file, while the lock(ing)/unlock
+248   248:  *           functions is the C API to DOS INT 21H-5CxxH Lock/Unlock file acc.
+249   249:  *           MSC 6.00 : int sopen(char *file, int oflag, int shflag, int pmode);
+250   250:  *                      int locking(int fd, int cmd, long size);
+251   251:  *           BORL.TC++: int sopen(char *path, int access, int shflag, int mode);
+252   252:  *                      int lock(int handle, long offset, long length);
+253   253:  *                      int unlock(int handle, long offset, long length);
+254   254:  *           LOW-LEVEL
+255   255:  *           Most DOS C compilers provide a more direct interface to the
+256   256:  *           operating system calls, to ensure availability of the full OS
+257   257:  *           functionality; for MSC60 and BTC++ we may thus use :
+258   258:  *              int intdos(union REGS *inregs, union REGS *outregs);
+259   259:  *              with variants : intdosx, int86, int86x
+260   260:  *           For the commonly used system calls, MSC60 furthermore offers a
+261   261:  *           series of predefined "INT macro's", among others :
+262   262:  *              _dos_open(char*path, unsigned mode, int *handle);
+263   263:  *
+264   264:  *           OBS exclusive file access in MSDOS :
+265   265:  *           File locking under DOS requires loading of the SHARE.EXE
+266   266:  *           monitor/arbiter TSR module, and locking on remote files in a
+267   267:  *           LAN requires a net redirector TSR/device-driver in place
+268   268:  *           (for instance WRKSTA.EXE in MS LAN MANAGER).
+269   269:  *           Before trying to execute the first share/lock-request, an
+270   270:  *           application program should ensure the precense (in RAM) of
+271   271:  *           these OS extensions!
+272   272:  *
+273   273:  *
+274   274:  *                      LOCKING : PORTABILITY
+275   275:  * The problem with both the operating system interface (of course) and the
+276   276:  * C-library API is, that no standardization has been undertaken across the
+277   277:  * different platforms; Even the (several!) international standardization
+278   278:  * efforts have not (yet, as of 1992) resulted in a common API for locking :
+279   279:  *    POSIX.1 ISO/IEEE 1003.1 and X/Open XPG3 System Interface (XSI):
+280   280:  *       int fcntl(int fd, int cmd, ...);
+
+XC ... 'C' Concordance Utility   lck.c                      Page 6
+
+281   281:  *       Adapted from UNIX System VR3 (SVID) advisory record locking
+282   282:  *    ISO/IEC 9890 STD C :
+283   283:  *       The standarc C I/O library does NOT include an API for file/record
+284   284:  *       locking, - not even at the low level.
+285   285:  *
+286   286:  * ============================== DESIGN =====================================
+287   287:  *
+288   288:  *                      PORTABLE LOCKING : SOLUTIONS
+289   289:  * To implement a portable locking mechanism we may choose one of two methods:
+290   290:  *
+291   291:  *   1  Implement our own "semaphore" datatype based on the file system-call's
+292   292:  *      mutual exclusion property :
+293   293:  *      - for LOCK ("semaphore raise", ie. create semaphore file)
+294   294:  *           UNIX : fd = open(path, O_WRONLY | O_CREAT, 0);
+295   295:  *           MSDOS: fd = open(path, O_WRONLY | O_CREAT | S_IREAD | S_IWRITE);
+296   296:  *      - for UNLOCK ("semaphore lower", ie. remove semaphore file)
+297   297:  *           UNIX & MSDOS : unlink(path);
+298   298:  *
+299   299:  *   2  Base our implementation on the POSIX-X/Open System interface for low
+300   300:  *      level file control, including LOCK/UNLOCK operations. This system call
+301   301:  *      is available in all POSIX-X/Open conforming UNIX implementations (which
+302   302:  *      is a requirement for UNIX OS'es supported by KMD) :
+303   303:  *         UNIX : int fcntl(int fd, int cmd, ...);
+304   304:  *      and the same interface can be simulated on MSDOS by "wrapping" any
+305   305:  *      existing compiler-specific C-function for locking into a simple macro
+306   306:  *      mimicrying the POSIX API :
+307   307:  *         MSDOS/MSC6.0 : int locking(int fd, int cmd, long size);
+308   308:  *
+309   309:  *
+310   310:  *                      PORTABLE LOCKING : CHOICE
+311   311:  * Solution 2 is less general (for instance it will not port to BSD), but it
+312   312:  * is easier and more safe to implement (detection of potential deadlock,
+313   313:  * robustness in a distributed environment).
+314   314:  * Furthermore solution 2 is fully adequate for the KMD system arcitecture
+315   315:  * (we don't need to support ALL UNIX versions!), so we choose this option
+316   316:  * for our implementation.
+317   317:  *
+318   318:  *
+319   319:  * ========================== IMPLEMENTATION =================================
+320   320:  *
+321   321:  *                      POSIX-X/Open XSI C INTERFACE
+322   322:  *
+323   323:  * int fcntl(int fildescriptor, int command, struct flock argument);
+324   324:  *
+325   325:  * command (relevant for locking) :
+326   326:  *    F_SETLK      Set a record lock, failing if the lock is not available :
+327   327:  *                 Set or clear a file segment lock according to the lock
+328   328:  *                 description pointed to by argument.
+329   329:  *                 The argument's l_type may be : F_RDLCK, F_WRLCK or F_UNLCK.
+330   330:  *                 If a shared or exclusive lock is blocked by other locks
+331   331:  *                 fcntl will return -1
+332   332:  *    F_SETLKW     Set a record lock, pending (blocking) if necessary :
+333   333:  *                 Same as F_SETLK except that if a shared or exclusive
+334   334:  *                 lock is blocked by other locks, fcntl will wait until
+335   335:  *                 the request can be satisfied (or a SW INT is received,
+336   336:  *                 causing return -1 with errno=EINTR).
+
+XC ... 'C' Concordance Utility   lck.c                      Page 7
+
+337   337:  *    F_GETLK      Test whether existing record locks would cause an attempt
+338   338:  *                 to set a particular lock to fail : Get first lock which
+339   339:  *                 would blocks the lock description pointed to by argument.
+340   340:  *                 If no blocking lock, leave argument unchanged, else set
+341   341:  *                 l_type to F_UNLCK and l_pid to process ID of the lock-owner.
+342   342:  *
+343   343:  * argument (for locking operations) :
+344   344:  *    struct flock {
+345   345:  *       short l_type;     - Type of lock.
+346   346:  *                           F_RDLCK   set a read (shared) lock
+347   347:  *                           F_WRLCK   set an write (exclusive) lock
+348   348:  *                           F_UNLCK   remove either type of lock
+349   349:  *       short l_whence;   - From which direction to measure l_start :
+350   350:  *                           SEEK_SET  from start of file
+351   351:  *                           SEEK_CUR  from current position
+352   352:  *                           SEEK_END  from end of file
+353   353:  *       off_t l_start;    - Offset in file for start of lock
+354   354:  *                           counted relative to l_whence
+355   355:  *       off_t l_len;      - Length of lock region, possibly 0
+356   356:  *                           number of consecutive bytes to lock
+357   357:  *                           a Zero (0) value will lock to end-of-file
+358   358:  *       pid_t l_pid;      - Process ID for owner of lock, set by F_GETLK
+359   359:  *                           identifying process with a blocking lock
+360   360:  *       short  l_sysid;   - DG System identifier
+361   361:  *       short  l_pad1;    - DG Unused padding;
+362   362:  *                           set to zero when returned by the kernel.
+363   363:  *    };
+364   364:  *
+365   365:  *
+366   366:  *                      MICROSOFT C 6.0 INTERFACE
+367   367:  *
+368   368:  * int locking(int fildescriptor, int command, long nbytes);
+369   369:  *
+370   370:  * command :
+371   371:  *     Failing (non-blocking) locks : If the file range cannot be locked,
+372   372:  *     locking returns -1 immediately.
+373   373:  *     LK_NBLCK       set a non-blocking read (shared) lock
+374   374:  *     LK_NBRLCK      set a non-blocking write (exclusive) lock
+375   375:  *
+376   376:  *     Pending (blocking) locks : If the file range connot be locked,
+377   377:  *     locking tries again after 1 second; If after 10 attempts the bytes
+378   378:  *     cannot be locked, locking returns -1.
+379   379:  *     LK_LOCK        set a pending read (shared) lock
+380   380:  *     LK_RLCK        set a pending write (exclusive) lock
+381   381:  *
+382   382:  *     LK_UNLCK       remove either type of lock
+383   383:  *                    the bytes must have been locked in advance
+384   384:  *
+385   385:  * nbytes  :          Length of lock region
+386   386:  *                    number of consecutive bytes to lock
+387   387:  *
+388   388:  * FORWARD REFERENCE: !NB In spite of what the MSC6.0 documentation postulates
+389   389:  *                    THE MS C COMPILER DOES NOT SUPPORT READ/SHARED LOCKS -
+390   390:  *                    cf. the following section : "TEST".
+391   391:  *
+392   392:  *-0
+
+XC ... 'C' Concordance Utility   lck.c                      Page 8
+
+393   393:  *--------------------- PORTABLE POSIX/MSC FCNTL SUBSET ----------------------
+394   394:  *
+395   395:  * UNIX/POSIX-C                           MSDOS/MS-C
+396   396:  *
+397   397:  * struct flock {
+398   398:  *    short l_type;                       cf. equivalences listed below
+399   399:  *    short l_whence;                     > Requires lseek(fd,l_start,l_whence)
+400   400:  *    off_t l_start;                      > before call of locking(...)
+401   401:  *    off_t l_len;                        Equivalent to nbytes
+402   402:  *    pid_t l_pid;                        Ignored
+403   403:  *    short l_sysid;                      Totally ignored (DG UX extension)
+404   404:  *    short l_pad1;                       Totally ignored (DG UX extension)
+405   405:  *  };
+406   406:  *
+407   407:  * l_type equivalences :
+408   408:  *    fcntl(fd, F_SETLK,  [F_RDLCK]);     locking(fd, LK_NBLCK,  l_len);
+409   409:  *    fcntl(fd, F_SETLK,  [F_WRLCK]);     locking(fd, LK_NBRLCK, l_len);
+410   410:  *    fcntl(fd, F_SETLKW, [F_RDLCK]);     locking(fd, LK_LOCK,   l_len);
+411   411:  *    fcntl(fd, F_SETLKW, [F_WRLCK]);     locking(fd, LK_RLCK,   l_len);
+412   412:  *    fcntl(fd, F_SETLK,  [F_UNLCK]);     locking(fd, LK_UNLCK,  l_len);
+413   413:  *
+414   414:  * The fcntl() functionality for locking operations can be provided under
+415   415:  * MSDOS by setting up an interface function (eg. PFCNTL, Portable FCNTL)
+416   416:  * translating the fcntl() call syntax to the locking() equivalents.
+417   417:  * This will be called the "LowLevel API".
+418   418:  *
+419   419:  * For convenience I will furthermore provide a "HighLevel API" in the form
+420   420:  * of a function iPLock(), that simply packs it's arguments into a flock-
+421   421:  * structure and pases this structure as an argument to PFCNTL for execution
+422   422:  * of the locking operation.
+423   423:  *
+424   424:  * -------------------- PORTABLE POSIX/MSC FCNTL API -------------------------
+425   425:  *
+426   426:  *     UNIX/POSIX-C              PORTABLE            MSDOS/MS-C
+427   427:  *      (-DUNIX)                                     (-DMSDOS)
+428   428:  *                                POPEN
+429   429:  *                                  |
+430   430:  *             +--------------------+--------------------+
+431   431:  *             |                                         |
+432   432:  *           open                                      DOPEN
+433   433:  *                                                       |
+434   434:  *                                                     vChkEnv
+435   435:  *                                                     sopen
+436   436:  *
+437   437:  *  HighLevel API:                iPLock
+438   438:  *                                  |
+439   439:  *  LowLevel  API:                PFCNTL
+440   440:  *                                  |
+441   441:  *             +--------------------+--------------------+
+442   442:  *             |                                         |
+443   443:  *          fcntl                                      DFCNTL
+444   444:  *                                                       |
+445   445:  *                                                     lseek
+446   446:  *                                                     locking
+447   447:  *
+448   448:  *+0============================= TEST =======================================
+
+XC ... 'C' Concordance Utility   lck.c                      Page 9
+
+449   449:  *
+450   450:  * The following table lists the results of a test-run on DOS and UNIX using
+451   451:  * the defined "portable" interface for file sharing and record locking;
+452   452:  *
+453   453:  *   +----------------------------------------------+---------------------+
+454   454:  *   | Lin Lock     Proc#  LockOperation  LockRange |   DOS      UNIX     |
+455   455:  *   +----------------------------------------------+---------------------+
+456   456:  *   | 01  READ       1    NREAD  lock     0 - 10   |   OK       OK       |(*)
+457   457:  *   | 02             2    read   file       do     |   EBADF    OK       |
+458   458:  *   | 03             2    write  file       do     |   EBADF    OK       |
+459   459:  *   | 04  READ(ux)   2    NREAD  lock       do     |   EACCES   OK       |
+460   460:  *   | 05             2    NWRITE lock       do     |   EACCES   EACCES   |(*)
+461   461:  *   | 06             1    read   file       do     |   OK       OK       |(*)
+462   462:  *   | 07             1    write  file       do     |   OK       OK       |(*)
+463   463:  *   | 08  READ(ux)   1    NREAD  lock       do     |   EACCES   OK       |
+464   464:  *   | 09             1    NWRITE lock       do     |   EACCES   EACCES   |(*)
+465   465:  *   +----------------------------------------------+---------------------+---
+466   466:  *   | 10  WRITE      1    NWRITE lock     0 - 10   |   OK       OK       | *
+467   467:  *   | 11             2    read   file       do     |   EBADF    OK       |
+468   468:  *   | 12             2    write  file       do     |   EBADF    OK       |
+469   469:  *   | 13             2    NREAD  lock       do     |   EACCES   EACCES   |(*)
+470   470:  *   | 14             2    NWRITE lock       do     |   EACCES   EACCES   | *
+471   471:  *   | 15             1    read   file       do     |   OK       OK       | *
+472   472:  *   | 16             1    write  file       do     |   OK       OK       | *
+473   473:  *   | 17  READ(ux)   1    NREAD  lock       do     |   EACCES   OK       |
+474   474:  *   | 18  WRITE(ux)  1    NWRITE lock       do     |   EACCES   OK       |
+475   475:  *   +----------------------------------------------+---------------------+
+476   476:  *
+477   477:  * Observe the following characteristics and differences :
+478   478:  *
+479   479:  * 1. DOS record locking is MANDATORY, as opposed to UNIX ADVISORY locking :
+480   480:  *     - DOS will BLOCK any read/write attempt on a locked file region
+481   481:  *       by any other process than the user holding the lock.
+482   482:  *     - UNIX does NOT VALIDATE read/write-requests to locked regions.
+483   483:  *
+484   484:  * 2. MSC60 record locking does not support shared/read-locks but only
+485   485:  *    exclusive/write-locks whereas UNIX offers both types of locking :
+486   486:  *     - MSC60 locking() function will not allow more than one lock
+487   487:  *       on any file region, even by the same process (lines: 04,08,09).
+488   488:  *       THIS DOES NOT AGREE WITH THE DOCUMENTATION OF THE MS C 6.0 LOCKING
+489   489:  *       FUNCTION AND THE HEADERFILE \SYS\LOCKING.H, STATING THE PRECENCE OF
+490   490:  *       BOTH READ AND WRITE LOCKS! - A closer inspection of DOS 21H-5CxxH
+491   491:  *       "Lock/Unlock_File_Access" function reveals, that DOS itself in fact
+492   492:  *       does NOT support read-locks at the byte level (only the share acces
+493   493:  *       modes: deny read/write/both at the file level specified in open()).
+494   494:  *     - UNIX does support read locks, including multiple read locks on the
+495   495:  *       same file range, as well as substitution of a read with a write lock
+496   496:  *       by the owner process, if no other process holds a lock on the region
+497   497:  *       in question (lines: 04,08,17,18).
+498   498:  *
+499   499:  * 3. The subset of locking operations with a consistent behaviour across the
+500   500:  *    DOS and UNIX platforms has been marked with asterix: * in the table;
+501   501:  *    For a portable implementation, the READ-lock (ie. SHARED locking) option
+502   502:  *    should not be used, since it is obviously not supported by the MSC60 
+503   503:  *    compiler for DOS. I have put the asterix for these operations inside (*)
+504   504:  *    in the table.
+
+XC ... 'C' Concordance Utility   lck.c                      Page 10
+
+505   505:  *    What remains are the following WRITE-lock (EXCLUSIVE locking) operations,
+506   506:  *    which we may safely use to implement mutual exclusive access to file
+507   507:  *    regions in a multitasking multiuser environment :
+508   508:  *
+509   509:  *   +----------------------------------------------+---------------------+
+510   510:  *   | Lin Lock     Proc#  LockOperation  LockRange |   DOS      UNIX     |
+511   511:  *   +----------------------------------------------+---------------------+
+512   512:  *   | 10  WRITE      1    NWRITE lock     0 - 10   |   OK       OK       | *
+513   513:  *   | 14             2    NWRITE lock       do     |   EACCES   EACCES   | *
+514   514:  *   | 15             1    read   file       do     |   OK       OK       | *
+515   515:  *   | 16             1    write  file       do     |   OK       OK       | *
+516   516:  *   +----------------------------------------------+---------------------+
+517   517:  *
+518   518:  *-0
+519   519:  *=========================== FINAL WRAPPING =================================
+520   520:  *
+521   521:  * As clarified in the previous section ("TEST") a portable READ/SHARED-lock 
+522   522:  * mechanism is not available across the DOS/UNIX platforms; This restriction 
+523   523:  * introduces a new problem for all those applications that may tolerate a 
+524   524:  * short-term write lock on records, but need multiple read access most of the
+525   525:  *  time (in a UNIX environment locking is only ADVISORY, so any process may 
+526   526:  * freely read a locked region, whereas DOS imposes a MANDATORY locking with 
+527   527:  * strict I/O-checking and rejection of all access attempts on a locked record).
+528   528:  *
+529   529:  * To solve this problem, we will use our function iPLock and the "consistent
+530   530:  * function subset" (cf. the TESTING section above) to implement a simple
+531   531:  * semaphore mechanism for mutual exclusive access to record-structured files.
+532   532:  * This access scheme will be based on the precence of a "lock-byte" in each
+533   533:  * record;  the lock-byte may be set ("SEMUP"), cleared ("SEMDOWN") and tested
+534   534:  * by multiple processes using the "VeryHighLevel" function : iPSem().
+535   535:  *
+536   536:  *     UNIX/POSIX-C              PORTABLE            MSDOS/MS-C
+537   537:  *      (-DUNIX)                                     (-DMSDOS)
+538   538:  *
+539   539:  *  VeryHighLevel API:            iPSem
+540   540:  *                                  |
+541   541:  *  HighLevel API:                iPLock
+542   542:  *                                  |
+543   543:  *  LowLevel  API:                PFCNTL
+544   544:  *                                  |
+545   545:  *             +--------------------+--------------------+
+546   546:  *             |                                         |
+547   547:  *          fcntl                                      DFCNTL
+548   548:  *                                                       |
+549   549:  *                                                     lseek
+550   550:  *                                                     locking
+551   551:  *
+552   552:  * The new VHLAPI function iPSem() calls on iPLock() to set up a "critical
+553   553:  * section" around access to the lock-byte, thus in effect implementing the
+554   554:  * basic indivisible sem.operations (SEMTEST, SEMUP, SEMDOWN) on the byte.
+555   555:  * By including a lock-byte in each record and using iPSem() to change the
+556   556:  * state of the lock-byte (SEMUP or SEMDOWN), the lock-byte will act as a mutual
+557   557:  * exclusive flag (= a semaphore) telling whether the record-resource is
+558   558:  * in current use for updating (semaphore:SEMUP) or free (semaphore:SEMDOWN).
+559   559:  * NOTE that even if the state of the semaphore for a record is "SEMUP", the
+560   560:  * record may still be safely read by other processes. A record guarded by a
+
+XC ... 'C' Concordance Utility   lck.c                      Page 11
+
+561   561:  * locked semaphore (state "SEMUP") may also for that matter be directly updated
+562   562:  * by other processes, if they fail to test or chose to ignore the semaprore
+563   563:  * flag - THIS PRACTICE SHOULD BE AVOIDED HOWEVER, AS IT WILL LEAD TO UNPRE-
+564   564:  * DICTABLE RESULTS!
+565   565:  *
+566   566:  *
+567   567:  *+0==========================================================================
+568   568:  *
+569   569:  * Outstanding questions :
+570   570:  *  -  test NFS functionality (UNIX remote drive!)
+571   571:  *
+572   572:  *-0
+573   573:  *
+574   574:  *-1========================================================================*/
+575   575: 
+576   576: 
+577   577: 
+578   578: /*==========================================================================*/
+579   579: /*                           INCLUDE FILES                                  */
+580   580: /*==========================================================================*/
+581   581: 
+582   582: /* Standard C headers */
+583   583: #include <signal.h>
+584   584: #include <string.h>
+585   585: 
+586   586: 
+587   587: /* Module header */
+588   588: #define _LCK_ALLOC
+589   589: #include "lck.h"
+590   590: 
+591   591: 
+592   592: 
+593   593: /*==========================================================================*/
+594   594: /*                      DEFINE'S & FUNCTION PROTOTYPES                      */
+595   595: /*==========================================================================*/
+596   596: #define    STOP    FALSE       /* Possible actions after error check */
+597   597: #define    CONT    TRUE
+598   598: 
+599   599: #define    ERROR   -1          /* Symbolic const for DOS func return value. */
+600   600: #define    OK       0
+601   601: #define    ICLAMP(lvar) (lvar >= 0L ? OK : ERROR)  /* Conv lseek.pos to int */
+602   602: 
+603   603: #define    SEMRD    0          /* Semaphore I/O operations */
+604   604: #define    SEMWR    1
+605   605: 
+606   606: 
+607   607: PRIVATE int
+608   608:           iSemIO   P((int iFd, long lPos, int iOp, char *pcSem));
+609   609: 
+610   610: 
+611   611: #ifdef MSDOS
+612   612: PRIVATE int
+613   613:           iChkEnv  P((void));
+614   614: #endif
+615   615: 
+616   616: 
+
+XC ... 'C' Concordance Utility   lck.c                      Page 12
+
+617   617: 
+618   618: #ifdef MAIN
+619   619: /****************************************************************************/
+620   620: /**************************** MAIN TESTDRIVER *******************************/
+621   621: /****************************************************************************/
+622   622: 
+623   623: 
+624   624: /*--------------------------------------------------------------------------*/
+625   625: /*                      main() error# & messages                            */
+626   626: /*--------------------------------------------------------------------------*/
+627   627: 
+628   628: /* DOS file operations -------------------------------------------- */
+629   629: #define    AOPEN     0                 /* 00: File open */
+630   630: #define    ASEEK     1                 /* 01: File seek */
+631   631: #define    AREAD     2                 /* 02: File read */
+632   632: #define    ALOCK     3                 /* 03: File lock */
+633   633: #define    AWRIT     4                 /* 04: File read */
+634   634: #define    AFILE     5                 /* 05: File operation (generic) */
+635   635: /* iChkEnv error codes -------------------------------------------- */
+636   636: #define    ABCHK   (11)                /* Base offset */
+637   637: #define    ANBLD   (-5)                /* 06: Net-BIOS Loa-Ded */
+638   638: #define    ANWLD   (-4)                /* 07: Net-Work Loa-Ded */
+639   639: #define    ASHLD   (-3)                /* 08: SH-are Loa-Ded */
+640   640: #define    ASHEX   (-2)                /* 09: SH-are EX-ists */
+641   641: /* iPSem error codes ---------------------------------------------- */
+642   642: #define    ABSEM   (15)                /* Base offset */
+643   643: #define    ASMIV   (-5)                /* 10: Se-Maphore InValid */
+644   644: #define    ASMUS   (-4)                /* 11: Se-Maphore in USe (SEMUP) */
+645   645: #define    ASMFR   (-3)                /* 12: Se-Maphore FRee (SEMDOUN) */
+646   646: #define    ASMIN   (-2)                /* 13: Se-Maphore err in INpot */
+647   647: 
+648   648: 
+649   649: /* Define error messages, cf. associated error-ID's above */
+650   650: PRIVATE char *rgpchErrmsg[] = {
+651   651:     /* DOS file operations --------------------------------- BASE 00 */
+652   652:     "Fejl[%d] ved †bning af fil[%s] - Findes filen?\n",        /* 00: AOPEN, errno, filename */
+653   653:     "Fejl[%d] ved positionering ('seek') i fil\n",             /* 01: ASEEK, errno */
+654   654:     "Fejl[%d] ved l‘sning fra fil\n",                          /* 02: AREAD, errno */
+655   655:     "Fejl ved l†se-operation p† fil\n",                        /* 03: ALOCK */
+656   656:     "Fejl[%d] ved skrivning til fil\n",                        /* 04: AWRIT, errno */
+657   657:     "Fejl[%d] ved fil operation\n",                            /* 05: AFILE, errno */
+658   658:     /* iChkEnv --------------------------------------------- BASE 11: ABCHK */
+659   659:     "Ingen NetBIOS interface - udf›r netinstallation!\n",      /* 06: ANBLD */
+660   660:     "Ingen netdrev synlige - udf›r netops‘tning!\n",           /* 07: ANWLD */
+661   661:     "Ingen support for fildeling/l†sning - udf›r SHARE.EXE!\n",/* 08: ASHLD */
+662   662:     "DOS version < 3.0 , - ikke support for flerbruger!\n",    /* 09: ASHEX */
+663   663:     /* iPSem ----------------------------------------------- BASE 14: ABSEM */
+664   664:     "Fejl: SEMUP/SEMDOWN p† ikke-semaphor (invalid byte)\n",   /* 10: ASMIV */
+665   665:     "Fejl: SEMUP p† hejst semaphor - Record allerede l†st!\n", /* 11: ASMUS */
+666   666:     "Fejl: SEMDOWN p† fri semaphor - Record allerede fri!\n",  /* 12: ASMFR */
+667   667:     "Fejl i inddata til semaphor funktion: iPSem()\n"          /* 13: ASMIN */
+668   668: };
+669   669: 
+670   670: 
+671   671: /* Define logon-message */
+672   672: PRIVATE char SIGNON[] =
+
+XC ... 'C' Concordance Utility   lck.c                      Page 13
+
+673   673:     "\nKMD Portable Locking Functions (Testdriver), Version 0.1\n"
+674   674:     "MOD[LCK.C] VER[0.1.0 Exp] DAT[92/08/31] DEV[ad divdec]\n"
+675   675:     "Copyright (c) Allan Dystrup 1992\n\n";
+676   676: 
+677   677: 
+678   678: /* Declare a global-scope file descriptor (visible for signal catcher) */
+679   679: PRIVATE int  iFd;          /* File descriptor for testfile */
+680   680: 
+681   681: 
+682   682: 
+683   683: /*--------------------------------------------------------------------------*/
+684   684: /*                      main support function prototypes                    */
+685   685: /*--------------------------------------------------------------------------*/
+686   686: PRIVATE void
+687   687:           vSigCatch    P((int iSigNum));
+688   688: 
+689   689: PRIVATE void
+690   690:           vChkErr      P((int cond, int cont, int iLine, int err, ...));
+691   691: 
+692   692: PRIVATE void
+693   693:           vChkEno      P((int iRetCode));
+694   694: 
+695   695: 
+696   696: #define   BUFLEN  1024L    /* Length of record buffer */
+697   697: 
+698   698: 
+699   699: 
+700   700: /*+1 MODULE LCK.C ==========================================================*/
+701   701: /*   NAME                         main                                      */
+702   702: /*== SYNOPSIS ==============================================================*/
+703   703: PRIVATE void
+704   704: main(argc, argv, envp)
+705   705:     int       argc;        /* Argument count */
+706   706:     char     *argv[];      /* Argument vector */
+707   707:     char     *envp[];      /* Environment pointer */
+708   708: 
+709   709: {
+710   710: /* DESCRIPTION
+711   711:  *    Demoprogram and testdriver for module "lck.c".
+712   712:  *    The function demonstrates the proper use of datastructures and
+713   713:  *    public functions declared in lck.h and defined in lck.c.
+714   714:  *
+715   715:  *    0: Signon & setup signal catcher.
+716   716:  *    1: Open testfile (for update/sharing).
+717   717:  *    2: LOOP  //Test file locking, - execute lck from multiple terminals!
+718   718:  *          2.1: Prompt for input
+719   719:  *          2.2: Get input string from user/stdin, format: <CODE START LEN>
+720   720:  *          2.3: Call iPLock() or iPSem(), with func. depending on entered CODE
+721   721:  *       UNTIL ( CODE=Quit )
+722   722:  *
+723   723:  * RETURN
+724   724:  *    main() returns :
+725   725:  *     - EXIT_SUCCESS on normal termination,
+726   726:  *     - EXIT_FAILURE on fatal error.
+727   727:  *    (However main() is a testdriver and not intended to interface with any
+728   728:  *    calling program, so the return value is insignificant in this context).
+
+XC ... 'C' Concordance Utility   lck.c                      Page 14
+
+729   729:  *
+730   730:  * EXAMPLE
+731   731:  *    The function main() demonstrates the proper use of the portable "high
+732   732:  *    level" interface iPLock() for file sharing & record locking, and the
+733   733:  *    portable "very high level" interface iPSem() for semaphore operations.
+734   734:  *
+735   735:  * SEE ALSO
+736   736:  *    Study the implementation of function iPLock() for an example of direct
+737   737:  *    call to the portable "low level" interface PFCNTL.
+738   738:  *-1*/
+739   739: 
+740   740:     char      pzPath[] = "./LCK.tst1";  /* Name of testfile for locking */
+741   741:     char      pzDum[]  = "./LCK.tst2";  /* Name of dummy file/string */
+742   742:     char      pzBuf[BUFLEN];          	/* Read buffer for testfile */
+743   743:     char      *pStr    = NULL;         	/* Pointer to a string */    
+744   744:     long      lStr     = 0L;           	/* Length of a string */
+745   745: 
+746   746:      char      cAnswer  = 'E';          /* INPUT: type of lock operation */
+747   747:     off_t     lStart   = (off_t) -1;   /* INPUT: startpos in file for lock */
+748   748:     off_t     lLen     = (off_t) -1;   /* INPUT: # bytes to lock (from lStart) */
+749   749: 
+750   750:     int       iFd1     = -1;           /* File descriptor, for WhiteBox-test */
+751   751:     int       iRetCode = -1;           /* Int return code */
+752   752:     long      lRetCode = 0L;           /* Long return code */
+753   753: 
+754   754: 
+755   755:     /*----------------------------------------------------------------------*/
+756   756:     /* 0: Signon & setup signal catcher                                     */
+757   757: 
+758   758:     fputs(SIGNON, stdout);
+759   759:     signal(SIGINT, vSigCatch);
+760   760:     signal(SIGTERM, vSigCatch);
+761   761: 
+762   762: 
+763   763:     /*----------------------------------------------------------------------*/
+764   764:     /* 1: Open testfile for update/sharing; - DOS: check version & share    */
+765   765: 
+766   766:     iFd = POPEN(pzPath);
+767   767:     vChkErr(iFd == ASHEX, STOP, __LINE__, ABCHK + iFd);
+768   768:     vChkErr(iFd == ASHLD && system("share") != 0, STOP, __LINE__, ABCHK + iFd);
+769   769:     if (iFd == ASHLD) {
+770   770:        iFd = POPEN(pzPath);
+771   771:        printf("SHARE:\tSupport for fildeling/recordl†s load'ed\n");
+772   772:     }
+773   773:     vChkErr(iFd <= ERROR, STOP, __LINE__, AOPEN, errno, pzPath);
+774   774: 
+775   775:     iRetCode = iChkEnv();      /* DOS: check net */
+776   776:     vChkErr(iRetCode == ANWLD || iRetCode == ANBLD, CONT, __LINE__, ABCHK + iRetCode);
+777   777: 
+778   778: 
+779   779:     /*----------------------------------------------------------------------*/
+780   780:     /* 2: LOOP : Test file locking, - execute from multiple terminals! */
+781   781:     do {
+782   782: 
+783   783:        /* 2.1: Prompt for input */
+784   784:        fputs("\nEnter code (H:HELP) [r|w|R|W|uU|sS|tT|mM|fF|gG|bB|hH|qQ] -> ", stdout);
+
+XC ... 'C' Concordance Utility   lck.c                      Page 15
+
+785   785: 
+786   786: 
+787   787:        /* 2.2: Get input string from user/stdin, format: <CODE [START] [LEN]> */
+788   788: 
+789   789:        /* First get function CODE: <cAnswer> */
+790   790:        scanf("%c", &cAnswer);
+791   791: 
+792   792:        /* Then get function param's [START] [LEN], if any:  [<lStart>] [<lLen>] */
+793   793:        lStart = lLen = (off_t) -1;
+794   794:        switch (toupper(cAnswer)) {
+795   795:                                /* These CODEs require 2 param's: [START] & [LEN] */
+796   796:            case 'R':           /* Read (shared) lock    : <lStart> <lLen> */
+797   797:            case 'W':           /* Read (exclusive) lock : <lStart> <lLen> */
+798   798:            case 'U':           /* Unlock (any) lock     : <lStart> <lLen> */
+799   799:            case 'S':           /* Show (byte) range     : <lStart> <lLen> */
+800   800:            case 'T':           /* Transaction on range  : <lStart> <lLen> */
+801   801:                scanf("%ld %ld", &lStart, &lLen);
+802   802:                if (lStart < 0 || lLen <= 0)
+803   803:                    cAnswer = 'E';
+804   804:                break;
+805   805:                                /* These CODEs require 1 parameter: [START] */
+806   806:            case 'M':           /* Mark semaphore in position : <lStart> */
+807   807:            case 'F':           /* Free semaphore in position : <lStart> */
+808   808:            case 'G':           /* Get value of sem. in pos.  : <lStart> */
+809   809:                scanf("%ld", &lStart);
+810   810:                if (lStart < 0)
+811   811:                    cAnswer = 'E';
+812   812:                break;
+813   813: 
+814   814:                                /* These CODEs take NO parameters */
+815   815:            case 'B':           /* Perform "white-Box" test of module */
+816   816:            case 'H':           /* Print Helpscreen for testdriver */
+817   817:            case 'Q':           /* Quit testdriver for module */
+818   818:                break;
+819   819: 
+820   820:        } /* END get function param's */
+821   821: 
+822   822: 
+823   823:        while (getchar() != '\n')
+824   824:            /* eat rest of line */;
+825   825: 
+826   826:        D(printf("Answer[%c] Start[%ld], Length[%ld]\n",
+827   827:            cAnswer, lStart, lLen));
+828   828: 
+829   829: 
+830   830:        /* 2.3: Call iPLock() or iPSem() with func. depending on entered CODE */
+831   831:        switch (cAnswer) {
+832   832: 
+833   833:            /*---------------------------------------------------------------*/
+834   834:            /*                      HLAPI : iPLock()                         */
+835   835: 
+836   836:            case 'r':          /* Set a non-blocking read (shared) lock */
+837   837:                vChkEno(iPLock(iFd, lStart, lLen, NREAD));
+838   838:                break;
+839   839: 
+840   840:            case 'w':          /* Set a non-blocking write (exclusive) lock */
+
+XC ... 'C' Concordance Utility   lck.c                      Page 16
+
+841   841:                vChkEno(iPLock(iFd, lStart, lLen, NWRITE));
+842   842:                break;
+843   843: 
+844   844:            case 'R':          /* Set a pending read (shared) lock */
+845   845:                vChkEno(iPLock(iFd, lStart, lLen, BREAD));
+846   846:                break;
+847   847: 
+848   848:            case 'W':          /* Set a pending write (exclusive) lock */
+849   849:                vChkEno(iPLock(iFd, lStart, lLen, BWRITE));
+850   850:                break;
+851   851: 
+852   852:            case 'u':          /* Remove either type of lock */
+853   853:            case 'U':
+854   854:                vChkEno(iPLock(iFd, lStart, lLen, UNLOCK));
+855   855:                break;
+856   856: 
+857   857:            case 's':          /* Show contents of "record" */
+858   858:            case 'S':
+859   859:                lLen = (lLen > BUFLEN ? BUFLEN - 1 : lLen); /* Catch overflow */
+860   860:                iRetCode = ICLAMP(lseek(iFd, lStart, SEEK_SET));
+861   861:                vChkErr(iRetCode == ERROR, STOP, __LINE__, ASEEK, errno);
+862   862:                iRetCode = read(iFd, pzBuf, (unsigned) lLen);
+863   863:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AREAD, errno);
+864   864:                fputs(iRetCode != ERROR ? pzBuf[iRetCode] = '\0', pzBuf
+865   865:                                        : "READ ERROR\n", stdout);
+866   866:                break;
+867   867: 
+868   868:            case 't':          /* Perform NICE transaction on "record" */
+869   869:                /* Nice trans: first set a non-blocking write (exclusive) lock */
+870   870:                vChkEno(iPLock(iFd, lStart, lLen, NWRITE));
+871   871:                /*FALLTHROUGH*/ 
+872   872: 
+873   873:            case 'T':          /* Perform CRUDE transaction on "record" */
+874   874:                /* Crude transaction: process the record without locking */
+875   875:                iRetCode = ICLAMP(lseek(iFd, lStart, SEEK_SET));
+876   876:                vChkErr(iRetCode == ERROR, CONT, __LINE__, ASEEK, errno);
+877   877:                iRetCode = read(iFd, pzBuf, (unsigned) lLen);
+878   878:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AREAD, errno);
+879   879: 
+880   880:                /* Stamp the record with mark : argv[1] or DUMMY */
+881   881:                pStr = (argc > 1 ? argv[1] : pzDum);
+882   882:                lStr = (lLen < (long) strlen(pStr) ? lLen : (long) strlen(pStr));
+883   883:                strncpy(pzBuf, pStr, (size_t) lStr);
+884   884: 
+885   885:                /* Write back the record, - KEEPING IT LOCKED! */
+886   886:                iRetCode = ICLAMP(lseek(iFd, lStart, SEEK_SET));
+887   887:                vChkErr(iRetCode == ERROR, CONT, __LINE__, ASEEK, errno);
+888   888:                iRetCode = write(iFd, pzBuf, (unsigned) lLen);
+889   889:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AWRIT, errno);
+890   890:                break;
+891   891: 
+892   892:            /*---------------------------------------------------------------*/
+893   893:            /*                      VHLAPI : iPSem()                         */
+894   894: 
+895   895:            case 'm':          /* Mark record in use (SEMUP on semaphore) */
+896   896:            case 'M':
+
+XC ... 'C' Concordance Utility   lck.c                      Page 17
+
+897   897:                iRetCode = iPSem(iFd, lStart, SEMUP);
+898   898:                vChkErr(iRetCode < ERROR, CONT, __LINE__, ABSEM + iRetCode);
+899   899:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AFILE, errno);
+900   900:                printf("iPSem-RETURN:[%c]\n", iRetCode <= ERROR ? 'E' : iRetCode);
+901   901:                break;
+902   902: 
+903   903:            case 'f':          /* Free record for use (SEMDOWN on semaphore) */
+904   904:            case 'F':
+905   905:                iRetCode = iPSem(iFd, lStart, SEMDOWN);
+906   906:                vChkErr(iRetCode < ERROR, CONT, __LINE__, ABSEM + iRetCode);
+907   907:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AFILE, errno);
+908   908:                printf("iPSem-RETURN:[%c]\n", iRetCode <= ERROR ? 'E' : iRetCode);
+909   909:                break;
+910   910: 
+911   911:            case 'g':          /* Get record usage (semaphore: SEMUP or SEMDOWN) */
+912   912:            case 'G':
+913   913:                iRetCode = iPSem(iFd, lStart, SEMTEST);
+914   914:                vChkErr(iRetCode < ERROR, CONT, __LINE__, ABSEM + iRetCode);
+915   915:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AFILE, errno);
+916   916:                printf("iPSem-RETURN:[%c]\n", iRetCode <= ERROR ? 'E' : iRetCode);
+917   917:                break;
+918   918: 
+919   919:            /*---------------------------------------------------------------*/
+920   920:            /*                      Miscellaneous                            */
+921   921: 
+922   922:            case 'b':           /* WhiteBox module test */
+923   923:            case 'B':
+924   924:                printf("\n\nW-BOX :\tfile operations on non existant file\n");
+925   925:                iFd1 = POPEN(pzDum);
+926   926:                vChkErr(iFd1 == ERROR, CONT, __LINE__, AOPEN, errno, pzDum);             
+927   927:                iRetCode = ICLAMP(lseek(iFd1, lStart, SEEK_SET));
+928   928:                vChkErr(lRetCode == ERROR, CONT, __LINE__, ASEEK, errno);
+929   929:                iRetCode = read(iFd1, pzBuf, 1);
+930   930:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AREAD, errno);
+931   931:                iRetCode = write(iFd1, pzBuf, 1);
+932   932:                vChkErr(iRetCode == ERROR, CONT, __LINE__, AWRIT, errno);
+933   933: 
+934   934:                printf("\n\nW-BOX :\tCatch of wraparound by long->int conv.\n");
+935   935:                lRetCode = lseek(iFd, 32768, SEEK_SET);
+936   936:                vChkErr(lRetCode == ERROR, CONT, __LINE__, ASEEK, errno);
+937   937:                iRetCode = lseek(iFd, 32768, SEEK_SET);
+938   938:                vChkErr(iRetCode == ERROR, CONT, __LINE__, ASEEK, errno);
+939   939:                printf("\nW-BOX :\tlRetCode=[%ld] <-vs-> iRetCode=[%d]\n", lRetCode, iRetCode);
+940   940:                iRetCode = ICLAMP(lseek(iFd, 32768, SEEK_SET));
+941   941:                vChkErr(iRetCode == ERROR, CONT, __LINE__, ASEEK, errno);
+942   942:                printf("\nW-BOX :\tlRetCode=[%ld] <-vs-> ICLAMP(lRetCode)=[%d]\n", lRetCode, iRetCode
+           );
+943   943: 
+944   944:                printf("\n\nW-BOX:\tCheck environment\n");
+945   945:                iRetCode = iChkEnv();
+946   946:                vChkErr(iRetCode != OK, CONT, __LINE__, ABCHK + iRetCode);
+947   947:                break;
+948   948: 
+949   949:            default:           /* Undefined */
+950   950:                cAnswer = 'E';
+951   951:                /*FALLTHROUGH*/
+
+XC ... 'C' Concordance Utility   lck.c                      Page 18
+
+952   952: 
+953   953:            case 'E':          /* Error */
+954   954:                fputs("\nERROR in input, - try again ...\n\a", stderr);
+955   955:                /*FALLTHROUGH*/
+956   956: 
+957   957:            case 'h':          /* Help */
+958   958:            case 'H':
+959   959:                fputs("\nLCK.C function codes :\n", stdout);
+960   960:                fprintf(stdout, "\t+======================== HLAPI ============================+\n");
+           
+961   961:                fprintf(stdout, "\t: For all :      starting lock at <s>, length <l> byte      :\n");
+           
+962   962:                fprintf(stdout, "\t:   r   <s> <l>  Set a non-blocking read (shared) lock      :\n");
+           
+963   963:                fprintf(stdout, "\t:   w   <s> <l>  Set a non-blocking write (exclusive) lock  :\n");
+           
+964   964:                fprintf(stdout, "\t:   R   <s> <l>  Set a pending read (shared) lock           :\n");
+           
+965   965:                fprintf(stdout, "\t:   W   <s> <l>  Set a pending write (exclusive) lock       :\n");
+           
+966   966:                fprintf(stdout, "\t: [u|U] <s> <l>  Unlock either type of lock                 :\n");
+           
+967   967:                fprintf(stdout, "\t+-----------------------------------------------------------+\n");
+           
+968   968:                fprintf(stdout, "\t: [s|S] <s> <l>  Show file content ('dump' to screen)       :\n");
+           
+969   969:                fprintf(stdout, "\t:   t   <s> <l>  Nice  Transaction (lock & 'stamp' argv[1]) :\n");
+           
+970   970:                fprintf(stdout, "\t:   T   <s> <l>  Crude Transaction ('stamp' argv[1])        :\n");
+           
+971   971:                fprintf(stdout, "\t+======================== VHLAPI ===========================+\n");
+           
+972   972:                fprintf(stdout, "\t: For all :      semaphore at pos <s>                       :\n");
+           
+973   973:                fprintf(stdout, "\t: [m|M] <s>      Mark a record 'in use' (SEMUP on sem. s)   :\n");
+           
+974   974:                fprintf(stdout, "\t: [f|F] <s>      Free a record for use  (SEMDOWN on sem. s) :\n");
+           
+975   975:                fprintf(stdout, "\t: [g|G] <s>      Get record usage (state of semaphore s)    :\n");
+           
+976   976:                fprintf(stdout, "\t+-----------------------------------------------------------+\n");
+           
+977   977:                fprintf(stdout, "\t: [b|B]          Perform whiteBox test of module            :\n");
+           
+978   978:                fprintf(stdout, "\t: [h|H]          Print this help screen for reference       :\n");
+           
+979   979:                fprintf(stdout, "\t: [q|Q]          Quit (exit) the lck testprogram            :\n");
+           
+980   980:                fprintf(stdout, "\t+===========================================================+\n");
+           
+981   981:                break;
+982   982: 
+983   983:            case 'q':          /* Quit */
+984   984:            case 'Q':
+985   985:                break;
+986   986: 
+
+XC ... 'C' Concordance Utility   lck.c                      Page 19
+
+987   987:        } /* END switch cAnswer */
+988   988: 
+989   989: 
+990   990:     } while (toupper(cAnswer) != 'Q');
+991   991:     /* LOOP (retry) on Error / EXIT on Quit */
+992   992: 
+993   993: 
+994   994:     /* Return to environment */
+995   995:     exit(EXIT_SUCCESS);
+996   996: 
+997   997: }
+998   998: /* END main() */
+999   999: 
+1000 1000: 
+1001 1001: 
+1002 1002: /*+4 MODULE LCK.C ----------------------------------------------------------*/
+1003 1003: /*   NAME                         vSigCatch                                 */
+1004 1004: /*-- SYNOPSIS --------------------------------------------------------------*/
+1005 1005: PRIVATE void
+1006 1006: vSigCatch(iSigNum)
+1007 1007:     int       iSigNum;
+1008 1008: {
+1009 1009: /* DESCRIPTION
+1010 1010:  *    Support function for main() test driver.
+1011 1011:  *    Signal handler set up to catch "break" signals : SIGINT (asynch.
+1012 1012:  *    interactive attention) & SIGTERM (asynch. interactive termination).
+1013 1013:  *
+1014 1014:  *    1: Prompt user for break confirmation
+1015 1015:  *    2: Depending on user answer: [Y]->terminate, [N]->continue
+1016 1016:  *
+1017 1017:  * RETURN
+1018 1018:  *    If break confirmed: program terminated with exit code EXIT_SUCCESS
+1019 1019:  *    else: signal 'iSigNum' reset and program execution resumed.
+1020 1020:  *-4*/
+1021 1021: 
+1022 1022:     /* 1: Prompt for break confirmation */
+1023 1023:     fprintf(stdout, "\nINTERRUPT:\tSignal [%d] received\n", iSigNum);
+1024 1024:     fprintf(stdout, "\tAbort %d testdriver [Y|N] => ", iSigNum);
+1025 1025: 
+1026 1026: 
+1027 1027:     /* 2: Depending on user answer: [Y]->terminate, [N]->continue */
+1028 1028:     if (toupper(getchar()) == 'Y') {
+1029 1029:        /* 2.1: Remove outstanding locks owned by this process, and exit */
+1030 1030:        close(iFd);
+1031 1031:        exit(EXIT_SUCCESS);
+1032 1032:     }
+1033 1033:     else
+1034 1034:        /* 2.2: Reset signal for catch by signalhandler & continue */
+1035 1035:        signal(iSigNum, vSigCatch);
+1036 1036: 
+1037 1037: } /* END function vSigCatch() */
+1038 1038: 
+1039 1039: 
+1040 1040: 
+1041 1041: /*+4 MODULE LCK.C ----------------------------------------------------------*/
+1042 1042: /*   NAME                         vChkEno                                    */
+
+XC ... 'C' Concordance Utility   lck.c                      Page 20
+
+1043 1043: /*-- SYNOPSIS --------------------------------------------------------------*/
+1044 1044: PRIVATE void
+1045 1045: vChkEno(iRetCode)
+1046 1046:     int       iRetCode;        /* return code from fcntl */
+1047 1047: {
+1048 1048: /* DESCRIPTION
+1049 1049:  *    Support function for main() test driver.
+1050 1050:  *    Check return code from PFCNTL (passed as iRetCode) :
+1051 1051:  *      0 : success
+1052 1052:  *     -1 : standard error from PFCNTL (with errortype specified by "errno")
+1053 1053:  *     -2 : DOS-specific error : bad seek in file
+1054 1054:  *
+1055 1055:  * RETURN
+1056 1056:  *    Side effects : Error-message printed on stderr
+1057 1057:  *    Func. Return : none (void)
+1058 1058:  *-4*/
+1059 1059: 
+1060 1060:     if (iRetCode == OK)        /* iRetCode = 0 */
+1061 1061:        fprintf(stderr, "Function completed!\n");
+1062 1062:     else
+1063 1063:        switch (iRetCode) {
+1064 1064: 
+1065 1065:            case ERROR:       /* iRetCode = -1 */
+1066 1066:                switch (errno) {
+1067 1067: 
+1068 1068:                    case EACCES:
+1069 1069:                    case EAGAIN:
+1070 1070:                        fprintf(stderr, "E[%d,%d] already locked\n", iRetCode, errno);
+1071 1071:                        break;
+1072 1072: 
+1073 1073:                    case EBADF:
+1074 1074:                        fprintf(stderr, "E[%d,%d] bad file descriptor\n", iRetCode, errno);
+1075 1075:                        break;
+1076 1076: 
+1077 1077:                    case EINTR:
+1078 1078:                        fprintf(stderr, "E[%d,%d] fcntl aborted\n", iRetCode, errno);
+1079 1079:                        break;
+1080 1080: 
+1081 1081:                    case EINVAL:
+1082 1082:                        fprintf(stderr, "E[%d,%d] invalid argument\n", iRetCode, errno);
+1083 1083:                        break;
+1084 1084: 
+1085 1085:                    case EMFILE:
+1086 1086:                        fprintf(stderr, "E[%d,%d] no available filedesc.\n", iRetCode, errno);
+1087 1087:                        break;
+1088 1088: 
+1089 1089:                    case ENOLCK:
+1090 1090:                        fprintf(stderr, "E[%d,%d] no available locks\n", iRetCode, errno);
+1091 1091:                        break;
+1092 1092: 
+1093 1093:                    case EDEADLK:
+1094 1094:                        fprintf(stderr, "E[%d,%d] potential deadlock\n", iRetCode, errno);
+1095 1095:                        break;
+1096 1096: 
+1097 1097:                    default:
+1098 1098:                        fprintf(stderr, "E[%d,%d] impossible fcntl err!\n", iRetCode, errno);
+
+XC ... 'C' Concordance Utility   lck.c                      Page 21
+
+1099 1099:                        break;
+1100 1100:                } /* END switch (errno) */
+1101 1101:                /* NOTREACHED*/
+1102 1102:                break;
+1103 1103: 
+1104 1104:            case -2:           /* iRetCode = -2 */
+1105 1105:                fprintf(stderr, "E[%d] bad seek in file\n", iRetCode);
+1106 1106:                break;
+1107 1107: 
+1108 1108:            default:           /* iRetCode [ <-2 or >0 ] */
+1109 1109:                fprintf(stderr, "E[%d] Undefined errorcode from PFCNTL!\n", iRetCode);
+1110 1110:                break;
+1111 1111: 
+1112 1112:        } /* END switch (iRetCode) */
+1113 1113: 
+1114 1114: } /* END function vChkEno() */
+1115 1115: 
+1116 1116: 
+1117 1117: 
+1118 1118: /*+4 MODULE ----------------------------------------------------------------*/
+1119 1119: /*   NAME                          vChkErr                                  */
+1120 1120: /*-- SYNOPSIS --------------------------------------------------------------*/
+1121 1121: PRIVATE void
+1122 1122: vChkErr(int cond, int cont, int iLine, int err,  ...)
+1123 1123: //    int cond;      	/* Error-condition to check (TRUE=error) */
+1124 1124: //    int cont;      	/* Continue in spite of error (TRUE=yes) */
+1125 1125: //    int iLine;     	/* Source code line pinpointing error */
+1126 1126: //    int err;       	/* Errornumber if error-condition TRUE */
+1127 1127: 			/* Var. # args for error-msg. - cf. <general.h> */
+1128 1128: {
+1129 1129: /* DESCRIPTION
+1130 1130:  *    Support function for main() test driver.
+1131 1131:  *    Simple error handler: All errors are fatal (ie cause program term.).
+1132 1132:  *    Error messages are written to stderr, and may be redirected to a file.
+1133 1133:  *    Error-messages are "hard coded" into array rgpchErrmsg[].
+1134 1134:  *
+1135 1135:  *    1: Print header identifying error location (file, line, date, time)
+1136 1136:  *       [STDC:Point arg.ptr. to 1. var arg, Print error-message & Clean up]
+1137 1137:  *
+1138 1138:  * RETURN
+1139 1139:  *    2: Side effect, depending on flag "cont" :
+1140 1140:  *       - FALSE: Exit module with "core-dump" (DEBUG) or "fail-code" (normal).
+1141 1141:  *       - TRUE : Continue execution (return none/void).
+1142 1142:  *-4*/
+1143 1143: #ifdef __STDC__
+1144 1144:        /* Var. Argument pointer */
+1145 1145:        va_list   ap;
+1146 1146: #endif /*__STDC__*/
+1147 1147: 
+1148 1148:     assert(cont == STOP || cont == CONT);
+1149 1149: 
+1150 1150:     if (cond) {
+1151 1151: 
+1152 1152:        /* 1.1: Print error header identifying module */
+1153 1153:        fprintf(stderr, "\nMODULE: File[%s] - Line[%d]" \
+1154 1154:            "\n\tVersion: Date[%s] - Time[%s]" \
+
+XC ... 'C' Concordance Utility   lck.c                      Page 22
+
+1155 1155:            "\n\tError..: Number[%02d] - ", \
+1156 1156:            __FILE__, iLine, __DATE__, __TIME__, err);
+1157 1157: 
+1158 1158: #ifdef __STDC__
+1159 1159:        /* 1.2: Point ap to 1.vararg, Print error-message & Clean up */
+1160 1160: 	va_start(ap, err);
+1161 1161:        (void) vfprintf(stderr, rgpchErrmsg[err], ap);
+1162 1162:        fflush(stderr);
+1163 1163:        va_end(ap);
+1164 1164: #endif /*__STDC__*/
+1165 1165: 
+1166 1166:        /* 2: Exit module with "core-dump" (DEBUG-mode) or "fail-code" (normal) */
+1167 1167:        if (!cont) {
+1168 1168:            D(abort());
+1169 1169:            exit(EXIT_FAILURE);
+1170 1170:        }
+1171 1171: 
+1172 1172:     }  /* END if(cond) */
+1173 1173:     
+1174 1174: 
+1175 1175: } /* END function vChkErr() */
+1176 1176: 
+1177 1177: #endif /* #ifdef MAIN */
+1178 1178: 
+1179 1179: 
+1180 1180: 
+1181 1181: #ifdef MSDOS
+1182 1182: /****************************************************************************/
+1183 1183: /*************************** MSDOS LOW-LEVEL API ****************************/
+1184 1184: /***************************   DOPEN & DFCNTL    ****************************/
+1185 1185: /****************************************************************************/
+1186 1186: 
+1187 1187: 
+1188 1188: /*+2 MODULE LCK.C===========================================================*/
+1189 1189: /*   NAME                         DOPEN                                     */
+1190 1190: /*== SYNOPSIS ==============================================================*/
+1191 1191: PUBLIC int
+1192 1192: DOPEN(pzFile)
+1193 1193:     char     *pzFile;          /* Path of file to open */
+1194 1194: {
+1195 1195: /* DESCRIPTION
+1196 1196:  *    Portable file open for locking operations as defined in MSDOS(MSC60).
+1197 1197:  *
+1198 1198:  *    macro POPEN -> [ DOS:DOPEN() | POSIX:open() ];
+1199 1199:  *  - If MSDOS is defined at compile time (-DMSDOS), the macro name POPEN
+1200 1200:  *    maps to this LowLevel DOS-specific interface for "open()".
+1201 1201:  *  - If UNIX is defined at compile time (-DUNIX), the macro name POPEN
+1202 1202:  *    maps directly to the open() function (and this code is not compiled!)
+1203 1203:  *
+1204 1204:  *    The user interface on MSDOS and UNIX is invariant : POPEN. On both ope-
+1205 1205:  *    rating systems, POPEN will enforce the correct open-flags (cf. setup of
+1206 1206:  *    OFLAG in LCK.H) to ensure opening for file sharing and record locking.
+1207 1207:  *
+1208 1208:  *    1: Check environment for DOS Version & SHARE.EXE.
+1209 1209:  *       If Dos Ver < 3 or share not loaded, return (without opening file).
+1210 1210:  *    2: Open file for sharing/locking
+
+XC ... 'C' Concordance Utility   lck.c                      Page 23
+
+1211 1211:  *
+1212 1212:  * RETURN
+1213 1213:  *     -3 : ERROR:   SHARE.EXE not loaded (required for file shr & rec. lock)
+1214 1214:  *     -2 : ERROR:   DOS Version < 3 (no file sharing support!)
+1215 1215:  *     -1 : ERROR:   Bad open operation - precise error code in global "errno"
+1216 1216:  *                   Common DOS(MSC60)-UNIX(X/Open) subset for "errno" :
+1217 1217:  *                      EACCES - access permissions denied
+1218 1218:  *                     [EEXIST - create of existing file - should not occur]
+1219 1219:  *                     [EINVAL - invalid value of OFLAG  - should not occur]
+1220 1220:  *                      EMFILE - max open files exceeded
+1221 1221:  *                      ENOENT - file for open does not exist
+1222 1222:  *    >=0 : OK       Return value = File handle for opened file.
+1223 1223:  *-2*/
+1224 1224:     int       iRetCode;
+1225 1225: 
+1226 1226:     /* 1: Check environment for DOS Version &  SHARE.EXE */
+1227 1227:     iRetCode = iChkEnv();
+1228 1228:     if (iRetCode == -2 || iRetCode == -3)
+1229 1229:        return (iRetCode);
+1230 1230: 
+1231 1231:     /* 2: Open file in share/lock mode */
+1232 1232:     return (sopen(pzFile, OFLAG));
+1233 1233: 
+1234 1234: } /* END function DOPEN() */
+1235 1235: 
+1236 1236: 
+1237 1237: 
+1238 1238: /*+4 MODULE LCK.C ----------------------------------------------------------*/
+1239 1239: /*   NAME                         iChkEnv                                   */
+1240 1240: /*-- SYNOPSIS --------------------------------------------------------------*/
+1241 1241: PRIVATE int
+1242 1242: iChkEnv(VOID)
+1243 1243: {
+1244 1244: /* DESCRIPTION
+1245 1245:  *    Support function for DOPEN; - check DOS environment for multiuser support.
+1246 1246:  *
+1247 1247:  * 1: Check major DOS OS version ("_osmajor" in <stdlib.h> of MSC & BTC++)
+1248 1248:  *    NB: DOS versions < 3.0 should be upgraded for multiuser support.
+1249 1249:  *
+1250 1250:  * 2: Check load of SHARE.EXE using DOS MULTIPLEX INT 2FH, 1000H.
+1251 1251:  *    SHARE.EXE must be present for file sharing and locking in DOS.
+1252 1252:  *    The program is loaded by the following command (issued from the cmd.line
+1253 1253:  *    or from autoexec.bat/config.sys(DOS 5.0):  [c:\dos\]share /f:1024 /l:50
+1254 1254:  *    NB Dont perform this test on pre-DOS 3.0, or you'll crash the machine!
+1255 1255:  *
+1256 1256:  * 3: Check precence of networked drives, using DOS INT 21H, IOCTL 4409H.
+1257 1257:  *    NB This call can't discriminate between a network drive and a CD-ROM!
+1258 1258:  *
+1259 1259:  * 4: Check precence of NetBIOS entry INT 2AH.
+1260 1260:  *    NB NetBIOS is not a required feature of a LAN, - the program might be
+1261 1261:  *    installed on a NFS (UNIX "Network File System") drive mapped on top of
+1262 1262:  *    TCP/IP, in which case the netdrive-test (3) would STILL work correctly.
+1263 1263:  *
+1264 1264:  * RETURN
+1265 1265:  *     -5 : ERROR:   NetBIOS interface not present (load net TSR or driver)
+1266 1266:  *     -4 : ERROR:   No redirected drives present (lacking net configuration)
+
+XC ... 'C' Concordance Utility   lck.c                      Page 24
+
+1267 1267:  *     -3 : ERROR:   SHARE.EXE not loaded (required for file shr & rec lock)
+1268 1268:  *     -2 : ERROR:   DOS Version < 3 (no file sharing support!)
+1269 1269:  *     -1 : ERROR:   Bad open operation - precise error code in global "errno"
+1270 1270:  *      0 : OK   :   Function complete.
+1271 1271:  *-4*/
+1272 1272: 
+1273 1273:     union REGS ioregs;                 /* DOS cpu register structure */
+1274 1274:     int        fNetDrive = FALSE;      /* FLAG: remote drives present? */
+1275 1275:     int        iDrive    = 0;          /* drive number on machine */
+1276 1276: 
+1277 1277: 
+1278 1278:     /* 1: Check major DOS OS version (must be > 3.00) */
+1279 1279:     if (_osmajor < 3)
+1280 1280:        return (-2);
+1281 1281: 
+1282 1282: 
+1283 1283:     /* 2: Check load of SHARE.EXE */           /* AH=10 : MPLX SHARE.EXE hook */
+1284 1284:     ioregs.x.ax = 0x1000;                      /* AL=00 : Get installed state */
+1285 1285:     (void) int86(0x2F, &ioregs, &ioregs);      /* Query DOS Multiplex INT     */
+1286 1286:     if (ioregs.h.al != 0xFF)                   /* 0xFF : ret code "I'm Here!" */
+1287 1287:        return (-3);
+1288 1288: 
+1289 1289: 
+1290 1290:     /* 3: Check precence of networked drives */
+1291 1291:     for (iDrive = 3; iDrive <= 26; iDrive++) { /* AH=44 : DOS IOCTL interrupt    */
+1292 1292:        ioregs.x.ax = 0x4409;                   /* AL=09 : Is device local/remote */
+1293 1293:        ioregs.x.bx = iDrive;                   /* Drive# : 0=default, 1=A, etc   */
+1294 1294:        (void) int86(0x21, &ioregs, &ioregs);   /* Query DOS Function Request INT */
+1295 1295:        if ((ioregs.x.dx & 0x1000) == 0x1000)   /* Remote devices: Bit 12 set     */
+1296 1296:            fNetDrive = TRUE;
+1297 1297:     }
+1298 1298:     if (!fNetDrive)
+1299 1299:        return (-4);
+1300 1300: 
+1301 1301: 
+1302 1302:     /* 4: Check precence of NetBIOS interface */
+1303 1303:     ioregs.h.ah = 0;                           /* Redirector-(INT2AH)->NetBIOS */
+1304 1304:     (void) int86(0x2A, &ioregs, &ioregs);      /* AH=0 : Installation check    */
+1305 1305:     if (ioregs.h.ah == 0)                      /* AH=0:Not Installed; AH=1:OK  */
+1306 1306:        return (-5);
+1307 1307: 
+1308 1308: 
+1309 1309:     /* OK, environment in place */
+1310 1310:     return (OK);
+1311 1311: 
+1312 1312: } /* END function iChkEnv() */
+1313 1313: 
+1314 1314: 
+1315 1315: 
+1316 1316: 
+1317 1317: /*+2 MODULE LCK.C===========================================================*/
+1318 1318: /*   NAME                         DFCNTL                                    */
+1319 1319: /*== SYNOPSIS ==============================================================*/
+1320 1320: PUBLIC int
+1321 1321: DFCNTL(iFd, iFcntlCmd, pstFlock)
+1322 1322:     int       iFd;         /* FileDescr. identifying file for locking op. */
+
+XC ... 'C' Concordance Utility   lck.c                      Page 25
+
+1323 1323:     int       iFcntlCmd;   /* fcntl() command : [F_SETLK | F_SETLKW] */
+1324 1324:     stFlock_t *pstFlock;   /* Pointer to flock-str. def. lock type & range */
+1325 1325: {
+1326 1326: /* DESCRIPTION
+1327 1327:  *    Portable "LowLevel API" for locking operations as defined in MSDOS(MSC60).
+1328 1328:  *
+1329 1329:  *    macro:PFCNTL -> [ DOS:DFCNTL() | POSIX:fcntl() ];
+1330 1330:  *  - If MSDOS is defined at compile time (-DMSDOS), the macro name PFCNTL
+1331 1331:  *    maps to this LowLevel DOS-specific interface for "fcntl()".
+1332 1332:  *    DFCNTL imitates the fcntl()-function as defined by X/Open & POSIX,
+1333 1333:  *    using the MSC60 "high level" func. locking() for file sharing/locking.
+1334 1334:  *  - If UNIX is defined at compile time (-DUNIX), the macro name PFCNTL
+1335 1335:  *    maps directly to the fcntl() function (and this code is not compiled!)
+1336 1336:  *
+1337 1337:  *    The user interface on MSDOS and UNIX is invariant : PFCNTL, - hence
+1338 1338:  *    the term "Portable (LowLevel) API". - A portable HighLevel API to
+1339 1339:  *    fcntl() is provided by the function iPLock(), see below.
+1340 1340:  *
+1341 1341:  *    1: Seek to the file position for the locking operation.
+1342 1342:  *    2: Perform the locking operation, using the MSC60-specific primitives.
+1343 1343:  *
+1344 1344:  * RETURN
+1345 1345:  *    The return code of locking() are :
+1346 1346:  *    -1 : ERROR: Bad locking operation, - precice error code in global "errno".
+1347 1347:  *                The DOS(MSC60) "errno" codes for locking() are :
+1348 1348:  *                   EACCESS     access to locked region denied
+1349 1349:  *                   EBADF       bad (not valid) file descriptor
+1350 1350:  *                   EDEADLOCK   desired lock is blocked by other process
+1351 1351:  *                   EINVAL      invalid argument
+1352 1352:  *     0 : "OK" : Function completed succesfully.
+1353 1353:  *
+1354 1354:  * SEE ALSO
+1355 1355:  *    Function iPLock() for the common DOS/UNIX API to file sharing/locking.
+1356 1356:  *-2*/
+1357 1357: 
+1358 1358:     /* 1: Seek to the file position for the locking opreation */
+1359 1359:     D(printf("DEBUG:LSEEK(%d, %d, %d)\n",
+1360 1360:        iFd, pstFlock->l_start, pstFlock->l_whence));
+1361 1361:     if (lseek(iFd, pstFlock->l_start, pstFlock->l_whence) == -1L)
+1362 1362:        return (ERROR);
+1363 1363: 
+1364 1364:     /* 2: Do the locking operation */
+1365 1365:     D(printf("DEBUG:LOCKING(%d, %s, %d)\n",
+1366 1366:        iFd, F_OP[F_MAP[iFcntlCmd][pstFlock->l_type]], pstFlock->l_len));
+1367 1367:     if (locking(iFd, F_MAP[iFcntlCmd][pstFlock->l_type], pstFlock->l_len) == -1)
+1368 1368:        return (ERROR);
+1369 1369: 
+1370 1370:     /* 3: Return "fcntl OK" */
+1371 1371:     return (OK);
+1372 1372: 
+1373 1373: } /* END function DFCNTL() */
+1374 1374: 
+1375 1375: #endif /* #ifdef MSDOS */
+1376 1376: 
+1377 1377: 
+1378 1378: 
+
+XC ... 'C' Concordance Utility   lck.c                      Page 26
+
+1379 1379: 
+1380 1380: /****************************************************************************/
+1381 1381: /*************************** UNIX/MSDOS HIGH-LEVEL API **********************/
+1382 1382: /***************************        iPLock             **********************/
+1383 1383: /****************************************************************************/
+1384 1384: 
+1385 1385: /* Declare (allocate) a "flock" structure for the PFCNTL argument */
+1386 1386: PRIVATE stFlock_t stFlock;
+1387 1387: 
+1388 1388: 
+1389 1389: /*+2 MODULE LCK.C ==========================================================*/
+1390 1390: /*   NAME                         iPLock                                    */
+1391 1391: /*== SYNOPSIS ==============================================================*/
+1392 1392: PUBLIC int
+1393 1393: iPLock(iFd, lStart, lLen, iOp)
+1394 1394:     int       iFd;         /* FileDescr. identifying file for locking op. */
+1395 1395:     long      lStart;      /* Start of lock (offset from start-of-file) */
+1396 1396:     long      lLen;        /* Length of lock (#bytes from lStart) */
+1397 1397:     int       iOp;         /* Lock op: [NREAD|NWRITE|BREAD|BWRITE|UNLOCK] */
+1398 1398: {
+1399 1399: /* DESCRIPTION
+1400 1400:  *    Portable "HighLevel API" for locking operations in MSDOS(MSC60) & UNIX.
+1401 1401:  *
+1402 1402:  *    1: Set the fcntl() record locking COMMAND : [F_SETLK | F_SETLKW]
+1403 1403:  *    2: Define the TYPE the lock : [F_RDLCK | F_WRLCK | F_UNLCK]
+1404 1404:  *       Define the REGION for the lock : offset (parameter lStart) and
+1405 1405:  *       length (parameter lLen), - both taken from start-of-file (SEEK_SET).
+1406 1406:  *    3: Call the portable fcntl()-function to perform the locking operation,
+1407 1407:  *       and return the result of PFCNTL.
+1408 1408:  *
+1409 1409:  * RETURN
+1410 1410:  *    The return code of iPLock() "imitates" the X/Open fcntl() return values:
+1411 1411:  *    -1 : ERROR: Bad PFCNTL operation, - precice error code in global "errno".
+1412 1412:  *                The common DOS(MSC60)-UNIX(X/Open) subset for "errno" is :
+1413 1413:  *                   EACCESS     access to locked region denied
+1414 1414:  *                   EBADF       bad (not valid) file descriptor
+1415 1415:  *                   EDEADLK     desired lock is blocked by other process
+1416 1416:  *                               (MSC60 EDEADLOCK is mapped to X/Open EDEADLK)
+1417 1417:  *                   EINVAL      invalid argument
+1418 1418:  *     0 : OK   : Function completed succesfully.
+1419 1419:  *
+1420 1420:  * EXAMPLE
+1421 1421:  *    // NB: You must include error checking in your own programs.
+1422 1422:  *    #include "lck.h"             // Include the lck header file
+1423 1423:  *    int     iFd;                 // Declare a file descriptor
+1424 1424:  *    char    pzFn="data.fil";     // Declare a file name
+1425 1425:  *
+1426 1426:  *    iFd = POPEN(pzFn);           // Open file for share/lock
+1427 1427:  *    iPLock(iFd, 0, 100, NWRITE); // Set a write lock on byte 0-100
+1428 1428:  *    ...                          // Work on byte 0-100
+1429 1429:  *    iPLock(iFd, 0, 100, UNLOCK); // Release lock on byte 0-100
+1430 1430:  *
+1431 1431:  * SEE ALSO
+1432 1432:  *    Function DFCNTL() for the DOS implementation of PFCNTL.
+1433 1433:  *-2*/
+1434 1434:     int       iFcntlCmd;           /* fcntl() command, extracted from table L_MAP */
+
+XC ... 'C' Concordance Utility   lck.c                      Page 27
+
+1435 1435: 
+1436 1436: 
+1437 1437:     /* 0: Debugging trace */
+1438 1438:     D(printf("DEBUG:iPLock(iFd=%d, lSt=%ld, lLn=%ld, iOp=%s)\n",
+1439 1439:        iFd, lStart, lLen, L_OP[iOp]));
+1440 1440: 
+1441 1441:     /* 1: Validate arguments */
+1442 1442:     if (iFd < 0 || lStart < 0 || lLen <= 0) {
+1443 1443:        errno = EINVAL;
+1444 1444:        return (-1);
+1445 1445:     }
+1446 1446: 
+1447 1447:     /* 2: Set the record locking COMMAND (by mapping iOp through L_MAP[.][0]) */
+1448 1448:     iFcntlCmd = L_MAP[iOp][0];
+1449 1449: 
+1450 1450:     /* 3: Define the TYPE of lock (by mapping iOp through L_MAP[.][1]) */
+1451 1451:     stFlock.l_type   = L_MAP[iOp][1];      /* Set record locking TYPE           */
+1452 1452:     stFlock.l_whence = SEEK_SET;           /* Measure REGION from start-of-file */
+1453 1453:     stFlock.l_start  = (off_t) lStart;     /* - Offset for start of lock        */
+1454 1454:     stFlock.l_len    = (off_t) lLen;       /* - Length (#byte) of lock          */
+1455 1455:     stFlock.l_pid    = 0;                  /* Ignore this field (UNIX specific) */
+1456 1456: 
+1457 1457:     /* 4: Finally call the portable fcntl() func. to perform the operation */
+1458 1458:     return (PFCNTL(iFd, iFcntlCmd, &stFlock));
+1459 1459: 
+1460 1460: } /* END function iPLock() */
+1461 1461: 
+1462 1462: 
+1463 1463: 
+1464 1464: 
+1465 1465: /****************************************************************************/
+1466 1466: /*********************** UNIX/MSDOS VERY-HIGH-LEVEL API *********************/
+1467 1467: /***********************          iPSem                 *********************/
+1468 1468: /****************************************************************************/
+1469 1469: 
+1470 1470: /* Retry count for grabbing semaphore (DOS default retries 3x with delay) */
+1471 1471: #define   RETRIES      5
+1472 1472: 
+1473 1473: 
+1474 1474: /*+2 MODULE LCK.C ==========================================================*/
+1475 1475: /*   NAME                         iPSem                                     */
+1476 1476: /*== SYNOPSIS ==============================================================*/
+1477 1477: PUBLIC int
+1478 1478: iPSem(iFd, lStart, iOp)
+1479 1479:     int       iFd;         /* FileDescr. identifying file with semaphore(s) */
+1480 1480:     long      lStart;      /* Position from start of file of semaphore-byte */
+1481 1481:     int       iOp;         /* Semaph.operation: [SEMUP | SEMDOWN | SEMTEST] */
+1482 1482: {
+1483 1483: /* DESCRIPTION
+1484 1484:  *    Portable "Very HighLevel API" for lock operations in MSDOS(MSC60) & UNIX.
+1485 1485:  *    This function offers an interface for working with semaphores implemented
+1486 1486:  *    as "lock bytes" directly in a datafile. By including a semaphore (an
+1487 1487:  *    extra byte) in each data-record and calling on iPSem() to set/clear the
+1488 1488:  *    sem.value, a user may ensure mutual exclusive access to the file records.
+1489 1489:  *
+1490 1490:  *    The semaphore controlled access strategy requires a disciplined behaviour
+
+XC ... 'C' Concordance Utility   lck.c                      Page 28
+
+1491 1491:  *    on behalf of the user-programs :
+1492 1492:  *     - The function iPSem() accesses the semaphores inside a "critical
+1493 1493:  *       section" (implemented using the portable function iPLock to set at
+1494 1494:  *       short-lived write-lock on the semaphore byte), and thereby it does
+1495 1495:  *       guarantee "race-free" updating of the semaphore.
+1496 1496:  *     - The function will however NOT lock the associated datarecord, so
+1497 1497:  *       programs may still freely read and write the record; - it is the
+1498 1498:  *       user's reponsibility to serialize write-access (updating) of the
+1499 1499:  *       data-records, by always "grabbing" the semaphore before performing
+1500 1500:  *       a write operation.
+1501 1501:  *
+1502 1502:  * RETURN
+1503 1503:  *    -5  : Attempt to "SEMUP/SEMDOWN/SEMTEST" on a byte with invalid semaphore value
+1504 1504:  *          NB: a semaphore byte must be initialized to SEMDOWN!
+1505 1505:  *    -4  : Attempt to "SEMUP" on a semaphore that is already UP (Record in use)
+1506 1506:  *    -3  : Attempt to "SEMDOWN" on a semaphore, that is already DOWN (Record free)
+1507 1507:  *    -2  : Bad input argument value
+1508 1508:  *    -1  : ERROR  : Bad OS file operation, - precice error code in global "errno".
+1509 1509:  *    >=0 : SUCCESS: Function completed, - current semaphore value is returned.
+1510 1510:  *
+1511 1511:  * EXAMPLE
+1512 1512:  *    #include "lck.h"            // Include the lck header file
+1513 1513:  *    int     iFd;                // Declare a file descriptor
+1514 1514:  *    char    pzFn="data.fil";    // Declare a file name
+1515 1515:  *    long    lSemPos = 0;        // Declare a semaphore in file, position 0
+1516 1516:  *
+1517 1517:  *    iFd = POPEN(pzFn);          // Open file for share/lock
+1518 1518:  *
+1519 1519:  *    iRetCode = iPSem(iFd, lSemPos, SEMUP);    // Grab the record (start pos 0)
+1520 1520:  *    ...                                       // Read, Update & Write record
+1521 1521:  *    iRetCode = iPSem(iFd, lSemPos, SEMDOWN);  // Release the record
+1522 1522:  *-2*/
+1523 1523: 
+1524 1524:     int       iRetCode, iRetCode2; /* Function return codes */
+1525 1525:     int       iRetry =  0;         /* Counter for retry of (non pending) lock */
+1526 1526:     char      cSem   = 'X';        /* Semaphore variable,- initially undefined */
+1527 1527: 
+1528 1528: 
+1529 1529:     /* 0: Debugging trace */
+1530 1530:     D(printf("DEBUG:iPSem(iFd=%d, lSt=%ld, iOp=%c)\n", iFd, lStart, (unsigned char) iOp));
+1531 1531: 
+1532 1532: 
+1533 1533:     /* 1: Validate arguments */
+1534 1534:     if (iFd < 0 || lStart < 0)
+1535 1535:        return (-2);
+1536 1536: 
+1537 1537: 
+1538 1538:     /* 2.1: CS---------- Start critical section ----------CS */
+1539 1539:     for (iRetry = 1, iRetCode = ERROR;
+1540 1540:          iRetry <= RETRIES && iRetCode != OK; iRetry++) {
+1541 1541:        iRetCode = iPLock(iFd, lStart, 1L, NWRITE);
+1542 1542:     }
+1543 1543:     if (iRetCode != OK)
+1544 1544:        return (iRetCode);
+1545 1545: 
+1546 1546: 
+
+XC ... 'C' Concordance Utility   lck.c                      Page 29
+
+1547 1547:     /* 2.2: Perform operation on semaphore; NB: no return out of CS! */
+1548 1548:     switch (iOp) {
+1549 1549: 
+1550 1550:         case SEMTEST:      /* TEST semaphore */
+1551 1551:             iRetCode = iSemIO(iFd, lStart, SEMRD, &cSem);
+1552 1552:             if (iRetCode < OK)
+1553 1553:                break;
+1554 1554:             if (cSem != SEMUP && cSem != SEMDOWN)
+1555 1555:                iRetCode = -5;
+1556 1556:             break;
+1557 1557: 
+1558 1558:         case SEMUP:        /* UP on semaphore */
+1559 1559:             /* Read the semaphore; If SEMUP or invalid - back out! */
+1560 1560:             iRetCode = iSemIO(iFd, lStart, SEMRD, &cSem);
+1561 1561:             if (iRetCode < OK)
+1562 1562:                break;
+1563 1563:             if (cSem == SEMUP) {
+1564 1564:                iRetCode = -4;
+1565 1565:                break;
+1566 1566:             }
+1567 1567:             if (cSem != SEMDOWN) {
+1568 1568:                iRetCode = -5;
+1569 1569:                break;
+1570 1570:             }
+1571 1571: 
+1572 1572:             /* Perform SEMUP, and write back the semaphore */
+1573 1573:             cSem = SEMUP;
+1574 1574:             iRetCode = iSemIO(iFd, lStart, SEMWR, &cSem);
+1575 1575:                break;
+1576 1576: 
+1577 1577:         case SEMDOWN:      /* DOWN on semaphore */
+1578 1578:             /* Read the semaphore; If SEMDOWN or invalid - back out! */
+1579 1579:             iRetCode = iSemIO(iFd, lStart, SEMRD, &cSem);
+1580 1580:             if (iRetCode < OK)
+1581 1581:                break;
+1582 1582:             if (cSem == SEMDOWN) {
+1583 1583:                iRetCode = -3;
+1584 1584:                break;
+1585 1585:             }
+1586 1586:             if (cSem != SEMUP) {
+1587 1587:                iRetCode = -5;
+1588 1588:                break;
+1589 1589:             }
+1590 1590: 
+1591 1591:             /* Perform SEMDOWN, and write back the semaphore */
+1592 1592:             cSem = SEMDOWN;
+1593 1593:             iRetCode = iSemIO(iFd, lStart, SEMWR, &cSem);
+1594 1594:             break;
+1595 1595: 
+1596 1596:         default:           /* INVALID operation on semaphore */
+1597 1597:             iRetCode = -2;
+1598 1598:             break;
+1599 1599: 
+1600 1600:     } /* END switch(iOp) */
+1601 1601: 
+1602 1602: 
+
+XC ... 'C' Concordance Utility   lck.c                      Page 30
+
+1603 1603:     /* 2.3: CS---------- End critical section ----------CS */
+1604 1604:     iRetCode2 = iPLock(iFd, lStart, 1L, UNLOCK);
+1605 1605:     if (iRetCode2 != OK)
+1606 1606:        iRetCode = iRetCode2;
+1607 1607: 
+1608 1608:     /* 4: Return error or current state of semaphore */
+1609 1609:     return (iRetCode <= ERROR ? iRetCode : (int) cSem);
+1610 1610: 
+1611 1611: } /* END function iPSem() */
+1612 1612: 
+1613 1613: 
+1614 1614: 
+1615 1615: /*+4 MODULE LCK.C ----------------------------------------------------------*/
+1616 1616: /*   NAME                    iSemIO                                         */
+1617 1617: /*-- SYNOPSIS --------------------------------------------------------------*/
+1618 1618: PRIVATE int
+1619 1619: iSemIO(iFd, lStart, iOp, pcSem)
+1620 1620:     int       iFd;         /* FileDescr. identifying file for locking op. */
+1621 1621:     long      lStart;      /* Position from file start holding the LockByte */
+1622 1622:     int       iOp;         /* File operation: [SEMRD | SEMWR], sem rd/wr */
+1623 1623:     char     *pcSem;       /* Address of sem ("byte buffer") for file rd/wr */
+1624 1624: {
+1625 1625: /* DESCRIPTION
+1626 1626:  *    Support function for the user interface to semaphore operations: iPSem().
+1627 1627:  *    Performs Read/Write of a semaphore (a lock-byte) from/to a file.
+1628 1628:  *    NB: Must be called from inside a critical region to guarantee validity.
+1629 1629:  *
+1630 1630:  * RETURN
+1631 1631:  *    -2  : Bad input argument to iSemIO
+1632 1632:  *    -1  : ERROR   : Bad DOS file operation, - error code in global "errno".
+1633 1633:  *    >=0 : SUCCESS : OK  DOS file operation, - function completed.
+1634 1634:  *-4*/
+1635 1635:     int    iRetCode = ERROR;       /* Return code from DOS file operation */
+1636 1636: 
+1637 1637: 
+1638 1638:     /* 1: Validate arguments */
+1639 1639:     assert(iOp == SEMRD || iOp == SEMWR);          /* Hard/internal error */
+1640 1640:     if (iFd < 0 || lStart < 0 || pcSem == NULL)    /* User error */
+1641 1641:        return (-2);
+1642 1642: 
+1643 1643:     /* 2: Seek to the file position of the semaphore */
+1644 1644:     iRetCode = ICLAMP(lseek(iFd, lStart, SEEK_SET));
+1645 1645: 
+1646 1646:     /* 3: Read/Write the semaphore value (*pcSem) from/to the file */
+1647 1647:     if (iRetCode != ERROR)
+1648 1648: 
+1649 1649:        switch (iOp) {
+1650 1650: 
+1651 1651:            case SEMRD:       /* READ semaphore from file */
+1652 1652:                iRetCode = read(iFd, pcSem, 1);
+1653 1653:                break;
+1654 1654: 
+1655 1655:            case SEMWR:       /* WRITE semaphore to file */
+1656 1656:                iRetCode = write(iFd, pcSem, 1);
+1657 1657:                break;
+1658 1658: 
+
+XC ... 'C' Concordance Utility   lck.c                      Page 31
+
+1659 1659:            default:           /* INVALID semaphore I/O operation */
+1660 1660:                iRetCode = -2;
+1661 1661:                break;
+1662 1662: 
+1663 1663:        } /* END switch(iOp) */
+1664 1664: 
+1665 1665: 
+1666 1666:     /* 4: Debugging trace */
+1667 1667:     D(printf("DEBUG:iSemIO(iFd=%d, lSt=%ld, iOp=%d, cSem=%c )\n",
+1668 1668:        iFd, lStart, iOp, *pcSem));
+1669 1669: 
+1670 1670:     /* 5: Return status */
+1671 1671:     return (iRetCode);
+1672 1672: 
+1673 1673: } /* END function iSemIO() */
+1674 1674: 
+1675 1675: 
+1676 1676: 
+1677 1677: /* END module LCK.C                                                         */
+1678 1678: /*==========================================================================*/
+1679 1679: 
+XC ... 'C' Concordance Utility                              Page 32
+
+_LCK_ALLOC          :  588 
+__DATE__            : 1156 
+__FILE__            : 1156 
+__LINE__            :  767  768  773  776  861  863  876  878  887  889  898  899  906  907  914 
+                       915  926  928  930  932  936  938  941  946 
+__STDC__            : 1143 1158 
+__TIME__            : 1156 
+_osmajor            : 1279 
+ABCHK               :  636  767  768  776  946 
+ABSEM               :  642  898  906  914 
+AFILE               :  634  899  907  915 
+ALOCK               :  632 
+ANBLD               :  637  776 
+ANWLD               :  638  776 
+AOPEN               :  629  773  926 
+AREAD               :  631  863  878  930 
+ASEEK               :  630  861  876  887  928  936  938  941 
+ASHEX               :  640  767 
+ASHLD               :  639  768  769 
+ASMFR               :  645 
+ASMIN               :  646 
+ASMIV               :  643 
+ASMUS               :  644 
+AWRIT               :  633  889  932 
+abort               : 1168 
+ah                  : 1303 1305 
+al                  : 1286 
+ap                  : 1145 1160 1161 1163 
+argc                :  704  705  881 
+argv                :  704  706  881 
+assert              : 1148 1639 
+ax                  : 1284 1292 
+BREAD               :  845 
+BUFLEN              :  696  742  859  859 
+BWRITE              :  849 
+bx                  : 1293 
+CONT                :  597  776  863  876  878  887  889  898  899  906  907  914  915  926  928 
+                       930  932  936  938  941  946 1148 
+cAnswer             :  746  790  794  803  811  827  831  950  990 
+cSem                : 1526 1551 1554 1554 1560 1563 1567 1573 1574 1579 1582 1586 1592 1593 1609 
+                      
+close               : 1030 
+cond                :  690 1122 1123 1150 
+cont                :  690 1122 1124 1148 1148 1167 
+D                   :  826 1168 1359 1365 1438 1530 1667 
+DFCNTL              : 1321 
+DOPEN               : 1192 
+dx                  : 1295 
+EACCES              : 1068 
+EAGAIN              : 1069 
+EBADF               : 1073 
+EDEADLK             : 1093 
+EINTR               : 1077 
+EINVAL              : 1081 1443 
+EMFILE              : 1085 
+ENOLCK              : 1089 
+
+XC ... 'C' Concordance Utility                              Page 33
+
+ERROR               :  599  601  773  861  863  864  876  878  887  889  898  899  900  906  907 
+                       908  914  915  916  926  928  930  932  936  938  941 1065 1362 1368 1539 
+                      1609 1635 1647 
+EXIT_FAILURE        : 1169 
+EXIT_SUCCESS        :  995 1031 
+envp                :  704  707 
+err                 :  690 1122 1126 1156 1160 1161 
+errno               :  773  861  863  876  878  887  889  899  907  915  926  928  930  932  936 
+                       938  941 1066 1070 1074 1078 1082 1086 1090 1094 1098 1443 
+exit                :  995 1031 1169 
+FALSE               :  596 1274 
+F_MAP               : 1366 1367 
+F_OP                : 1366 
+fNetDrive           : 1274 1296 1298 
+fflush              : 1162 
+fprintf             :  960  961  962  963  964  965  966  967  968  969  970  971  972  973  974 
+                       975  976  977  978  979  980 1023 1024 1061 1070 1074 1078 1082 1086 1090 
+                      1094 1098 1105 1109 1153 
+fputs               :  758  784  864  954  959 
+getchar             :  823 1028 
+h                   : 1286 1303 1305 
+ICLAMP              :  601  860  875  886  927  940 1644 
+iChkEnv             :  613  775  945 1227 1242 
+iDrive              : 1275 1291 1291 1291 1293 
+iFcntlCmd           : 1321 1323 1366 1367 1434 1448 1458 
+iFd                 :  608  679  766  767  767  768  768  769  770  773  837  841  845  849  854 
+                       860  862  870  875  877  886  888  897  905  913  935  937  940 1030 1321 
+                      1322 1360 1361 1366 1367 1393 1394 1439 1442 1458 1478 1479 1530 1534 1541 
+                      1551 1560 1574 1579 1593 1604 1619 1620 1640 1644 1652 1656 1668 
+iFd1                :  750  925  926  927  929  931 
+iLine               :  690 1122 1125 1156 
+iOp                 :  608 1393 1397 1439 1448 1451 1478 1481 1530 1548 1619 1622 1639 1639 1649 
+                      1668 
+iPLock              :  837  841  845  849  854  870 1393 1541 1604 
+iPSem               :  897  905  913 1478 
+iRetCode            :  693  751  775  776  776  776  860  861  862  863  864  864  875  876  877 
+                       878  886  887  888  889  897  898  898  899  900  900  905  906  906  907 
+                       908  908  913  914  914  915  916  916  927  929  930  931  932  937  938 
+                       939  940  941  942  945  946  946 1045 1046 1060 1063 1070 1074 1078 1082 
+                      1086 1090 1094 1098 1105 1109 1224 1227 1228 1228 1229 1524 1539 1540 1541 
+                      1543 1544 1551 1552 1555 1560 1561 1564 1568 1574 1579 1580 1583 1587 1593 
+                      1597 1606 1609 1609 1635 1644 1647 1652 1656 1660 1671 
+iRetCode2           : 1524 1604 1605 1606 
+iRetry              : 1525 1539 1540 1540 
+iSemIO              :  608 1551 1560 1574 1579 1593 1619 
+iSigNum             :  687 1006 1007 1023 1024 1035 
+int86               : 1285 1294 1304 
+ioregs              : 1273 1284 1285 1285 1286 1292 1293 1294 1294 1295 1303 1304 1304 1305 
+L                   : 1361 1541 1604 
+L_MAP               : 1448 1451 
+L_OP                : 1439 
+lLen                :  748  793  801  802  827  837  841  845  849  854  859  859  859  862  870 
+                       877  882  882  888 1393 1396 1439 1442 1454 
+lPos                :  608 
+lRetCode            :  752  928  935  936  939  942 
+lStart              :  747  793  801  802  809  810  827  837  841  845  849  854  860  870  875 
+
+XC ... 'C' Concordance Utility                              Page 34
+
+                       886  897  905  913  927 1393 1395 1439 1442 1453 1478 1480 1530 1534 1541 
+                      1551 1560 1574 1579 1593 1604 1619 1621 1640 1644 1668 
+lStr                :  744  882  883 
+l_len               : 1366 1367 1454 
+l_pid               : 1455 
+l_start             : 1360 1361 1453 
+l_type              : 1366 1367 1451 
+l_whence            : 1360 1361 1452 
+locking             : 1367 
+lseek               :  860  875  886  927  935  937  940 1361 1644 
+lvar                :  601  601 
+MAIN                :  618 
+MSDOS               :  611 1181 
+main                :  704 
+NREAD               :  837 
+NULL                :  743 1640 
+NWRITE              :  841  870 1541 
+OFLAG               : 1232 
+OK                  :  600  601  946 1060 1310 1371 1540 1543 1552 1561 1580 1605 
+off_t               :  747  747  748  748  793 1453 1454 
+P                   :  608  613  687  690  693 
+PFCNTL              : 1458 
+POPEN               :  766  770  925 
+PRIVATE             :  607  612  650  672  679  686  689  692  703 1005 1044 1121 1241 1386 1618 
+                      
+PUBLIC              : 1191 1320 1392 1477 
+pStr                :  743  881  882  882  883 
+pcSem               :  608 1619 1623 1640 1652 1656 1668 
+printf              :  771  826  900  908  916  924  934  939  942  944 1359 1365 1438 1530 1667 
+                      
+pstFlock            : 1321 1324 1360 1360 1361 1361 1366 1366 1367 1367 
+pzBuf               :  742  862  864  864  877  883  888  929  931 
+pzDum               :  741  881  925  926 
+pzFile              : 1192 1193 1232 
+pzPath              :  740  766  770  773 
+REGS                : 1273 
+RETRIES             : 1471 1540 
+read                :  862  877  929 1652 
+rgpchErrmsg         :  650 1161 
+SEEK_SET            :  860  875  886  927  935  937  940 1452 1644 
+SEMDOWN             :  905 1554 1567 1577 1582 1592 
+SEMRD               :  603 1551 1560 1579 1639 1651 
+SEMTEST             :  913 1550 
+SEMUP               :  897 1554 1558 1563 1573 1586 
+SEMWR               :  604 1574 1593 1639 1655 
+SIGINT              :  759 
+SIGNON              :  672  758 
+SIGTERM             :  760 
+STOP                :  596  767  768  773  861 1148 
+scanf               :  790  801  809 
+signal              :  759  760 1035 
+size_t              :  883 
+sopen               : 1232 
+stFlock             : 1386 1451 1452 1453 1454 1455 1458 
+stFlock_t           : 1324 1386 
+stderr              :  954 1061 1070 1074 1078 1082 1086 1090 1094 1098 1105 1109 1153 1161 1162 
+
+XC ... 'C' Concordance Utility                              Page 35
+
+                      
+stdout              :  758  784  865  959  960  961  962  963  964  965  966  967  968  969  970 
+                       971  972  973  974  975  976  977  978  979  980 1023 1024 
+strlen              :  882  882 
+strncpy             :  883 
+system              :  768 
+TRUE                :  597 1296 
+toupper             :  794  990 1028 
+UNLOCK              :  854 1604 
+VOID                : 1242 
+vChkEno             :  693  837  841  845  849  854  870 1045 
+vChkErr             :  690  767  768  773  776  861  863  876  878  887  889  898  899  906  907 
+                       914  915  926  928  930  932  936  938  941  946 1122 
+vSigCatch           :  687  759  760 1006 1035 
+va_end              : 1163 
+va_list             : 1145 
+va_start            : 1160 
+vfprintf            : 1161 
+void                :  613  686  689  692  703 1005 1044 1121 1161 1285 1294 1304 
+write               :  888  931 1656 
+x                   : 1284 1292 1293 1295 
+
+

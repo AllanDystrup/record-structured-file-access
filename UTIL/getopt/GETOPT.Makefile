@@ -71,7 +71,7 @@ $(OBJECT):	$(SOURCE) $(HEADER)
 	ls -al
 
 
-# [3] DOC ----- make -f ERROR.Makefile doc -----------------------------------
+# [3] DOC ----- make -f GETOPT.Makefile doc -----------------------------------
 doc:	
 	cp ../ext/EX*  .
 	-rm -f $(TARGET).doc
@@ -80,6 +80,15 @@ doc:
 	-rm -f ex.* EX.*
 	ls -al
 	more $(TARGET).doc
+
+
+xref:
+	  ------- make -f GETOPT.Makefile xref -------
+	rm -f $(TARGET).xrf
+	../xrf/XRF $(TARGET).c -o $(TARGET).xrf
+	ls -al
+	more $(TARGET).xrf
+
 		
 # END GETOPT.Makefile
 #=============================================================================

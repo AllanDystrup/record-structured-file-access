@@ -1,0 +1,658 @@
+
+
+
+
+
+Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.h   is	[F637]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ #        ####   #    #          #    #
+ #       #    #  #   #           #    #
+ #       #       ####            ######
+ #       #       #  #     ###    #    #
+ #       #    #  #   #    ###    #    #
+ ######   ####   #    #   ###    #    #
+
+
+
+
+
+
+/*+1========================================================================*/
+/*  MODULE                        LCK.H                                     */
+/*==========================================================================*/
+/*  FUNCTION       Headerfile for module LCK.C
+ *                 #include this file to access the PUBLIC functions for byte-
+ *                 level file locking and semaphore operations defined in LCK.C
+ *
+ *  SYSTEM         !NB: NOT Standard C, - uses compiler specific routines NB!
+ *                 Portable across UN*X (POSIX) and MSDOS (MS C compiler) :
+ *                 - UNIX SVR3&4 (DG CC using standard POSIX system interface)
+ *                 - PC/MSDOS V33&50 (MSC60A using MS specific ANSI C extensions)
+ *
+ *  SEE ALSO       Modules: LCK.C, MAKEFILE
+ *
+ *  PROGRAMMER     Allan Dystrup, KMD:DIVDEC/AD
+ *
+ *  COPYRIGHT      (c) Allan Dystrup, KommuneData I/S September 1992.
+ *
+ *  VERSION        $Header: d:/cwork/lck/RCS/lck.h 0.1 92/11/11 09:17:35
+ *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+ *                 -----------------------------------------------------------
+ *                 $Log:	lck.h $
+ *                 Revision 0.1  92/11/11  09:17:35  Allan_Dystrup
+ *                 PREREL (ALFA1)
+ * 
+ *-1========================================================================*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.h   is	[F637]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+ #        ####   #    #           ####
+ #       #    #  #   #           #    #
+ #       #       ####            #
+ #       #       #  #     ###    #
+ #       #    #  #   #    ###    #    #
+ ######   ####   #    #   ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/
+/*  MODULE                        LCK.C                                     */
+/*==========================================================================*/
+/*  FUNCTION       This module implements a UNIX/MSDOS portable interface for
+ *                 file sharing and record locking, based on the X/Open XPG3
+ *                 (POSIX.1) definition of file control functions.
+ *
+ *                 In a UNIX environment the module's portable functions map
+ *                 directly to the X/Open equivalents (open and fcntl), while
+ *                 in a MSDOS environment the portable functions call on com-
+ *                 piler specific procedures (MSC sopen, locking) to "imitate"
+ *                 the X/Open functionality.
+ *
+ *                 The module offers a "HighLevel" API for portable WRITE-
+ *                 locks : iPLock(), and a "VeryHighLevel" API for portable
+ *                 semaphore operations : iPSem().
+ *
+ *  SYSTEM         !NB: NOT Standard C, - uses compiler specific routines NB!
+ *                 Portable across UN*X (POSIX) and MSDOS (MS C compiler) :
+ *                 - UNIX SVR3&4 (DG CC using standard POSIX system interface)
+ *                 - PC/MSDOS V33&50 (MSC60A using MS specific ANSI C extensions)
+ *
+ *  SEE ALSO       Modules: LCK.H, MAKEFILE
+ *
+ *  PROGRAMMER     Allan Dystrup, DIVDEC/AD
+ *
+ *  COPYRIGHT      (c) Allan Dystrup, Kommunedata I/S November 1991.
+ *
+ *  VERSION        $Header: d:/cwork/lck/RCS/lck.c 0.1 92/11/10 16:37:29
+ *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+ *                 -----------------------------------------------------------
+ *                 $Log:	lck.c $
+ *                 Revision 0.1  92/11/10  16:37:29  Allan_Dystrup
+ *                 PREREL (ALFA1)
+ *
+ *  REFERENCES     X/Open Company Ltd. [1989] : X/Open Portability Guide
+ *                    Issue 3 (XPG3), XSI System Interface and Headers
+ *                    Prentice Hall, Englewood Cliffs, New Jersey 07632
+ *                 Microsoft Corp. [1990] : Microsoft C Reference
+ *                    for MS OS/2 and MS-DOS Operating Systems.
+ *                    Microsoft Corporation.
+ *                 IBM Corp. [1984] : PC Hardware Reference Library
+ *                    Technical Reference, 6361459
+ *                    International Business Machines Corp.
+ *
+ *  USAGE          Module LCK.C features the following public routines for
+ *                 file sharing and record locking under MSDOS and UNIX.
+ *                 See the headerfile LCK.H for a detailed description of
+ *                 the user accessible datastructures and interface functions.
+ *                     POPEN()         // Open a file for sharing & locking
+ *                     PFCNTL          // LowLevel locking operation on file
+ *                     iPLock()        // HighLevel locking operation on file
+ *                     iPSem()         // VeryHiglLevel semaphore operations
+ *
+ *  DOC            Documentation is incorporated into the module and may be
+ *                 extracted (using a utility such as ex.awk) :
+ *                    Level 0 : Module doc. (detailed technical research)
+ *                    Level 1 : Module doc. (history, design, testdriver)
+ *                    Level 2 : PUBLIC functions (module program interface, "API")
+ *                    Level 3 : major PRIVATE functions (design)
+ *                    Level 4 : minor PRIVATE functions (support)
+ *
+ *  BUGS           The purpose of this module is to provide a DOS/UNIX system
+ *                 independent interface to file sharing and record locking.
+ *                 This can only be achieved using SYSTEM SPECIFIC FUNCTIONS
+ *                 so the PORTABILITY of the module is LIMITED to :
+ *                    MSDOS >= Version 3, and MS C 6.0 Compiler
+ *                    UNIX SV >= R3, and X/Open XPG3 compliant C Compiler Lib.
+ *                 The module will not compile in a strict standard C (ANSI)
+ *                 environment!!!
+ *
+ *--------------------- PORTABLE POSIX/MSC FCNTL SUBSET ----------------------
+ *
+ * UNIX/POSIX-C                           MSDOS/MS-C
+ *
+ * struct flock {
+ *    short l_type;                       cf. equivalences listed below
+ *    short l_whence;                     > Requires lseek(fd,l_start,l_whence)
+ *    off_t l_start;                      > before call of locking(...)
+ *    off_t l_len;                        Equivalent to nbytes
+ *    pid_t l_pid;                        Ignored
+ *    short l_sysid;                      Totally ignored (DG UX extension)
+ *    short l_pad1;                       Totally ignored (DG UX extension)
+ *  };
+ *
+ * l_type equivalences :
+ *    fcntl(fd, F_SETLK,  [F_RDLCK]);     locking(fd, LK_NBLCK,  l_len);
+ *    fcntl(fd, F_SETLK,  [F_WRLCK]);     locking(fd, LK_NBRLCK, l_len);
+ *    fcntl(fd, F_SETLKW, [F_RDLCK]);     locking(fd, LK_LOCK,   l_len);
+ *    fcntl(fd, F_SETLKW, [F_WRLCK]);     locking(fd, LK_RLCK,   l_len);
+ *    fcntl(fd, F_SETLK,  [F_UNLCK]);     locking(fd, LK_UNLCK,  l_len);
+ *
+ * The fcntl() functionality for locking operations can be provided under
+ * MSDOS by setting up an interface function (eg. PFCNTL, Portable FCNTL)
+ * translating the fcntl() call syntax to the locking() equivalents.
+ * This will be called the "LowLevel API".
+ *
+ * For convenience I will furthermore provide a "HighLevel API" in the form
+ * of a function iPLock(), that simply packs it's arguments into a flock-
+ * structure and pases this structure as an argument to PFCNTL for execution
+ * of the locking operation.
+ *
+ * -------------------- PORTABLE POSIX/MSC FCNTL API -------------------------
+ *
+ *     UNIX/POSIX-C              PORTABLE            MSDOS/MS-C
+ *      (-DUNIX)                                     (-DMSDOS)
+ *                                POPEN
+ *                                  |
+ *             +--------------------+--------------------+
+ *             |                                         |
+ *           open                                      DOPEN
+ *                                                       |
+ *                                                     vChkEnv
+ *                                                     sopen
+ *
+ *  HighLevel API:                iPLock
+ *                                  |
+ *  LowLevel  API:                PFCNTL
+ *                                  |
+ *             +--------------------+--------------------+
+ *             |                                         |
+ *          fcntl                                      DFCNTL
+ *                                                       |
+ *                                                     lseek
+ *                                                     locking
+ *
+ *=========================== FINAL WRAPPING =================================
+ *
+ * As clarified in the previous section ("TEST") a portable READ/SHARED-lock 
+ * mechanism is not available across the DOS/UNIX platforms; This restriction 
+ * introduces a new problem for all those applications that may tolerate a 
+ * short-term write lock on records, but need multiple read access most of the
+ *  time (in a UNIX environment locking is only ADVISORY, so any process may 
+ * freely read a locked region, whereas DOS imposes a MANDATORY locking with 
+ * strict I/O-checking and rejection of all access attempts on a locked record).
+ *
+ * To solve this problem, we will use our function iPLock and the "consistent
+ * function subset" (cf. the TESTING section above) to implement a simple
+ * semaphore mechanism for mutual exclusive access to record-structured files.
+ * This access scheme will be based on the precence of a "lock-byte" in each
+ * record;  the lock-byte may be set ("SEMUP"), cleared ("SEMDOWN") and tested
+ * by multiple processes using the "VeryHighLevel" function : iPSem().
+ *
+ *     UNIX/POSIX-C              PORTABLE            MSDOS/MS-C
+ *      (-DUNIX)                                     (-DMSDOS)
+ *
+ *  VeryHighLevel API:            iPSem
+ *                                  |
+ *  HighLevel API:                iPLock
+ *                                  |
+ *  LowLevel  API:                PFCNTL
+ *                                  |
+ *             +--------------------+--------------------+
+ *             |                                         |
+ *          fcntl                                      DFCNTL
+ *                                                       |
+ *                                                     lseek
+ *                                                     locking
+ *
+ * The new VHLAPI function iPSem() calls on iPLock() to set up a "critical
+ * section" around access to the lock-byte, thus in effect implementing the
+ * basic indivisible sem.operations (SEMTEST, SEMUP, SEMDOWN) on the byte.
+ * By including a lock-byte in each record and using iPSem() to change the
+ * state of the lock-byte (SEMUP or SEMDOWN), the lock-byte will act as a mutual
+ * exclusive flag (= a semaphore) telling whether the record-resource is
+ * in current use for updating (semaphore:SEMUP) or free (semaphore:SEMDOWN).
+ * NOTE that even if the state of the semaphore for a record is "SEMUP", the
+ * record may still be safely read by other processes. A record guarded by a
+ * locked semaphore (state "SEMUP") may also for that matter be directly updated
+ * by other processes, if they fail to test or chose to ignore the semaprore
+ * flag - THIS PRACTICE SHOULD BE AVOIDED HOWEVER, AS IT WILL LEAD TO UNPRE-
+ * DICTABLE RESULTS!
+ *
+ *
+ *
+ *-1========================================================================*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+1 MODULE LCK.C ==========================================================*/
+/*   NAME                         main                                      */
+/*== SYNOPSIS ==============================================================*/
+PRIVATE void
+main(argc, argv, envp)
+    int       argc;        /* Argument count */
+    char     *argv[];      /* Argument vector */
+    char     *envp[];      /* Environment pointer */
+
+{
+/* DESCRIPTION
+ *    Demoprogram and testdriver for module "lck.c".
+ *    The function demonstrates the proper use of datastructures and
+ *    public functions declared in lck.h and defined in lck.c.
+ *
+ *    0: Signon & setup signal catcher.
+ *    1: Open testfile (for update/sharing).
+ *    2: LOOP  //Test file locking, - execute lck from multiple terminals!
+ *          2.1: Prompt for input
+ *          2.2: Get input string from user/stdin, format: <CODE START LEN>
+ *          2.3: Call iPLock() or iPSem(), with func. depending on entered CODE
+ *       UNTIL ( CODE=Quit )
+ *
+ * RETURN
+ *    main() returns :
+ *     - EXIT_SUCCESS on normal termination,
+ *     - EXIT_FAILURE on fatal error.
+ *    (However main() is a testdriver and not intended to interface with any
+ *    calling program, so the return value is insignificant in this context).
+ *
+ * EXAMPLE
+ *    The function main() demonstrates the proper use of the portable "high
+ *    level" interface iPLock() for file sharing & record locking, and the
+ *    portable "very high level" interface iPSem() for semaphore operations.
+ *
+ * SEE ALSO
+ *    Study the implementation of function iPLock() for an example of direct
+ *    call to the portable "low level" interface PFCNTL.
+ *-1*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+4 MODULE LCK.C ----------------------------------------------------------*/
+/*   NAME                         vSigCatch                                 */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE void
+vSigCatch(iSigNum)
+    int       iSigNum;
+{
+/* DESCRIPTION
+ *    Support function for main() test driver.
+ *    Signal handler set up to catch "break" signals : SIGINT (asynch.
+ *    interactive attention) & SIGTERM (asynch. interactive termination).
+ *
+ *    1: Prompt user for break confirmation
+ *    2: Depending on user answer: [Y]->terminate, [N]->continue
+ *
+ * RETURN
+ *    If break confirmed: program terminated with exit code EXIT_SUCCESS
+ *    else: signal 'iSigNum' reset and program execution resumed.
+ *-4*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+4 MODULE LCK.C ----------------------------------------------------------*/
+/*   NAME                         vChkEno                                    */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE void
+vChkEno(iRetCode)
+    int       iRetCode;        /* return code from fcntl */
+{
+/* DESCRIPTION
+ *    Support function for main() test driver.
+ *    Check return code from PFCNTL (passed as iRetCode) :
+ *      0 : success
+ *     -1 : standard error from PFCNTL (with errortype specified by "errno")
+ *     -2 : DOS-specific error : bad seek in file
+ *
+ * RETURN
+ *    Side effects : Error-message printed on stderr
+ *    Func. Return : none (void)
+ *-4*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+4 MODULE ----------------------------------------------------------------*/
+/*   NAME                          vChkErr                                  */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE void
+vChkErr(int cond, int cont, int iLine, int err,  ...)
+//    int cond;      	/* Error-condition to check (TRUE=error) */
+//    int cont;      	/* Continue in spite of error (TRUE=yes) */
+//    int iLine;     	/* Source code line pinpointing error */
+//    int err;       	/* Errornumber if error-condition TRUE */
+			/* Var. # args for error-msg. - cf. <general.h> */
+{
+/* DESCRIPTION
+ *    Support function for main() test driver.
+ *    Simple error handler: All errors are fatal (ie cause program term.).
+ *    Error messages are written to stderr, and may be redirected to a file.
+ *    Error-messages are "hard coded" into array rgpchErrmsg[].
+ *
+ *    1: Print header identifying error location (file, line, date, time)
+ *       [STDC:Point arg.ptr. to 1. var arg, Print error-message & Clean up]
+ *
+ * RETURN
+ *    2: Side effect, depending on flag "cont" :
+ *       - FALSE: Exit module with "core-dump" (DEBUG) or "fail-code" (normal).
+ *       - TRUE : Continue execution (return none/void).
+ *-4*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+2 MODULE LCK.C===========================================================*/
+/*   NAME                         DOPEN                                     */
+/*== SYNOPSIS ==============================================================*/
+PUBLIC int
+DOPEN(pzFile)
+    char     *pzFile;          /* Path of file to open */
+{
+/* DESCRIPTION
+ *    Portable file open for locking operations as defined in MSDOS(MSC60).
+ *
+ *    macro POPEN -> [ DOS:DOPEN() | POSIX:open() ];
+ *  - If MSDOS is defined at compile time (-DMSDOS), the macro name POPEN
+ *    maps to this LowLevel DOS-specific interface for "open()".
+ *  - If UNIX is defined at compile time (-DUNIX), the macro name POPEN
+ *    maps directly to the open() function (and this code is not compiled!)
+ *
+ *    The user interface on MSDOS and UNIX is invariant : POPEN. On both ope-
+ *    rating systems, POPEN will enforce the correct open-flags (cf. setup of
+ *    OFLAG in LCK.H) to ensure opening for file sharing and record locking.
+ *
+ *    1: Check environment for DOS Version & SHARE.EXE.
+ *       If Dos Ver < 3 or share not loaded, return (without opening file).
+ *    2: Open file for sharing/locking
+ *
+ * RETURN
+ *     -3 : ERROR:   SHARE.EXE not loaded (required for file shr & rec. lock)
+ *     -2 : ERROR:   DOS Version < 3 (no file sharing support!)
+ *     -1 : ERROR:   Bad open operation - precise error code in global "errno"
+ *                   Common DOS(MSC60)-UNIX(X/Open) subset for "errno" :
+ *                      EACCES - access permissions denied
+ *                     [EEXIST - create of existing file - should not occur]
+ *                     [EINVAL - invalid value of OFLAG  - should not occur]
+ *                      EMFILE - max open files exceeded
+ *                      ENOENT - file for open does not exist
+ *    >=0 : OK       Return value = File handle for opened file.
+ *-2*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+4 MODULE LCK.C ----------------------------------------------------------*/
+/*   NAME                         iChkEnv                                   */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE int
+iChkEnv(VOID)
+{
+/* DESCRIPTION
+ *    Support function for DOPEN; - check DOS environment for multiuser support.
+ *
+ * 1: Check major DOS OS version ("_osmajor" in <stdlib.h> of MSC & BTC++)
+ *    NB: DOS versions < 3.0 should be upgraded for multiuser support.
+ *
+ * 2: Check load of SHARE.EXE using DOS MULTIPLEX INT 2FH, 1000H.
+ *    SHARE.EXE must be present for file sharing and locking in DOS.
+ *    The program is loaded by the following command (issued from the cmd.line
+ *    or from autoexec.bat/config.sys(DOS 5.0):  [c:\dos\]share /f:1024 /l:50
+ *    NB Dont perform this test on pre-DOS 3.0, or you'll crash the machine!
+ *
+ * 3: Check precence of networked drives, using DOS INT 21H, IOCTL 4409H.
+ *    NB This call can't discriminate between a network drive and a CD-ROM!
+ *
+ * 4: Check precence of NetBIOS entry INT 2AH.
+ *    NB NetBIOS is not a required feature of a LAN, - the program might be
+ *    installed on a NFS (UNIX "Network File System") drive mapped on top of
+ *    TCP/IP, in which case the netdrive-test (3) would STILL work correctly.
+ *
+ * RETURN
+ *     -5 : ERROR:   NetBIOS interface not present (load net TSR or driver)
+ *     -4 : ERROR:   No redirected drives present (lacking net configuration)
+ *     -3 : ERROR:   SHARE.EXE not loaded (required for file shr & rec lock)
+ *     -2 : ERROR:   DOS Version < 3 (no file sharing support!)
+ *     -1 : ERROR:   Bad open operation - precise error code in global "errno"
+ *      0 : OK   :   Function complete.
+ *-4*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+2 MODULE LCK.C===========================================================*/
+/*   NAME                         DFCNTL                                    */
+/*== SYNOPSIS ==============================================================*/
+PUBLIC int
+DFCNTL(iFd, iFcntlCmd, pstFlock)
+    int       iFd;         /* FileDescr. identifying file for locking op. */
+    int       iFcntlCmd;   /* fcntl() command : [F_SETLK | F_SETLKW] */
+    stFlock_t *pstFlock;   /* Pointer to flock-str. def. lock type & range */
+{
+/* DESCRIPTION
+ *    Portable "LowLevel API" for locking operations as defined in MSDOS(MSC60).
+ *
+ *    macro:PFCNTL -> [ DOS:DFCNTL() | POSIX:fcntl() ];
+ *  - If MSDOS is defined at compile time (-DMSDOS), the macro name PFCNTL
+ *    maps to this LowLevel DOS-specific interface for "fcntl()".
+ *    DFCNTL imitates the fcntl()-function as defined by X/Open & POSIX,
+ *    using the MSC60 "high level" func. locking() for file sharing/locking.
+ *  - If UNIX is defined at compile time (-DUNIX), the macro name PFCNTL
+ *    maps directly to the fcntl() function (and this code is not compiled!)
+ *
+ *    The user interface on MSDOS and UNIX is invariant : PFCNTL, - hence
+ *    the term "Portable (LowLevel) API". - A portable HighLevel API to
+ *    fcntl() is provided by the function iPLock(), see below.
+ *
+ *    1: Seek to the file position for the locking operation.
+ *    2: Perform the locking operation, using the MSC60-specific primitives.
+ *
+ * RETURN
+ *    The return code of locking() are :
+ *    -1 : ERROR: Bad locking operation, - precice error code in global "errno".
+ *                The DOS(MSC60) "errno" codes for locking() are :
+ *                   EACCESS     access to locked region denied
+ *                   EBADF       bad (not valid) file descriptor
+ *                   EDEADLOCK   desired lock is blocked by other process
+ *                   EINVAL      invalid argument
+ *     0 : "OK" : Function completed succesfully.
+ *
+ * SEE ALSO
+ *    Function iPLock() for the common DOS/UNIX API to file sharing/locking.
+ *-2*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+2 MODULE LCK.C ==========================================================*/
+/*   NAME                         iPLock                                    */
+/*== SYNOPSIS ==============================================================*/
+PUBLIC int
+iPLock(iFd, lStart, lLen, iOp)
+    int       iFd;         /* FileDescr. identifying file for locking op. */
+    long      lStart;      /* Start of lock (offset from start-of-file) */
+    long      lLen;        /* Length of lock (#bytes from lStart) */
+    int       iOp;         /* Lock op: [NREAD|NWRITE|BREAD|BWRITE|UNLOCK] */
+{
+/* DESCRIPTION
+ *    Portable "HighLevel API" for locking operations in MSDOS(MSC60) & UNIX.
+ *
+ *    1: Set the fcntl() record locking COMMAND : [F_SETLK | F_SETLKW]
+ *    2: Define the TYPE the lock : [F_RDLCK | F_WRLCK | F_UNLCK]
+ *       Define the REGION for the lock : offset (parameter lStart) and
+ *       length (parameter lLen), - both taken from start-of-file (SEEK_SET).
+ *    3: Call the portable fcntl()-function to perform the locking operation,
+ *       and return the result of PFCNTL.
+ *
+ * RETURN
+ *    The return code of iPLock() "imitates" the X/Open fcntl() return values:
+ *    -1 : ERROR: Bad PFCNTL operation, - precice error code in global "errno".
+ *                The common DOS(MSC60)-UNIX(X/Open) subset for "errno" is :
+ *                   EACCESS     access to locked region denied
+ *                   EBADF       bad (not valid) file descriptor
+ *                   EDEADLK     desired lock is blocked by other process
+ *                               (MSC60 EDEADLOCK is mapped to X/Open EDEADLK)
+ *                   EINVAL      invalid argument
+ *     0 : OK   : Function completed succesfully.
+ *
+ * EXAMPLE
+ *    // NB: You must include error checking in your own programs.
+ *    #include "lck.h"             // Include the lck header file
+ *    int     iFd;                 // Declare a file descriptor
+ *    char    pzFn="data.fil";     // Declare a file name
+ *
+ *    iFd = POPEN(pzFn);           // Open file for share/lock
+ *    iPLock(iFd, 0, 100, NWRITE); // Set a write lock on byte 0-100
+ *    ...                          // Work on byte 0-100
+ *    iPLock(iFd, 0, 100, UNLOCK); // Release lock on byte 0-100
+ *
+ * SEE ALSO
+ *    Function DFCNTL() for the DOS implementation of PFCNTL.
+ *-2*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+2 MODULE LCK.C ==========================================================*/
+/*   NAME                         iPSem                                     */
+/*== SYNOPSIS ==============================================================*/
+PUBLIC int
+iPSem(iFd, lStart, iOp)
+    int       iFd;         /* FileDescr. identifying file with semaphore(s) */
+    long      lStart;      /* Position from start of file of semaphore-byte */
+    int       iOp;         /* Semaph.operation: [SEMUP | SEMDOWN | SEMTEST] */
+{
+/* DESCRIPTION
+ *    Portable "Very HighLevel API" for lock operations in MSDOS(MSC60) & UNIX.
+ *    This function offers an interface for working with semaphores implemented
+ *    as "lock bytes" directly in a datafile. By including a semaphore (an
+ *    extra byte) in each data-record and calling on iPSem() to set/clear the
+ *    sem.value, a user may ensure mutual exclusive access to the file records.
+ *
+ *    The semaphore controlled access strategy requires a disciplined behaviour
+ *    on behalf of the user-programs :
+ *     - The function iPSem() accesses the semaphores inside a "critical
+ *       section" (implemented using the portable function iPLock to set at
+ *       short-lived write-lock on the semaphore byte), and thereby it does
+ *       guarantee "race-free" updating of the semaphore.
+ *     - The function will however NOT lock the associated datarecord, so
+ *       programs may still freely read and write the record; - it is the
+ *       user's reponsibility to serialize write-access (updating) of the
+ *       data-records, by always "grabbing" the semaphore before performing
+ *       a write operation.
+ *
+ * RETURN
+ *    -5  : Attempt to "SEMUP/SEMDOWN/SEMTEST" on a byte with invalid semaphore value
+ *          NB: a semaphore byte must be initialized to SEMDOWN!
+ *    -4  : Attempt to "SEMUP" on a semaphore that is already UP (Record in use)
+ *    -3  : Attempt to "SEMDOWN" on a semaphore, that is already DOWN (Record free)
+ *    -2  : Bad input argument value
+ *    -1  : ERROR  : Bad OS file operation, - precice error code in global "errno".
+ *    >=0 : SUCCESS: Function completed, - current semaphore value is returned.
+ *
+ * EXAMPLE
+ *    #include "lck.h"            // Include the lck header file
+ *    int     iFd;                // Declare a file descriptor
+ *    char    pzFn="data.fil";    // Declare a file name
+ *    long    lSemPos = 0;        // Declare a semaphore in file, position 0
+ *
+ *    iFd = POPEN(pzFn);          // Open file for share/lock
+ *
+ *    iRetCode = iPSem(iFd, lSemPos, SEMUP);    // Grab the record (start pos 0)
+ *    ...                                       // Read, Update & Write record
+ *    iRetCode = iPSem(iFd, lSemPos, SEMDOWN);  // Release the record
+ *-2*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+/*+4 MODULE LCK.C ----------------------------------------------------------*/
+/*   NAME                    iSemIO                                         */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE int
+iSemIO(iFd, lStart, iOp, pcSem)
+    int       iFd;         /* FileDescr. identifying file for locking op. */
+    long      lStart;      /* Position from file start holding the LockByte */
+    int       iOp;         /* File operation: [SEMRD | SEMWR], sem rd/wr */
+    char     *pcSem;       /* Address of sem ("byte buffer") for file rd/wr */
+{
+/* DESCRIPTION
+ *    Support function for the user interface to semaphore operations: iPSem().
+ *    Performs Read/Write of a semaphore (a lock-byte) from/to a file.
+ *    NB: Must be called from inside a critical region to guarantee validity.
+ *
+ * RETURN
+ *    -2  : Bad input argument to iSemIO
+ *    -1  : ERROR   : Bad DOS file operation, - error code in global "errno".
+ *    >=0 : SUCCESS : OK  DOS file operation, - function completed.
+ *-4*/Sat Feb 21 12:57:23 CET 2026
+CCITT CRC (REVERSE) for    lck.c   is	[5DEF]
+
+
+
+
+
+
+END EXTRACTION
+
+
