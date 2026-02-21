@@ -1,0 +1,953 @@
+XC ... 'C' Concordance Utility   bool.c                     Page 1
+
+1       1: /*+1========================================================================*/
+2       2: /*   MODULE                        BOOL.C                                   */
+3       3: /*==========================================================================*/
+4       4: /*   FUNCTION      Boolean expression compiler                              */
+5       5: /*                                                                          */
+6       6: /*   SYSTEM        Standard(ANSI/ISO) C.       				    */
+7       7: /*                 Tested on PC/MS DOS 5.0(MSC 600 A).             	    */
+8       8: /*                                                                          */
+9       9: /*   SEE ALSO      Modules: GENERAL.H, STACK.H, ERROR.H/C, BOOL.H           */
+10     10: /*                                                                          */
+11     11: /*   PROGRAMMER    Allan Dystrup.                                           */
+12     12: /*                                                                          */
+13     13: /*   COPYRIGHT(c)  Allan Dystrup, FEB.1991                                  */
+14     14: /*                                                                          */
+15     15: /*   VERSION    $Header: d:/cwk/kf/bool/RCS/bool.c 1.1 92/10/25 16:52:50    */
+16     16: /*              Allan_Dystrup Exp Locker: Allan_Dystrup $		    */
+17     17: /*              ---------------------------------------------------------   */
+18     18: /*              $Log:   bool.c $					    */
+19     19: /*              Revision 1.1  92/10/25  16:52:50  Allan_Dystrup		    */
+20     20: /*              Initial revision					    */
+21     21: /*				--------------------			    */
+22     22: /*		Revision 1.2 2025/12/07	10:00:00	Allan_Dystrup	    */
+23     23: /*		Port to UBUNTU Linux on Windows10/WSL, Using CLion	    */
+24     24: /*		Port to Windows 10 native, Using CLion for Windows	    */
+25     25: /*									    */
+26     26: /*======================COMPILER STRUCTURE ================================ */
+27     27: /*                                                                          */
+28     28: /* This module implements a simple compiler for evaluating boolean          */
+29     29: /* expressions. The compiler is structured into two parts :                 */
+30     30: /*  - a "front end" for transforming a boolean expression from infix form   */
+31     31: /*    to postfix form (consisting of : SCANNER, PARSER, EMITTER);           */
+32     32: /*  - a "back end" for interpreting the postfix boolean expression using    */
+33     33: /*    an abstract/software stack machine (consisting of : INTERPRETER).     */
+34     34: /* The compiler "front end" and "back end" communicates using a common      */
+35     35: /* symbol table (cf BOOL.H). The overall structure of the module is thus :  */
+36     36: /*                                                                          */
+37     37: /*   infix string---* SCANNER---* PARSER---* EMITTER---* postfix string     */
+38     38: /*                      |                       *               |           */
+39     39: /*                      |                       |               |           */
+40     40: /*                      +-------* SYMBOL--------+               |           */
+41     41: /*                                 *  |                         |           */
+42     42: /*                                 |  |                         |           */
+43     43: /*                   (FIND)--------+  |                         |           */
+44     44: /*                                    *                         |           */
+45     45: /*   evaluation result *-------INTERPRETER *--------------------+           */
+46     46: /*                                                                          */
+47     47: /*                                                                          */
+48     48: /*                                                                          */
+49     49: /*====================== COMPILER FRONT END ================================*/
+50     50: /*                                                                          */
+51     51: /* The syntax of the input string is defined by the following rules.        */
+52     52: /*                                                                          */
+53     53: /* 1. Boolean operator precedence, arity and associativity :                */
+54     54: /*             operator(s)   precedence   arity and associativity           */
+55     55: /*             ----------------------------------------------------         */
+56     56: /*             NOT               1        unary                             */
+
+XC ... 'C' Concordance Utility   bool.c                     Page 2
+
+57     57: /*             AND               2        binary                            */
+58     58: /*             OR   XOR          3        binary, left associative          */
+59     59: /*                                                                          */
+60     60: /* 2. Context-free grammer (expressed in BNF:Bacus-Naur/Normal Form) :      */
+61     61: /*    1. set of tokens(= terminal symbols) : { NOT, AND, OR, XOR, EOS, ID } */
+62     62: /*       NOT,AND,OR,XOR  The 4 basic Boolean operators                      */
+63     63: /*             EOS       End Of String                                      */
+64     64: /*             ID        IDentifier                                         */
+65     65: /*    2. set of nonterminals : { Z, E, T, F }                               */
+66     66: /*             Z       Destinguished start symbol                           */
+67     67: /*             E       Expression                                           */
+68     68: /*             T       Term                                                 */
+69     69: /*             F       Factor                                               */
+70     70: /*    3. set of productions (context-free: one nonterminal on left side)    */
+71     71: /*             Z  ->   E EOS                                                */
+72     72: /*             E  ->   E OR  T | E XOR T | T                                */
+73     73: /*             T  ->   T AND F | F                                          */
+74     74: /*             F  ->   ID | ( E ) | NOT F                                   */
+75     75: /*                                                                          */
+76     76: /*    We want to construct a recursive descent predictive parser, ie.       */
+77     77: /*    a top-down parser without backtracking. Furthermore we will require   */
+78     78: /*    the parser to work with 1 lookahead-character, ie. a LL(1) parser     */
+79     79: /*    (scanning input Left->right, using Leftmost derivations, 1 lookahead).*/
+80     80: /*    To make this possible, we have to transcribe the productions to get : */
+81     81: /*     - no left recursion (thus eliminating infinite loops)                */
+82     82: /*     - no conflict between two right sides for any lookahead symbol       */
+83     83: /*       (i.e. an unambigous FIRST-set for any production) :                */
+84     84: /*             Z  ->   E  EOS                                               */
+85     85: /*             E  ->   T  E'                                                */
+86     86: /*             E' ->   OR  T E' | XOR T E' | epsilon                        */
+87     87: /*             T  ->   F  T'                                                */
+88     88: /*             T' ->   AND F T' | epsilon                                   */
+89     89: /*             F  ->   ( E )    | NOT F    | ID                             */
+90     90: /*                                                                          */
+91     91: /* 3. Syntax-directed translation :                                         */
+92     92: /*    Combination of syntax analyzer and intermediate-code generator.       */
+93     93: /*    The chosen intermediate code is postfix (= "reverse polish"),         */
+94     94: /*    a notation in which the operators appear after their operands.        */
+95     95: /*    Postfix notation is a compact way of representing a parse tree,       */
+96     96: /*    with an unambigous decoding dictated only by position and arity       */
+97     97: /*    (= number of operator arguments), - ie. parentheses are eliminated.   */
+98     98: /*    The interpretation of postfix is analogous to a bottom-up traversal   */
+99     99: /*    of the parse tree, - but may be performed by a simple stack machine.  */
+100   100: /*    We use a simple syntax directed definition (with semantic rules       */
+101   101: /*    defined by simple concatenation of translations) yielding a           */
+102   102: /*    corresponding simple translation scheme that can execute the          */
+103   103: /*    semantic actions (ie. emit intermediate code) during the parse.       */
+104   104: /*    Thus it is not nessecary to explicitly build the parse tree (syntax   */
+105   105: /*    analysys) before emitting the output (code ceneration); - hence       */
+106   106: /*    the concept "syntax-directed translation" !                           */
+107   107: /*                                                                          */
+108   108: /*:------------------------------------------------------------------------:*/
+109   109: /*:       Simple syntax directed definition    :    Translation scheme     :*/
+110   110: /*:--------------------------------------------:---------------------------:*/
+111   111: /*: Productions def.  : Semantic rules for     : Semantic actions in       :*/
+112   112: /*: gramm. constructs : postfix=.p translation : procedural notation       :*/
+
+XC ... 'C' Concordance Utility   bool.c                     Page 3
+
+113   113: /*: (infix)           : (infix to postfix)     : (generate postfix)        :*/
+114   114: /*:-------------------:------------------------:---------------------------:*/
+115   115: /*  Z  -> E  EOS      : Z.p  := E.p  EOS       : Z -> E {terminate}         */
+116   116: /*  E  -> T  E'       : E.p  := T.p, E'.p      : E -> T  E'                 */
+117   117: /*  E' -> OR  T E'    : E'.p := T.p, OR,  E'   : E'-> OR  T {print(OR)}  E' */
+118   118: /*     |  XOR T E'    :       | T.p, XOR, E'   :   |  XOR T {print(XOR)} E' */
+119   119: /*     |  epsilon     :       | epsilon        :   |  epsilon               */
+120   120: /*  T  -> F  T'       : T.p  := F.p, T'.p      : T -> F  T'                 */
+121   121: /*  T' -> AND F T'    : T'.p := F.p, AND, T'p  : T'-> AND F {print(AND)} E' */
+122   122: /*     |  epsilon     :       | epsilon        :   |  epsilon               */
+123   123: /*  F  -> ( E )       : F.p  := E.p            : F -> ( E )                 */
+124   124: /*     |  NOT F       :       | F.p, NOT       :   |  NOT F {print(NOT)}    */
+125   125: /*     |  ID          :       | ID.p           :   |  ID {print(ID.slot)}   */
+126   126: /*:------------------------------------------------------------------------:*/
+127   127: /*                                                                          */
+128   128: /*                                                                          */
+129   129: /*====================== COMPILER BACK END =================================*/
+130   130: /*                                                                          */
+131   131: /*    The compiler back-end takes the front-end generated code (a postfix   */
+132   132: /*    string) as input, and evaluates it on the target machine (a simple    */
+133   133: /*    stack construction).                                                  */
+134   134: /*                                                                          */
+135   135: /*    To be specific, the type of syntax-directed translation used by the   */
+136   136: /*    compiler front end is based on an S-attributed definition with only   */
+137   137: /*    synthesized attributes (more complex grammars require context info    */
+138   138: /*    passed down the syntax tree in the form of inherited attributes).     */
+139   139: /*                                                                          */
+140   140: /*    The "internal form" emitted by the front end is an abstract syntax    */
+141   141: /*    tree casted as a postfix string; More precicely, the syntax tree is   */
+142   142: /*    a Directed Acyclic Graph : a "DAG", because the value index for an    */
+143   143: /*    operator that occurs multiple times in a boolean expression, is       */
+144   144: /*    unique (a reference to the symboltable) in the postfix string.        */
+145   145: /*                                                                          */
+146   146: /*    These characteristics alow a simple depth-first evaluation of the     */
+147   147: /*    syntax tree (no dependency graph transformation of the tree needed).  */
+148   148: /*    Thus the evaluation function may be implemented by a stack machine    */
+149   149: /*    interpreting the postfix-string from left to right.                   */
+150   150: /*                                                                          */
+151   151: /*-1========================================================================*/   
+152   152: 
+153   153: 
+154   154: /*--------------------------------------------------------------------------*/
+155   155: /*                        INCLUDE HEADER-FILES                              */
+156   156: /*--------------------------------------------------------------------------*/ 
+157   157: /* Std.C header files */
+158   158: #include <stdio.h>
+159   159: #include <ctype.h>
+160   160: #include <string.h> 
+161   161: 
+162   162: /* Project header files */
+163   163: #define ANSI
+164   164: 
+165   165: #include "../../general.h"
+166   166: #include "../err/error.h"
+167   167: #include "../stack/stack.h"
+168   168: 
+
+XC ... 'C' Concordance Utility   bool.c                     Page 4
+
+169   169: /* Module header file */ 
+170   170: #define BOOL_ALLOC
+171   171: #include "bool.h"
+172   172: 
+173   173: #define COPYRIGHT  "Copyright (c) 1990 Allan Dystrup"
+174   174: #define VERSION    "v.1.2"
+175   175: 
+176   176: 
+177   177: 
+178   178: /*--------------------------------------------------------------------------*/
+179   179: /*                        PRIVATE GLOBAL DATA                               */
+180   180: /*--------------------------------------------------------------------------*/
+181   181: /* Lexemes must by one char in range [0-127] */
+182   182: /* Token       Lexeme              Semantics        */
+183   183: #define OR     (BYTE) '/'    	/* boolean OR       */
+184   184: #define XOR    (BYTE) '%' 		/* boolean XOR      */
+185   185: #define AND    (BYTE) '&' 		/* boolean AND      */
+186   186: #define NOT    (BYTE) '^'   	/* boolean NOT      */ 
+187   187: 
+188   188: #define LP     (BYTE) '('    	/* left parenthesis */
+189   189: #define RP     (BYTE) ')'     	/* right parantesis */ 
+190   190: 
+191   191: #define QUOTE  (BYTE) ':'     	/* quoted string    */
+192   192: #define ESCAPE (BYTE) '\\'    	/* escape next char */ 
+193   193: 
+194   194: #define ID     (BYTE) 'I'     	/* identifier       */
+195   195: #define EOI    (BYTE) '\0'   	/* End Of Input     */   
+196   196: 
+197   197: PRIVATE BYTE* yytext = (BYTE *) "";   /* Lexeme (not \0 terminated) */ 
+198   198: PRIVATE int   yyleng = 0;             /* Lexeme length              */ 
+199   199: PRIVATE BYTE  aEmitStr[OUTMAX];       /* Output string from Emitter */   
+200   200: 
+201   201: 
+202   202: /*--------------------------------------------------------------------------*/
+203   203: /*                        PRIVATE FUNCTION PROTOTYPES                       */
+204   204: /*--------------------------------------------------------------------------*/
+205   205: 
+206   206: // SCANNER
+207   207: PRIVATE BYTE    
+208   208: 	bScan 	    P((BYTE * pzStr)); 
+209   209: 	
+210   210: // PARSER
+211   211: PRIVATE void
+212   212: 	vAdvance    P((BYTE token));
+213   213: PRIVATE void
+214   214: 	vExpr       P((void)); 
+215   215: PRIVATE void
+216   216: 	vTerm       P((void));
+217   217: PRIVATE void
+218   218: 	vFactor     P((void));
+219   219: 
+220   220: // EMITTER
+221   221: PRIVATE void
+222   222: 	vEmit       P((BYTE token));
+223   223: 	
+224   224: // SYMBOL
+
+XC ... 'C' Concordance Utility   bool.c                     Page 5
+
+225   225: PRIVATE int
+226   226: 	iSymInsert	(BYTE * pbLex, int len);
+227   227: 
+228   228: // INTERPRETER
+229   229: 
+230   230: 
+231   231: 
+232   232: #ifdef MAIN
+233   233: /*+2 MODULE BOOL.C =========================================================*/
+234   234: /*   NAME   00                 main                                         */
+235   235: /*== SYNOPSIS ==============================================================*/
+236   236: /* DESCRIPTION                 Test driver for module bool.c  
+237   237:  *-2*/ 
+238   238: 
+239   239: int
+240   240: main(argc, apzArgv)
+241   241: 	WORD    argc;
+242   242: 	BYTE*   apzArgv[];
+243   243: {     
+244   244: 	int   	i;     
+245   245: 	BYTE    bPeek;     
+246   246: 	FLAG    fResult;      
+247   247: 	
+248   248: 	BYTE    aInfix[256];		/* input string  : infix notation   */     
+249   249: 	BYTE    *pzPostfix;    		/* output string : postfix notation */ 
+250   250: 	     
+251   251: 	/* 0: Echo input arguments */     
+252   252: 	printf("\nargc=%d\n", argc);     
+253   253: 	for (i = 0; apzArgv[i] != NULL; i++)        
+254   254: 		printf("apzArgv[%d]=%s\n", i, apzArgv[i]);    
+255   255: 		  
+256   256: 	/* 1: Test SCANNER */     
+257   257: 	printf("\nSCANNER ...\n");     
+258   258: 		strcpy(aInfix, apzArgv[1]);		/* save org. input string (aInfix) */
+259   259: 		printf("Infix : %s\n", aInfix);     
+260   260: 		bPeek = bScan(aInfix);     
+261   261: 		while (bPeek != EOI) {         
+262   262: 			printf("Token : [%c]   Lexeme : [yytext=%s yyleng=%d]\n", \
+263   263: 				bPeek, yytext, yyleng);
+264   264: 			bPeek = bScan("");     
+265   265: 		}  
+266   266: 		   
+267   267: 	/* 2: Test PARSER */     
+268   268: 	printf("\nPARSER ...\n");     
+269   269: 	strcpy(aInfix, apzArgv[1]);   	/* restore org. input string (aInfix) */     
+270   270: 	pzPostfix = pzParse(aInfix);     
+271   271: 	printf("INFIX.. : %s\n", aInfix);     
+272   272: 	printf("POSTFIX : %s\n", (const char*) pzPostfix);
+273   273: 	   
+274   274: 	/* 3: Test INTERPRETER */     
+275   275: 	printf("\nINTERPRETER ...\n");     
+276   276: 	for (i = 1; i < SYMMAX; i++)      /* set up dymmy values for test */
+277   277: 		symtable[i].fValue = (i % 2 ? '\x01' : '\x00');     
+278   278: 	fResult = fInterpret(pzPostfix);     
+279   279: 	printf("Expression evaluates to : %s\n", (int) fResult ? "TRUE" : "FALSE");
+280   280: 	
+
+XC ... 'C' Concordance Utility   bool.c                     Page 6
+
+281   281: 	return 0;  
+282   282: 	
+283   283: } 	/* END function main() */ 
+284   284: #endif /* MAIN */    
+285   285: 
+286   286: 
+287   287: /*+2 MODULE BOOL.C =========================================================*/
+288   288: /*** NAME   01     ********** SCANNER ***************************************/
+289   289: /*== SYNOPSIS ==============================================================*/
+290   290: /*   * DESCRIPTION                Lexical analyzer  
+291   291:  *
+292   292:  * Linear analysis (= lexical analysis or scanning) of the input stream :  
+293   293:  * - The input string is read from left to right (using a "greedy algorithm")  
+294   294:  * - Characters are grouped into lexemes (sequences of characters with a  
+295   295:  *   collective meaning, according to the defined grammer)  
+296   296:  * - For each lexeme matched by a defined pattern in the grammer the scanner  
+297   297:  *   returns a unique type encoding (token), and assigns a pair of global  
+298   298:  *   attribute values :  
+299   299:  *    . "yytext" : a pointer to the lexeme (character string, not null term.)  
+300   300:  *    . "yyleng" : an integer giving the length of the lexeme (in chars.)  
+301   301:  *   The tokens returned by the scanner is used to direct the syntax analysis  
+302   302:  *   in the parser-function.  
+303   303:  * - If the token is ID (ie. boolean vExpression identifier), there are many  
+304   304:  *   possible lexemes for the same pattern, and the scanner then inserts the  
+305   305:  *   lexeme in a global symboltable "symtable[]" for easy reference by the  
+306   306:  *   later stages of the compilation process.  
+307   307:  * - The simple input string format does not warrant implementation of any  
+308   308:  *   error recovery/transformation or any special buffering scheme.  
+309   309:  *-2*/ 
+310   310:  PRIVATE BYTE
+311   311:  bScan(pzStr)    
+312   312:  	BYTE* pzStr; 
+313   313:  {     
+314   314:  	static BYTE *index;       /* Index = current pointer into input string */     
+315   315:  	BYTE        *p, *q, c;  
+316   316:  	    
+317   317: 	/* 1: Initialize & Skip leading whitespace */     
+318   318: 	if (*pzStr)        
+319   319: 		index = pzStr;      
+320   320: 		
+321   321: 	while (isspace(*index))         
+322   322: 		++index;   
+323   323: 		   
+324   324: 	/* 2: Collect next token from pzStr; - break at valid token. */    
+325   325: 	/*    (Guarantied loop termination at EndOfString EOS = \0)  */     
+326   326: 	for (; TRUE; ++index) {         
+327   327: 		yytext = index;       /* Point to first char in new token */         
+328   328: 		yyleng = 1;          
+329   329: 		
+330   330: 		switch (*index) {            
+331   331: 
+332   332: 			/* 2.1: One char operator */            
+333   333: 			case EOI:   	/* - terminate scan at EOI ! */            
+334   334: 			case AND:            
+335   335: 			case OR:            
+336   336: 			case XOR:            
+
+XC ... 'C' Concordance Utility   bool.c                     Page 7
+
+337   337: 			case NOT:            
+338   338: 			case LP:            
+339   339: 			case RP:                
+340   340: 				return *index++;                
+341   341: 				break;  /* Unreachable; - defensive programming */   
+342   342: 				
+343   343: 			/* 2.2: Quoted string */           
+344   344: 			case QUOTE:    	
+345   345: 				/* collect phrase lexeme */                
+346   346: 				for (++index, ++yytext; *index != QUOTE; index++)
+347   347: 					if (*index == EOI)                        
+348   348: 						vError(ELEX000, "Mangler slutmarkering af frase");
+349   349: 						
+350   350: 				yyleng = index - yytext;	
+351   351: 				
+352   352: 				/* skip end-quote & return token */                    
+353   353: 				if (yyleng > 0) {                        
+354   354: 					index++;                        
+355   355: 					if (!iSymLookup(yytext, yyleng))   
+356   356: 						iSymInsert(yytext, yyleng);  
+357   357: 					return ID;
+358   358: 			        }                    
+359   359: 			        break;   	/* Empty phrase : ignore & get next token */
+360   360: 			        
+361   361: 			                    
+362   362: 			/* 2.3: Identifier lexeme */            
+363   363: 			default:               
+364   364: 				/* Collect identifier lexeme, incl. escaped characters;  */               
+365   365: 				/* Break at whitespace or token, - unless escaped.       */               
+366   366: 				/* (Guarantied loop termination at EndOfString EOS = \0) */                
+367   367: 				for (; TRUE; index++)     
+368   368: 				/* Terminate at reserved character */                    
+369   369: 				if (isspace(c = *index) ||                        
+370   370: 					c == AND || c == OR || c == XOR   || c == NOT ||  
+371   371: 					c == LP  || c == RP || c == QUOTE || c == EOI)  { 
+372   372: 				 /* unless previously ESCAPE'd (excluding EOI!) */
+373   373: 				 if (*(index - 1) == ESCAPE) {  
+374   374: 				 	for (p = index; p > yytext && *(p - 1) == ESCAPE; p--)
+375   375: 	                                /* move p back over preceeding ESCAPEs */; 
+376   376: 	                                if ((index - p) % 2 != 0 && c != EOI) 
+377   377: 	                                continue;                        
+378   378: 	                         }                       
+379   379:                                 break;                    
+380   380:                                 }                    
+381   381:                                 yyleng = index - yytext;   
+382   382:                                                  
+383   383: 				/* Eliminate ESCAPE-character(s) from lexeme */                    
+384   384: 				for (p = yytext; p < index; p++)                       
+385   385: 					if (*p == ESCAPE) {                            
+386   386: 						for (q = p + 1; q < yytext + yyleng; q++)  
+387   387: 				        		*(q - 1) = *q; 
+388   388: 				        	*(q - 1) = ' ';                            
+389   389: 				        	yyleng--;                        
+390   390: 					}       
+391   391: 							             
+392   392: 				/* Insert lexeme in symbol table */                    
+
+XC ... 'C' Concordance Utility   bool.c                     Page 8
+
+393   393: 				if (!iSymLookup(yytext, yyleng))   
+394   394: 					iSymInsert(yytext, yyleng);
+395   395:                                         
+396   396: 				return ID;
+397   397: 				break;	/* Unreachable; - defensive programming */
+398   398: 
+399   399: 		} /* end switch */ 
+400   400:          
+401   401: 	} /* end for */   
+402   402: 	     
+403   403: 	/* bScan() never returns implicitly by "falling out of scope" */ 
+404   404: } /* END function bScan() */ 
+405   405: 
+406   406: 
+407   407:    
+408   408: /*+2 MODULE BOOL.C =========================================================*/
+409   409: /*** NAME   02     ********** PARSER ****************************************/
+410   410: /*== SYNOPSIS ==============================================================*/
+411   411: /*  * DESCRIPTION                Syntax analyzer  
+412   412:  * Hierachial analysis (= syntax analysis or parsing) where tokens are  
+413   413:  * grouped hierachially into grammatical phrases (a parse tree).  
+414   414:  * We construct a "predictive parser" (relying on our context-free grammer  
+415   415:  * with no left-recursion and unambigous FIRST-set for all productions) :  
+416   416:  * For each lookahead symbol L, we :  
+417   417:  *  - Determine the grammatical production G, given by "L in FIRST(G)";  
+418   418:  *  - Advance the input stream to the next token (read next L);  
+419   419:  *  - Call the procedure P implementing G, where P :  
+420   420:  *     . for each nonterminal calls a sub-procedure (with possible "recursive  
+421   421:  *       descent" calls to lower nonterminal procedures)  
+422   422:  *     . may call on a code generator to vEmit code according to the semantic  
+423   423:  *       actions indicated in a translation scheme for the grammer.  
+424   424:  *       The code is emitted into the global string "aEmitStr" (declared  
+425   425:  *       static for this module), the address of which is returned to the  
+426   426:  *       calling function as a "handle".  
+427   427:  *-2*/  
+428   428: 
+429   429: PRIVATE BYTE bLookahead;  
+430   430: void vAdvance(BYTE bToken)
+431   431: // PRIVATE void vAdvance(bToken)   BYTE bToken;
+432   432: {     
+433   433: 	if (bLookahead == bToken)             		/* Match of expected token: */        
+434   434: 		bLookahead = bScan((BYTE *) "");   	/*    advance to next token */     
+435   435: 	else   						/* No match :               */                               
+436   436:         	vError(ESYN000, (char *) yytext);  	/*    fatal syntax error!   */ 
+437   437: }
+438   438: 
+439   439:   
+440   440: /*---------- pzParse ----------*/
+441   441: /*  Z -> E {terminate}         */
+442   442: /*-----------------------------*/ 
+443   443: BYTE* 
+444   444: pzParse(pzStr)    
+445   445: 	BYTE* pzStr; 
+446   446: {    
+447   447: 	/* Check for valid argument */     
+448   448: 	if (pzStr == NULL)        
+
+XC ... 'C' Concordance Utility   bool.c                     Page 9
+
+449   449: 		vError(EARG000, "pzParse(NULL pointer)");   
+450   450: 		  
+451   451: 	/* Initialize SCANNER (scan first lookahead symbol) */     
+452   452: 	bLookahead = bScan(pzStr); 
+453   453: 	    
+454   454: 	/* Start the ball rolling : top-down recursive descent of EXPRESSION */     
+455   455: 	D(printf("parse[%c]\n", (char) bLookahead));     
+456   456: 	vExpr();  
+457   457: 	   
+458   458: 	/* Terminate OK or ERROR */     
+459   459: 	if (bLookahead == EOI) {        
+460   460: 		vEmit(EOI);        
+461   461: 		return aEmitStr;     
+462   462: 	} else        
+463   463: 		vError(ESYN000, (char *) yytext); 
+464   464: }
+465   465: 
+466   466: 
+467   467: /*---------- vExpr ------------*/
+468   468: /*  E -> T  E'                 */
+469   469: /*  E'-> OR  T {print(OR)}  E' */
+470   470: /*    |  XOR T {print(XOR)} E' */
+471   471: /*    |  epsilon               */
+472   472: /*-----------------------------*/ 
+473   473: PRIVATE void 
+474   474: vExpr(void) {
+475   475: 	BYTE        bOperator;      
+476   476: 	
+477   477: 	D(printf("  vExpr[%c]\n", (char) bLookahead));     
+478   478: 	vTerm();    			/* T */ 
+479   479: 
+480   480: 	while (TRUE)              	/* E' - perform recursively */
+481   481: 		switch (bLookahead) {  	/* (replaced by iteration) */
+482   482: 
+483   483: 		case OR:
+484   484: 		case XOR:
+485   485: 				bOperator = bLookahead;
+486   486: 				vAdvance(bLookahead);
+487   487: 				D(printf("  vExpr[%c]\n", (char) bLookahead));
+488   488: 				vTerm();
+489   489: 				vEmit(bOperator);
+490   490: 				continue;
+491   491: 
+492   492: 		default:               	/* E' finished */
+493   493: 				return;        		/* END switch(bLookahead) */
+494   494: 		}
+495   495: }
+496   496:               
+497   497: /*---------- vTerm ------------*/
+498   498: /*  T -> F  T'                 */
+499   499: /*  T'-> AND F {print(AND)} T' */
+500   500: /*    |  epsilon               */
+501   501: /*-----------------------------*/ 
+502   502: PRIVATE void 
+503   503: vTerm(void) 
+504   504: {     
+
+XC ... 'C' Concordance Utility   bool.c                     Page 10
+
+505   505: 	D(printf("    term[%c]\n", (char) bLookahead));     
+506   506: 	vFactor();                	/* F */      
+507   507: 	while (TRUE)              	/* T' - perform recursively */        
+508   508: 		switch (bLookahead) {  	/* (replaced by iteration) */             
+509   509: 			case AND:                
+510   510: 				vAdvance(bLookahead);                
+511   511: 				D(printf("    term[%c]\n", (char) bLookahead));                
+512   512: 				vFactor();                
+513   513: 				vEmit(AND);                
+514   514: 				continue;             
+515   515: 				
+516   516: 			default:       	/* F' finished */             	
+517   517: 			return;     
+518   518: 			    
+519   519: 		}/* END switch(bLookahead) */ 
+520   520: }  
+521   521: 
+522   522: 
+523   523: /*---------- vFactor ----------*/
+524   524: /*  F -> ( E )                 */
+525   525: /*    |  NOT E {print(NOT)}    */
+526   526: /*    |  ID {print(ID.offset)} */
+527   527: /*-----------------------------*/ 
+528   528: PRIVATE void 
+529   529: vFactor(void) 
+530   530: {     
+531   531: 	D(printf("      vFactor[%c]\n", (char) bLookahead));     
+532   532: 	switch (bLookahead) {        
+533   533: 		case LP:            
+534   534: 			vAdvance(LP);            
+535   535: 			vExpr();
+536   536: 			vAdvance(RP);            
+537   537: 			break;         
+538   538: 			
+539   539: 		case NOT:            
+540   540: 			vAdvance(bLookahead);            
+541   541: 			vFactor();            
+542   542: 			vEmit(NOT);            
+543   543: 			break;         
+544   544: 			
+545   545: 		case ID:            
+546   546: 			vEmit(ID);            
+547   547: 			vAdvance(bLookahead);            
+548   548: 			break;         
+549   549: 			
+550   550: 		default:            
+551   551: 			vError(ESYN000, (char *) yytext);      
+552   552: 			
+553   553: 	}	/* END switch(bLookahead) */ 
+554   554: } 
+555   555: 
+556   556:    
+557   557: /*+2 MODULE BOOL.C =========================================================*/
+558   558: /*** NAME   03     ********** EMITTER ***************************************/
+559   559: /*== SYNOPSIS ==============================================================*/
+560   560: /*   * DESCRIPTION                Intermediate code generator  
+
+XC ... 'C' Concordance Utility   bool.c                     Page 11
+
+561   561:  * Generates an intermediate representation of the input string (aInfix)  
+562   562:  * in the form of a postfix string (="reverse polish notation") suitable  
+563   563:  * for subsequent interpretation by an abstract (ie. software) stack machine.  
+564   564:  * The input string syntax (a boolean expression) is extremely simple  
+565   565:  * consisting of only identifiers and boolean operands; - No variables or  
+566   566:  * control structures (apart from paranthetical nesting) are allowed, and  
+567   567:  * hence the postfix syntax does not have to take into account assignments  
+568   568:  * (l-values vs. r-values), control flow (jump instructions) et. al.  
+569   569:  * The syntax of the generated postfix string is as follows :  
+570   570:  *  - for boolean operators we store their token value with the high bit on;  
+571   571:  *    The token value for the boolean operators is identical to their lexeme  
+572   572:  *    representation (range [0...127]), so the range for stored operators  
+573   573:  *    is [128...255]. No operator attributes are stored in the symbol table.  
+574   574:  *  - for boolean identifiers we store their slot in the symbol table. Legal  
+575   575:  *    values for symbol table slots are [1...SYMMAX], where SYMMAX <= 127  
+576   576:  *    (to prevent collision with the value range for operators).  
+577   577:  *  - the postfix string is ended by a normal string terminator ('\0').  
+578   578:  *    It is allocated as a global static string in this module, but it's  
+579   579:  *    address is returned to the caller of parse as a handle.  
+580   580:  *-2*/
+581   581: 
+582   582: PRIVATE void 
+583   583: 	vEmit(bToken)
+584   584: 		BYTE bToken;
+585   585: {
+586   586: 	int         i;    
+587   587: 	static BYTE *index = aEmitStr; 	/* Index = current pointer into output string  */     
+588   588: 	
+589   589: 	if ((index - aEmitStr) > OUTMAX)        
+590   590: 		vError(ETAB000, "OUTMAX");
+591   591: 
+592   592: 	switch (bToken) {         
+593   593: 	
+594   594: 		case AND:      	/* Boolean operator */        
+595   595: 		case OR:        
+596   596: 		case XOR:        
+597   597: 		case NOT:
+598   598: 
+599   599: 			D(printf("EMIT OP : [%c ~ %c]\n", bToken, bToken | '\x80'));
+600   600: 			*index++ = (bToken | (BYTE)'\x80');  /* raise high bit */    
+601   601: 			break;         
+602   602: 			
+603   603: 		case ID:      	/* Boolean identifier */            
+604   604: 			i = iSymLookup(yytext, yyleng);            
+605   605: 			D(printf("EMIT ID : [%c]-index[%d]->[%s]\n", (BYTE) i, i, symtable[i].pzLexptr));
+606   606: 			*index++ = (BYTE) i;          
+607   607: 			break;         
+608   608: 			
+609   609: 		case EOI:            
+610   610: 			D(printf("EMIT EOS: [NULL]\n"));            
+611   611: 			*index++ = '\0';            
+612   612: 			break;         
+613   613: 		
+614   614: 		default:            
+615   615: 			vError(ETOK000, ""); 	/* we should not end up here */            
+616   616: 			break;    
+
+XC ... 'C' Concordance Utility   bool.c                     Page 12
+
+617   617: 	} 
+618   618: }   
+619   619: 
+620   620: 
+621   621: /*+2 MODULE BOOL.C =========================================================*/
+622   622: /*** NAME   04     ********** SYMBOL ****************************************/
+623   623: /*== SYNOPSIS ==============================================================*/
+624   624: /*  * DESCRIPTION                Symbol-table manager  
+625   625:  * Records input string identifiers in a symbol table, ie. a data structure  
+626   626:  * containing a record for each identifier, w. fields for various attributes  
+627   627:  * (in this case : a lexeme pointer and a boolean/flag value : "fValue").  
+628   628:  *  - The SCANNER enters the lexeme pointer into the symbol table for each  
+629   629:  *    new boolean vExpression identifier (the boolean attribute is undefined).  
+630   630:  *  - The PARSER calls the EMITTER to lookup identifiers and enter their  
+631   631:  *    symbol table slot into the intermediate code (ie. the postfix string).  
+632   632:  *-2*/ 
+633   633: 
+634   634: static int  lastentry = 0;    /* last used position in symboltable */  
+635   635: PRIVATE BYTE lexemes[STRMAX]; /* allocate lexeme array */ 
+636   636: static int  lastchar = -1;    /* last used position in lexemes */ 
+637   637:  
+638   638: PRIVATE int
+639   639: 	iSymInsert(pbLex, len)
+640   640: 		BYTE * pbLex;
+641   641: 		int len;
+642   642: {
+643   643: /* Insert lexeme s as last entry in the symbol table   
+644   644: * Return slot for entry (or 0 if error).  */
+645   645: if (lastentry + 2 >= SYMMAX)      /* room for array terminator  */        
+646   646: 	vError(ETAB001, "SYMMAX");     
+647   647: 		if (lastchar + len + 2 >= STRMAX) /* room for string terminator */        
+648   648: 			vError(ETAB002, "STRMAX");      
+649   649: 			symtable[++lastentry].pzLexptr = &lexemes[++lastchar];     
+650   650: 			strncpy((char *) symtable[lastentry].pzLexptr, (char *) pbLex, len);
+651   651: 			lastchar = lastchar + len;     
+652   652: 			lexemes[lastchar++] = '\0';     
+653   653: 			symtable[lastentry + 1].pzLexptr = NULL;      
+654   654: 			D(printf("   INSERT :\tsymtable[%d] <- [%s]\n", \
+655   655: 				lastentry, symtable[lastentry].pzLexptr));     return lastentry; 
+656   656: }
+657   657: 
+658   658: int
+659   659: 	iSymLookup(pbLex, len)
+660   660: 		BYTE * pbLex;
+661   661: 		int len;
+662   662: {
+663   663: /* Determine whether there is an entry for lexeme s in the symbol table  
+664   664: * If yes, return slot in symbol table [1...SYMMAX], else return 0  
+665   665: */
+666   666:      int         p;      
+667   667:      for (p = lastentry; p > 0; p--)        
+668   668:      	if (((int)strlen((char *) symtable[p].pzLexptr) == len) &&            
+669   669:      	(strncmp((char *) symtable[p].pzLexptr, (char *) pbLex, len) == 0))            
+670   670:      		return p;      
+671   671:      	return 0;    	/* no match */ }   
+672   672:      	
+
+XC ... 'C' Concordance Utility   bool.c                     Page 13
+
+673   673: void 
+674   674: vSymReset(void) 
+675   675: {
+676   676: /* Reset boolean value for all lexemes in Symboltable to 'FALSE'  
+677   677: */     
+678   678: 	int         p;      
+679   679: 	for (p = lastentry; p > 0; p--)        
+680   680: 		symtable[p].fValue = FALSE; 
+681   681: }    
+682   682: 
+683   683: 
+684   684: /*+2 MODULE BOOL.C =========================================================*/
+685   685: /*** NAME   05     ********* INTERPRETER ************************************/
+686   686: /*== SYNOPSIS ==============================================================*/
+687   687: /*  
+688   688:  * DESCRIPTION               Stack machine  
+689   689:  *
+690   690:  * Interprets a postfix representation of a boolean vExpression to T or F.  
+691   691:  *  
+692   692:  * The syntactic structure of the boolean vExpression is captured (by the  
+693   693:  * compiler frontend) as an "abstract syntax tree" in the condensed form of  
+694   694:  * a postfix string (cf. format specified by the EMITTER function). This  
+695   695:  * "internal form" is passed to the interpreter function as parameter.  
+696   696:  *  
+697   697:  * The actual evaluation is performed by an abstract stack machine, which  
+698   698:  * reads the postfix string from left to right (corresponding to a "depth  
+699   699:  * first evaluation" of the abstract syntax tree), and :  
+700   700:  *  - pushes operand values onto the stack; An operand is represented in the  
+701   701:  *    postfix string as a "value number", ie. an index into the symbol table.  
+702   702:  *    The operand value (a boolean attribute "fValue") is retrieved from the  
+703   703:  *    symbol table and pushed on the stack  *  - performing operator actions :  
+704   704:  *     . popping boolean operands as required (cf. operator arity)  
+705   705:  *     . executing the boolean operation (using C-language boolean functions)  
+706   706:  *     . pushing the boolean fResult  
+707   707:  * until the whole postfix string is evaluated (ie. EOI is encountered), and  
+708   708:  * the result resides as the top stack-element.  
+709   709:  *  
+710   710:  * The abstract stack machine is implemented as a collection of general macro  
+711   711:  * definitions (in the header file "stack.h"). This implementation is chosen  
+712   712:  * for maximum execution speed, but the extensive use of macro "side effects"  
+713   713:  * (in the form of stack pointer arithmetic) and the use of unchecked stack-  
+714   714:  * operations does require some programming care.  
+715   715:  *-2*/
+716   716: 
+717   717: stack_dcl(eval, int, SYMMAX);
+718   718: FLAG
+719   719: fInterpret(pzStr)
+720   720: 	BYTE* pzStr;
+721   721: {
+722   722: 	BYTE        v;
+723   723: 
+724   724: 	if (pzStr == NULL)
+725   725: 		vError(EARG001, "fInterpret(...NULL pointer...)");
+726   726: 
+727   727: 	stack_clear(eval);
+728   728: 
+
+XC ... 'C' Concordance Utility   bool.c                     Page 14
+
+729   729: 	for (; *pzStr != EOI; pzStr++)
+730   730: 		if (*pzStr & '\x80')          /* Boolean operator ? */
+731   731: 
+732   732: 		switch (*pzStr & '\x7F') {	/* Mask off high bit  */
+733   733: 
+734   734: 			case AND:
+735   735: 				D(printf("\tSTACK\t0->%c", stack_item(eval, 0) | 0x30));
+736   736: 				D(printf("\t1->%c\n", stack_item(eval, 1) | 0x30));
+737   737: 				v = (BYTE) (stack_item(eval, 0) & stack_item(eval, 1));
+738   738: 				popn_(eval, 2);                    push_(eval, v);
+739   739: 				D(printf("\tAND"));
+740   740: 				D(printf("\t0->%c\n", stack_item(eval, 0) | 0x30));
+741   741: 				break;
+742   742: 
+743   743:                		case OR:
+744   744:                			D(printf("\tSTACK\t0->%c", stack_item(eval, 0) | 0x30));
+745   745:                			D(printf("\t1->%c\n", stack_item(eval, 1) | 0x30));
+746   746:                			v = (BYTE) (stack_item(eval, 0) | stack_item(eval, 1));
+747   747:                			popn_(eval, 2);
+748   748:                			push_(eval, v);
+749   749:                			D(printf("\tOR"));
+750   750:                			D(printf("\t0->%c\n", stack_item(eval, 0) | 0x30));
+751   751:                			break;
+752   752: 
+753   753:                		case XOR:
+754   754:                			D(printf("\tSTACK\t0->%c", stack_item(eval, 0) | 0x30));
+755   755:                			D(printf("\t1->%c\n", stack_item(eval, 1) | 0x30));
+756   756:                			v = (BYTE) (stack_item(eval, 0) ^ stack_item(eval, 1));
+757   757:                			popn_(eval, 2);
+758   758:                			push_(eval, v);
+759   759:                			D(printf("\tXOR"));                    D
+760   760:                			(printf("\t0->%c\n", stack_item(eval, 0) | 0x30));
+761   761:                			break;
+762   762: 
+763   763:                		case NOT:
+764   764:                			D(printf("\tSTACK\t0->%c\n", stack_item(eval, 0) | 0x30));
+765   765:                			v = (BYTE) ((~pop_(eval)) & '\x01');
+766   766:                			push_(eval, v);
+767   767:                			D(printf("\tNOT"));
+768   768:                			D(printf("\t0->%c\n", stack_item(eval, 0) | 0x30));
+769   769:                			break;
+770   770: 
+771   771:                		default:
+772   772:                			vError(ETOK001, "");   /* we should not end up here */
+773   773:                			break;        }
+774   774: 
+775   775:                	else {          /* Boolean operand */
+776   776:                			D(printf("\tID\t%s\n", symtable[(int) *pzStr].pzLexptr));
+777   777:             			push_(eval, symtable[(int) *pzStr].fValue);
+778   778:             	}
+779   779: 
+780   780:             	return ((pop_(eval)) == '\x00' ? FALSE : TRUE);
+781   781: }  /* END function fInterpret() */
+782   782: 
+783   783: 
+784   784: /* END module BOOL.C                                                        */
+
+XC ... 'C' Concordance Utility   bool.c                     Page 15
+
+785   785: /*==========================================================================*/  
+786   786: 
+XC ... 'C' Concordance Utility                              Page 16
+
+AND                 :  185  334  370  509  513  594  734 
+ANSI                :  164 
+aEmitStr            :  199  461  587  589 
+aInfix              :  248  258  259  260  269  270  271 
+apzArgv             :  240  242  253  254  258  269 
+argc                :  240  241  252 
+BOOL_ALLOC          :  171 
+BYTE                :  183  184  185  186  188  189  191  192  194  195  197  197  199  207  208 
+                       212  222  226  242  245  248  249  311  312  314  315  429  430  431  434 
+                       443  445  475  584  587  600  605  606  635  640  660  720  722  737  746 
+                       756  765 
+bLookahead          :  429  433  434  452  455  459  477  481  485  486  487  505  508  510  511 
+                       531  532  540  547 
+bOperator           :  475  485  489 
+bPeek               :  245  260  261  263  264 
+bScan               :  208  260  264  311  434  452 
+bToken              :  430  431  431  433  583  584  592  599  599  600 
+COPYRIGHT           :  173 
+c                   :  315  369  370  370  370  370  371  371  371  371  376 
+const               :  272 
+D                   :  455  477  487  505  511  531  599  605  610  654  735  736  739  740  744 
+                       745  749  750  754  755  759  760  764  767  768  776 
+EARG000             :  449 
+EARG001             :  725 
+ELEX000             :  348 
+EMITTER             :  221 
+EOI                 :  195  261  333  347  371  376  459  460  609  729 
+ESCAPE              :  192  373  374  385 
+ESYN000             :  436  463  551 
+ETAB000             :  590 
+ETAB001             :  646 
+ETAB002             :  648 
+ETOK000             :  615 
+ETOK001             :  772 
+eval                :  717  727  735  736  737  737  738  738  740  744  745  746  746  747  748 
+                       750  754  755  756  756  757  758  760  764  765  766  768  777  780 
+FALSE               :  680  780 
+FLAG                :  246  719 
+fInterpret          :  278  719 
+fResult             :  246  278  279 
+fValue              :  277  680  777 
+ID                  :  194  357  396  545  546  603 
+INTERPRETER         :  229 
+i                   :  244  253  253  253  254  254  276  276  276  277  277  586  604  605  605 
+                       605  606 
+iSymInsert          :  226  356  394  639 
+iSymLookup          :  355  393  604  659 
+index               :  314  319  321  322  326  327  330  340  346  346  346  347  350  354  367 
+                       369  373  374  376  381  384  587  589  600  606  611 
+isspace             :  321  369 
+LP                  :  188  338  371  533  534 
+lastchar            :  636  647  649  651  651  652 
+lastentry           :  634  645  649  650  653  655  655  655  667  679 
+len                 :  226  639  641  647  650  651  659  661  668  669 
+lexemes             :  635  649  652 
+MAIN                :  233 
+
+XC ... 'C' Concordance Utility                              Page 17
+
+main                :  240 
+NOT                 :  186  337  370  539  542  597  763 
+NULL                :  253  448  653  724 
+OR                  :  183  335  370  483  595  743 
+OUTMAX              :  199  589 
+P                   :  208  212  214  216  218  222 
+PARSER              :  211 
+PRIVATE             :  197  198  199  207  211  213  215  217  221  225  310  429  431  473  502 
+                       528  582  635  638 
+p                   :  315  374  374  374  374  376  384  384  384  385  386  666  667  667  667 
+                       668  669  670  678  679  679  679  680 
+pbLex               :  226  639  640  650  659  660  669 
+pop_                :  765  780 
+popn_               :  738  747  757 
+printf              :  252  254  257  259  262  268  271  272  275  279  455  477  487  505  511 
+                       531  599  605  610  654  735  736  739  740  744  745  749  750  754  755 
+                       759  760  764  767  768  776 
+push_               :  738  748  758  766  777 
+pzLexptr            :  605  649  650  653  655  668  669  776 
+pzParse             :  270  444 
+pzPostfix           :  249  270  272  278 
+pzStr               :  208  311  312  318  319  444  445  448  452  719  720  724  729  729  730 
+                       732  776  777 
+QUOTE               :  191  344  346  371 
+q                   :  315  386  386  386  387  387  388 
+RP                  :  189  339  371  536 
+SCANNER             :  207 
+STRMAX              :  635  647 
+SYMBOL              :  225 
+SYMMAX              :  276  645  717 
+stack_clear         :  727 
+stack_dcl           :  717 
+stack_item          :  735  736  737  737  740  744  745  746  746  750  754  755  756  756  760 
+                       764  768 
+strcpy              :  258  269 
+strlen              :  668 
+strncmp             :  669 
+strncpy             :  650 
+symtable            :  277  605  649  650  653  655  668  669  680  776  777 
+TRUE                :  326  367  480  507  780 
+token               :  212  222 
+VERSION             :  174 
+v                   :  722  737  738  746  748  756  758  765  766 
+vAdvance            :  212  430  431  486  510  534  536  540  547 
+vEmit               :  222  460  489  513  542  546  583 
+vError              :  348  436  449  463  551  590  615  646  648  725  772 
+vExpr               :  214  456  474  535 
+vFactor             :  218  506  512  529  541 
+vSymReset           :  674 
+vTerm               :  216  478  488  503 
+void                :  212  214  214  216  216  218  218  222  430  431  473  474  502  503  528 
+                       529  582  673  674 
+WORD                :  241 
+XOR                 :  184  336  370  484  596  753 
+yyleng              :  198  263  328  350  353  355  356  381  386  389  393  394  604 
+yytext              :  197  263  327  346  350  355  356  374  381  384  386  393  394  436  463 
+
+XC ... 'C' Concordance Utility                              Page 18
+
+                       551  604 
+
+
