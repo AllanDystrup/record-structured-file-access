@@ -147,7 +147,7 @@ log:
 	./$(TARGET) CRC.C 2>&1 >$(TARGET).log
 
 
-# [6] DOC ------- make -f SS.makefile doc ----------	
+# [6] DOC ------- make -f CRC.Makefile doc ----------	
 doc:	
 	cp ../ext/EX*  .
 	-rm -f $(TARGET).doc
@@ -157,6 +157,12 @@ doc:
 	ls -al ./$(TARGET)
 	more $(TARGET).doc
 	
+xref:
+	  ------- make -f CRC.Makefile xref -------
+	rm -f $(TARGET).xrf
+	../xrf/XRF $(TARGET).c -o $(TARGET).xrf
+	ls -al
+	more $(TARGET).xrf
 
 		
 # END makefile for CRC
