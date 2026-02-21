@@ -1,0 +1,486 @@
+
+
+
+
+
+Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.h   is	[3BA8]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+  ###   #     # ######  ####### #     #
+   #    ##    # #     # #        #   #           #    #
+   #    # #   # #     # #         # #            #    #
+   #    #  #  # #     # #####      #             ######
+   #    #   # # #     # #         # #     ###    #    #
+   #    #    ## #     # #        #   #    ###    #    #
+  ###   #     # ######  ####### #     #   ###    #    #
+
+
+
+
+
+
+/*+1========================================================================*/
+/*   MODULE                       INDEX.H                                   */
+/*==========================================================================*/
+/*   FUNCTION      Headerfile for module INDEX.C
+ *                 #include this file to access the PUBLIC index functions
+ *                 defined in INDEX.C
+ *
+ *   SYSTEM        Standard (ANSI/ISO) C
+ *                 Tested on PC/MS DOS 3.3 (MSC 600A) & UNIX SYS V3
+ *
+ *   SEE ALSO      Module INDEX.C
+ *
+ *   PROGRAMMER    Allan Dystrup
+ *
+ *   COPYRIGHT     (c) Allan Dystrup, Kommunedata I/S, Aug. 1991
+ *
+ *   VERSION       $Header: d:/cwork/index/RCS/index.h 0.1 92/07/10 10:53:08
+ *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
+ *                 ---------------------------------------------------------
+ *                 $Log:	index.h $
+ *                 Revision 0.1  92/07/10  10:53:08  Allan_Dystrup
+ *                 PREREL (ALFA1)
+ *
+ *-1========================================================================*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.h   is	[3BA8]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+  ###   #     # ######  ####### #     #
+   #    ##    # #     # #        #   #            ####
+   #    # #   # #     # #         # #            #    #
+   #    #  #  # #     # #####      #             #
+   #    #   # # #     # #         # #     ###    #
+   #    #    ## #     # #        #   #    ###    #    #
+  ###   #     # ######  ####### #     #   ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/
+/*   MODULE                       INDEX.C                                   */
+/*==========================================================================*/
+/* FUNCTION    Creates an indexfile from a sequential/flat datafile;
+ *             Compiles to an object-module with PUBLIC accessible functions
+ *             or a stand alone utility program taking the following options:
+ *              - file names of input/data-file and output/index-file
+ *              - a character for identifying the key in a datarecord
+ *              - the size of the keystring (#byte)
+ *              - the initial size of the indexfile (expected max #records)
+ *
+ * SYSTEM      Standard Ansi C.
+ *             Tested on PC/MS DOS V3.3 (MSC 6.00A) and UNIX SYS V.3 (GNU gcc)
+ *
+ * SEE ALSO    Modules : ACCESS.H, VA.H/C, HASH.H/C
+ *
+ * PROGRAMMER  Allan Dystrup
+ *
+ * COPYRIGHT   (c) Allan Dystrup, Kommunedata I/S 1991
+ *
+ * VERSION     $Header: d:/cwork/index/RCS/index.c 0.1 92/07/10 13:57:48
+ *             Allan_Dystrup PREREL Locker: Allan_Dystrup $
+ *             ---------------------------------------------------------------
+ *             $Log:	index.c $
+ *             Revision 0.1  92/07/10  13:57:48  Allan_Dystrup
+ *             PREREL (ALFA1)
+ *
+ * USAGE       Module index.c provides a "high level" interface for building
+ *             an indexfile from a record structured datafile, using one of
+ *             several predefined index-access methods. The actual access-
+ *             strategy is choosen by a compiletime switch :
+ *                -DVA : build a VirtualArray index (keyvalue = entry/slot in VA)
+ *                -DSS : build a ScatterStorage index (keyvalue hash'ed to entry)
+ *
+ *             The API offered by module index.c consist of 2 functions for
+ *             generating resp. checking an indexfile :
+ *                eIdxMake   // Create indexfile and insert (key,offset) values
+ *                eIdxTest   // Retrieve datarec's via index lookup key->offset
+ *
+ *             The module index.c may be compiled without main()-function
+ *             for direct access to the API from a user program. Alternatively
+ *             compiling the module with switch -DMAIN will build an executable
+ *             program with a command line interface (function vIdxDefine) for
+ *             generating indexfiles from datafiles.
+ *
+ * DOC         Documentation is incorporated into the module and may be
+ *             selectively extracted (using a utility such as ex.awk) :
+ *                Level 1: Module documentation (history, design, testdriver)
+ *                Level 2: PUBLIC functions (module program interface, "API")
+ *                Level 3: major PRIVATE functions (design)
+ *                Level 4: minor PRIVATE functions (support)
+ *
+ * BUGS        The module is coded in STANDARD C (ANSI/ISO), which is a
+ *             feature! -  It is however prepared to compile under "old"
+ *             K&R C (if you prefer bugs ...)
+ *
+ *             The sections embedded in <#ifdef SS ... #endif> apply only
+ *             to the ScatterStorage ("HASH") access method, which requires
+ *             index expansion by a total rehash of all keys. This might be
+ *             made transparent by checking for expansion in (*peKeyInsert).
+ *
+ *
+ *=========================== MODULE STRUCTURE ===============================
+ *
+ *
+ *                                Data Model
+ * The index functions are implemented simply as a sequence of calls of the
+ * appropriate access functions (using the generic access API). This design
+ * does not require any new datastructures (besides those offered by the
+ * access module, - cf. va.h and hash.h).
+ *
+ *
+ *                           Function Decomposition
+ * The functions of module index.c may be grouped into two (three) levels :
+ * (1) Main function (activated by compile switch -DMAIN), turning the
+ *     module into a utility program with a simple command-line interface
+ *     for building indexfiles from datafiles.
+ * (2) High level functions providing the basic index generation API for
+ *     use by main() - and possibly direct use by linking into user programs
+ *     (when the module is compiled to .OBJ, ie. without -DMAIN).
+ * [3] The index-generation functions calls the generic access API to perform
+ *     the actual indexfile I/O (ie. creating, updating, reading etc the index).
+ *     The generic access API is mapped to an actual access method, by inclusion
+ *     of a headerfile [va.h | hash.h], as indicated by a compiletime switch :
+ *     [-DVA | -DSS], - cf. the project makefile.
+ *        
+ * In this way the "high level" index generation code is made independent of
+ * the "low level" index access strategy, gaining flexibility in choice of
+ * access method, but retaining total transparancy for user programs.
+ *
+ * The calling hierachy is illustrated in the following diagram, where the
+ * signatures :
+ *     -> and <-   indicate input resp. output parameters to functions
+ *    < > and (_)  indicate choice resp. repetition in function call
+ *
+ * ..........................................................................
+ *  LEVEL 1
+ *  Main                          main()
+ *  Utility Pgm.                  | |  | 
+ *              __________________| |  |        
+ *              |                   |  |
+ *              |                   | < > -> -t
+ *          vIdxDefine              |  |__________________
+ *              |                   |                    |
+ *            getopt                |                    |
+ * .................................|....................|...................
+ * LEVEL 2                          |                    |
+ * Index Generation                 |                    |
+ * API                          eIdxMake---+      +---eIdxTest
+ *                              |   |      |      |      |   |
+ *                              |  (_)     |      |      |  (_)
+ *                              |   |    eIdxStatPrint   |   |
+ *                              |   |         |          |   |
+ * .............................|...|.........|..........|...|...............
+ * [LEVEL 3]                    |   |         |          |   |
+ * Index Access                 |   |         |          |   |
+ * API (generic)     (*peIdxCreate) |         | (*peIdxOpen) |
+ *                       (*peKeyInsert)       |     (*peKeyFind)
+ *                              |   |         |          |   |
+ *                              |   |  (*peIdxGetSize)   |   |
+ *                              |   |  (*peIdxGetLoad)   |   |
+ *                              |   |         |          |   |
+ *                              +---+---------+----------+---+
+ *                                            |
+ *                                           < >
+ * Map to actual                        -DVA  |  -DSS
+ * Access Method                    +---------+---------+
+ * (compile switch)                 |                   |
+ *                               [VA.H]             [SS.H]
+ *
+ *-1========================================================================*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+1 MODULE INDEX.C ========================================================*/
+/*   NAME   01                    MAIN                                      */
+/*== SYNOPSIS ==============================================================*/
+int
+REAL_MAIN(argc, argv, envp)
+    int argc;                  /* Argument count */
+    char *argv[];              /* Argument vector */
+    char *envp[];              /* Environment pointer */
+{
+/* DESCRIPTION
+ *    Testdriver and main function for module index.c; - exercises the
+ *    functions in the module and validates the functionality through 
+ *    trace-statements (when compiled with flag "-DDEBUG").
+ *
+ *    1: Print signon message & setup to catch "break" signals.
+ *    2: Get options (from the command line) defining the index to create.
+ *    3: Call eIdxMake() to generate an index file from the datafile.
+ *   [4: Optionally call eIdxTest() to test the index file.]
+ *
+ * RETURN
+ *    1 (OK)..., when function completed succesfully.
+ *    0 (ERROR), otherwise.
+ *-1*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+3 MODULE INDEX.C --------------------------------------------------------*/
+/*   NAME   01.01                 vIdxDefine                                */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PUBLIC void
+vIdxDefine(argc, argv, optstring)
+    int argc;                  /* Argument count */
+    char *argv[];              /* Argument vector */
+    char *optstring;           /* String defining valid options */
+{
+/* DESCRIPTION
+ *    Support routine for main() driver :
+ *    Parse commandline, and translate arguments to internal variables.
+ *
+ *    0: Check arguments: require at least 2 (keysize & inputfile)
+ *    1: LOOP:   // Parse command line
+ *          1.1: Retreive next option from cmd.line to <option>,<optarg>
+ *          1.2: Transfer/Convert <option>,<optarg> to program variables
+ *       ENDLOOP
+ *    2: If invalid cmdline, print "usage" & exit with error, else return. 
+ *-3*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+4 MODULE INDEX.C --------------------------------------------------------*/
+/*   NAME   01.02                 vSigCatch                                 */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE void
+vSigCatch(iSigNum)
+     int iSigNum;
+{
+/* DESCRIPTION
+ *    Support function for main() driver :
+ *    Signal handler set up to catch the "break" signals : SIGINT (asynch.
+ *    interactive attention) & SIGTERM (asynch. interactive termination).
+ *
+ *    1: Prompt user for break confirmation; We have two possible situations:
+ *       a: break during index generation (INTEGRITY="UNKNOWN"), - will leave
+ *          the index in a not fully generated state, possibly unusable.
+ *          Issue warning if this situation !
+ *       b: break during index test (INTEGRITY="OK"), - no problem!
+ *    2: Depending on user confirmation : [Y]->terminate or [N]->continue.
+ *
+ * RETURN
+ *    If break confirmed: program terminated with exit code 'EXIT_FAILURE'
+ *    else: signal 'iSigNum' reset and program execution resumed.
+ *
+ * BUGS
+ *    Asynch. signals don't guarantee access to volatile data at sequence pts;
+ *    Since we restrict our access to READ operations, this shouldn't pose any
+ *    problem, - though not strictly ANSI (cf. type sig_atomic_t).
+ *-4*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+2 MODULE INDEX.C ========================================================*/
+/*   NAME   02                    eIdxMake                                  */
+/*== SYNOPSIS ==============================================================*/
+PUBLIC    eRetType
+eIdxMake(hINDEX, pzDatFile, wKeyMark,
+         wKeySize, pzIdxFile, dwIdxSize)
+ITYPE   *hINDEX;        /* Handle (ptr-to-address) of incore struct */
+char    *pzDatFile;     /* Name of the datafile for the index */
+WORD    wKeyMark;       /* Tag indicating start of key (nb: WORD) */
+WORD    wKeySize;       /* Size of one key (# byte) */
+char    *pzIdxFile;     /* Name of the indexfile to create */
+DWORD   dwIdxSize;      /* #keyrecs. of the index to generate */
+{
+/* DESCRIPTION
+ *    Make and fill a new index (using the incore descriptor handle hINDEX)
+ *    from a specified datafile (named pzDatFile). The format of the datafile
+ *    MUST comply with the following specification :
+ *     - the file is a sequence of sequentially stored records
+ *     - each record consists of an arbitrary number of lines
+ *     - each line is at most MAXLINE characters long
+ *     - the first line in each datarecord contains :
+ *       1. position .....: a common tag "wKeyMark", indicating start of a key
+ *       2-(wKeySize+1)...: a unique key value, wKeySize byte long;
+ *                          If the key is shorter than wKeySize, it is
+ *                          silently padded at the end with spaces.
+ *                          If the key is longer than wKeySize, it is
+ *                          silently "chopped off" to wKeySize length.
+ *    The index is initially generated with room for "dwIdxSize" key-
+ *    records, but it is dynamically resized (expanded one or more times)
+ *    as required by the repeated (*peKeyInsert)()-operations.
+ *
+ *    1: Opens the input datafile <pzDatFile>, mode ReadOnly
+ *    2: Sets up the name for the output indexfile <pzIdxFile>
+ *       (using default name : "datafile".idx)
+ *    3: Makes the output indexfile (mode ReadWrite), by :
+ *       3.1: Creating (and opening) the file
+ *       3.2: Printing initial statistics for the indexfile (size, use-factor)
+ *       3.3: LOOP Reading the datafile one line at a time (MAXLINE chars);
+ *                 For each line starting with a keyword :
+ *              -  Getting the file offset (#byte from file start)
+ *              -  Entering a new keyrecord (key,offset) into the index file
+ *                 (Expanding and reporting the index filesize if nessecary)
+ *            ENDLOOP
+ *       3.4: Printing final statistics for the completed indexfile
+ *       3.5: Closing the index file (thereby ensuring the file integrity)
+ *    4: Closes the input datafile.
+ *
+ * RETURN
+ *    OK..., when function completed succesfully.
+ *    ERROR, otherwise.
+ *-2*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+2 MODULE INDEX.C=========================================================*/
+/*   NAME   03                    eIdxTest                                  */
+/*== SYNOPSIS ==============================================================*/
+PUBLIC    eRetType
+eIdxTest( hINDEX, pzDatFile, wKeyMark)
+    ITYPE   *hINDEX;        /* handle (ptr->addr) of incore indexstruct */
+    char    *pzDatFile;     /* name of datafile for which to make an index */
+    WORD    wKeyMark;       /* unique mark indicating start of key */
+{
+/* DESCRIPTION
+ *    Test an index by repeated key lookup operations :
+ *
+ *    1: Opens the datafile <pzDatFile>, mode ReadOnly.
+ *    2: Sets up default name for the indexfile = "pzDatFile".idx
+ *    3: Tests the indexfile by :
+ *       3.1: Opening the indexfile <aIdxFile[]>, mode ReadOnly.
+ *       3.2: Printing initial statistics for the indexfile
+ *       3.3: LOOP Reading keyvalue (from stdin/keybd or a random generator) :
+ *              -  Lookup datafile offset in index file
+ *              -  Read & print key- & datarecord
+ *            ENDLOOP // while more input (ie. keystring not empty)
+ *    4: Closes the index- & data-files
+ *
+ * RETURN
+ *    OK..., when function completed succesfully.
+ *    ERROR, otherwise.
+ *-2*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+4 MODULE INDEX.C --------------------------------------------------------*/
+/*   NAME   04                   vGetkey                                    */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE void
+vGetkey(Ksz, Kbf)
+    int  Ksz;       /* Actual length of keystring */
+    char *Kbf;      /* Ptr to buffer for entering keystring (at least 30 chr) */
+{
+/* DESCRIPTION
+ *    Generate one keyvalue in buffer <Kbf[]>, with keylength <Ksz>;
+ *    1.1: If compileswitch -DRANDOM set, generate a (pseudo)random keyvalue
+ *    1.2: Else prompt for, and read a keyvalue from stdin.
+ *
+ * RETURN
+ *    Sidefect: Generated keyvalue in buffer (var.param) <Kbf[]>, length <Ksz>.
+ *-4*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+4 MODULE INDEX.C --------------------------------------------------------*/
+/*   NAME   05                    wKeyPrint                                 */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+#define CONTINUE   1
+#define MAXKEY     80
+PRIVATE char pzKBuf[MAXKEY + 1];
+
+PRIVATE   WORD
+wKeyPrint(pzKeyBuf, dwDatOff)
+    char     *pzKeyBuf;            /* Keystring, - not zero terminated */
+    DWORD     dwDatOff;            /* Corresponding datafile offset */
+{
+/* DESCRIPTION
+ *    Print one index key-record: (keyvalue,offset) on stdout; -
+ *    1: Make sure key-string is zero-terminated
+ *    2: Print an index-record, ie. corresponding (key-value,datafile offset)
+ *
+ * RETURN
+ *    Return "Again" code, ie: [1] continue or [0] stop, cf (*peIdxProcess)();
+ *    This function may be passed as parameter to function : *peIdxProcess()
+ *    for looping through the index-file and printing the contents of all
+ *    valid (ie. USED) indexrecords.
+ *-4*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+/*+4 MODULE INDEX.C---------------------------------------------------------*/
+/*   NAME   06                    eIdxStatPrint                             */
+/*-- SYNOPSIS --------------------------------------------------------------*/
+PRIVATE   eRetType
+eIdxStatPrint(hIdx)
+    ITYPE    *hIdx;        /* Handle for index descr.struct */
+{
+/* DESCRIPTION
+ *    If FLAG fVerbose on :
+ *    1: Print size- and
+ *    2: load-statistics for index file.
+ *
+ * RETURN
+ *    OK...: when function completed succesfully.
+ *    ERROR: otherwise.
+ *-4*/Sat Feb 21 10:07:30 CET 2026
+CCITT CRC (REVERSE) for  INDEX.c   is	[667B]
+
+
+
+
+
+
+END EXTRACTION
+
+

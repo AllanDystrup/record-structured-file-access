@@ -1,0 +1,1468 @@
+XC ... 'C' Concordance Utility   va.c                       Page 1
+
+1       1: /*+1========================================================================*/
+2       2: /* MODULE                         VA.C                                      */
+3       3: /*==========================================================================*/
+4       4: /* FUNCTION    Toolbox for building virtual arrays (arrays as disk-files with
+5       5:  *             automatic caching in RAM). This module contains a collection
+6       6:  *             of basic routines for : creating, accessing and maintaining
+7       7:  *             index'es for very fast access to simple datafiles.
+8       8:  *             A datafile must be record-structured (arbitrary record size)
+9       9:  *             with each record identified by a unique NUMERIC key-value.
+10     10:  *
+11     11:  * SYSTEM      Standard Ansi C.
+12     12:  *             Tested on PC/MS DOS V.3.3 (MSC 6.0A) & UNIX SYS V.3 (GNU GCC).
+13     13:  *
+14     14:  * SEE ALSO    Modules:
+15     15:  *             GENERAL.H, ACCESS.H, VA.H for macros & errorhandling
+16     16:  *             INDEX.C/H ............... for building index'es from datafiles.
+17     17:  *             KEY.C/H ................. for accessing datarec's via index'es.
+18     18:  *
+19     19:  * PROGRAMMER  Allan Dystrup
+20     20:  *
+21     21:  * COPYRIGHT   (c) Allan Dystrup, Kommunedata I/S February 1992.
+22     22:  *
+23     23:  * VERSION     $Header: d:/cwork/index/RCS/va.c 0.1 92/07/06 09:42:13
+24     24:  *             Allan_Dystrup PREREL Locker: Allan_Dystrup $
+25     25:  *             --------------------------------------------------------------
+26     26:  *             $Log:	va.c $
+27     27:  *             Revision 0.1  92/07/06  09:42:13  Allan_Dystrup
+28     28:  *             PREREL (ALFA1)
+29     29:  *
+30     30:  * REFERENCES  Mark Tichenor[1988] : "Virtual Arrays in C"
+31     31:  *             Dr. Dobb's Journal, May 1988.
+32     32:  *
+33     33:  * USAGE       Module va.c features the following public routines for
+34     34:  *             building and working with indexfiles; - See headerfile va.h
+35     35:  *             and the function documentation for a detailed description of
+36     36:  *             the user accesible datastructures and interface functions.
+37     37:  *                 eVAIdxCreate()        // Create a new indexfile
+38     38:  *                 eVAIdxOpen()          // Open an existing indexfile
+39     39:  *                 eVAIdxClose()         // Close an open indexfile
+40     40:  *
+41     41:  *                 eVAeyInsert()         // Insert new (key,offset) in index
+42     42:  *                 eVAKeyDelete()        // Delete (key,offset) from index
+43     43:  *                 eVAKeyFind()          // Look up (key,offset) in index
+44     44:  *
+45     45:  *                 eVAIdxGetLoad()       // Get loadfactor for open indexfile
+46     46:  *                 eVAIdxGetSize()       // Get size for open indexfile
+47     47:  *
+48     48:  * DOC         Documentation is incorporated into the module and may be
+49     49:  *             selectively extracted (using a utility such as ex.awk) :
+50     50:  *                Level 1: Module documentation (history, design, testdriver)
+51     51:  *                Level 2: PUBLIC functions (module program interface, "API")
+52     52:  *                Level 3: major PRIVATE functions (design)
+53     53:  *                Level 4: minor PRIVATE functions (support)
+54     54:  *
+55     55:  * BUGS        The module is coded in STANDARD C (ANSI/ISO), which is a
+56     56:  *             feature! -  It is however prepared to compile under "old"
+
+XC ... 'C' Concordance Utility   va.c                       Page 2
+
+57     57:  *             K&R C (if you prefer bugs ...)
+58     58:  *             The errorchecking of file I/O is rather "slack" for max speed.
+59     59:  *
+60     60:  * =========================== VIRTUAL ARRAYS ================================
+61     61:  *
+62     62:  * A Virtual Array (VA) is stored on disk, but accessed as though it was in
+63     63:  * memory. This functionality is obtained by providing a set of access-
+64     64:  * functions with built-in file management : When a value is assigned to an
+65     65:  * array-element and when an array-element is referenced in an expression,
+66     66:  * data is automatically written-to/read-from the corresponding VA file-record.
+67     67:  * Thus the user never performs any explicit reads/writes on a VA.
+68     68:  *
+69     69:  * To minimize disk I/O the access-functions pass their record read/write-
+70     70:  * operations through a cache buffer.
+71     71:  *
+72     72:  * The extremely simple access strategy of VA's can be used in building index-
+73     73:  * files based on direct lookup : datafile-offset = VA[keyvalue]. This method
+74     74:  * however is only feasible for datafiles with numeric key-values. Note that
+75     75:  * the indexfile will be relatively large, when the keyvalue-range is big and
+76     76:  * the datafile-records small; - For sparse keyvalues a scatter-storage (HASH)
+77     77:  * technique should be preferred, unless very fast access is important.
+78     78:  *
+79     79:  *
+80     80:  * =========================== MODULE STRUCTURE ==============================
+81     81:  *
+82     82:  *                                 Data Model
+83     83:  * To define a Virtual Array (VA) on disk and in core we need some datastruct's
+84     84:  * for size- & statusinfo (one HEADER-record) and for array element values
+85     85:  * (multiple KEY-records). These data must be maintained both external and in
+86     86:  * RAM. The appropriate data-structs. are defined in the include-file VA.H.
+87     87:  *
+88     88:  * (1) Header-record layout
+89     89:  *                           RAM (incore)
+90     90:  *                           struct stVACore (*VACB)
+91     91:  *                           +---------------------+ FILE:
+92     92:  *                           | enum     indexmode  | Open mode [RO | RW]
+93     93:  *                           | FILE     *pfArFile  | Handle for VA file
+94     94:  *             +---------------SIZEINFO stSize     | VA file size info.
+95     95:  *             |             |                     | CACHE:
+96     96:  *             |             | WORD wBfSize        | #rec's in VA buf. (BFSIZE)
+97     97:  *             |             | WORD wBfElSize      | #bytes in VA buf-elem.
+98     98:  *             |             | char *pcBf-------+  | Ptr. to VA cache-buf.
+99     99:  *             |             | char *pcArElInit |  | Ptr. to (last) blank rec.
+100   100:  *             |             +------ | -------- | -+
+101   101:  *             |                     |          |
+102   102:  *             |                     |          |   VA Cache buffer (malloc'ed)
+103   103:  *             |                     |          |   Rec#  Rec.Contents
+104   104:  *             |                     |          |   +-----+--------------------+
+105   105:  *             |                     |        0 +-->|DWORD: <occupied slot>    |
+106   106:  *             |                     |              +-----+--------------------+
+107   107:  *             |                     |        1     |EMPTY: <empty slot>       |
+108   108:  *             |                     |              +-----+--------------------+
+109   109:  *             |                     |        :     :     :                    :
+110   110:  *             |                     |              +-----+--------------------+
+111   111:  *             |                     |     BFSIZE   |DWORD| <occupied slot>    |
+112   112:  *             |                     |     ---------+-----+--------------------+
+
+XC ... 'C' Concordance Utility   va.c                       Page 3
+
+113   113:  *             |                     +---->BFSIZE+1 | --- | initialization rec |
+114   114:  *             |                           ---------+-----+--------------------+
+115   115:  *     DISK (external) HEADER
+116   116:  *     struct stVAsize (SIZEINFO)
+117   117:  *     +-----------------+
+118   118:  *     | DWORD dwArSize  | #key-rec's total in VA file
+119   119:  *     | DWORD dwArUsed  | #key-rec's used in VA file
+120   120:  *     | WORD  wArElSize | #bytes in each key-rec
+121   121:  *     | char  cFill	 | Fill char for empty rec
+122   122:  *     +-----------------+
+123   123:  *
+124   124:  *
+125   125:  * (2) Key-record layout (default)
+126   126:  *
+127   127:  *     DISK (external)
+128   128:  *     struct stVArec (REC)
+129   129:  *     +-----------------+
+130   130:  *     | DWORD  offset	 | map VA[keyvalue]->FileOffset
+131   131:  *     +-----------------+ (value:EMPTY if not defined)
+132   132:  *
+133   133:  *
+134   134:  *                         Function decomposition
+135   135:  * The functions to generate and access these data structures may be grouped
+136   136:  * into 2 separate levels :
+137   137:  * [1] HIGH LEVEL (INDEX INTERFACE)
+138   138:  *     Application functions built "on top of" the basic VA-functionality.
+139   139:  *     In this module we build an index interface (Hdr- & Key-rec. operations),
+140   140:  *     - you may easily extend or substitute these for new purposes.
+141   141:  * [2] LOW LEVEL (VIRTUAL ARRAY INTERFACE)
+142   142:  *     Basic Virtual Array (VA) functions, - these constitute a stable set of
+143   143:  *     utilities to generate, maintain and access VA-files on disk.
+144   144:  *
+145   145:  * The main calling hierachy is outlined in the following diagram :
+146   146:  *
+147   147:  *                    (1) Index operations
+148   148:  *
+149   149:  *      (1.1)                          (1.2)
+150   150:  *      Index Header operations        Index Key operations
+151   151:  *
+152   152:  *      eVAIdxCreate                    eVAKeyInsert----+
+153   153:  *       | eVAIdxOpen                   eVAKeyDelete--->+
+154   154:  *       |  | eVAIdxClose               eVAKeyFind----->+-----------+
+155   155:  *       |  |          |                                |           |
+156   156:  *       |  |          |                           [RW] |      [RO] |
+157   157:  *       |  |          |                                |           |
+158   158:  *       |  |          |                                |           |
+159   159:  *   ... |  | ........ | .............................. | ......... | ...
+160   160:  *       |  |          |                                |           |
+161   161:  *       |  |          |       (2) Virtual Array        |           |
+162   162:  *       |  |          |                                |           |
+163   163:  *       |  |          |       (2.1)                    |           |
+164   164:  *       |  |          |       VA high-level I/O        |           |
+165   165:  *       |  |          |       MACRO'S                  |           |
+166   166:  *       |  |          |                          dwAOFF(pVA,dw)  dwROFF(pVA,dw)
+167   167:  *       |  |          |                                |           |
+168   168:  *       |  |          |                          pAREC(pVA,dw)   pRREC(pVA,dw)
+
+XC ... 'C' Concordance Utility   va.c                       Page 4
+
+169   169:  *       |  |          |       (2.2)                    |           |
+170   170:  *       |  |          |       VA low-level I/O         |           |
+171   171:  *       |  |          |       FUNC'S                   |           |
+172   172:  *       +--|->iVAinit |                          pvVAaccess      pvVAread
+173   173:  *       +->+->pVAopen |
+174   174:  *          iVAclose<--+
+175   175:  *
+176   176:  *-1========================================================================*/
+177   177: 
+178   178: 
+179   179: 
+180   180: /*==========================================================================*/
+181   181: /*                             Includes                                     */
+182   182: /*==========================================================================*/
+183   183: #include  <stdio.h>
+184   184: #include  <stdlib.h>
+185   185: #include  <string.h>
+186   186: #include  <limits.h>
+187   187: #include  <signal.h>
+188   188: 
+189   189: #define    _VA_ALLOC
+190   190: #include   "va.h"
+191   191: #define    EMPTY   ((DWORD)ULONG_MAX)
+192   192: 
+193   193: /* #define S/H-DEBUG: runtime check of stack- and heap on DOS  */
+194   194: /* Relies on PC/MS DOS V.3.3 system files which are deprecated */
+195   195: //#include "../check/stck/stck.h"
+196   196:    # define STCK(x)
+197   197:    # define REAL_MAIN	main
+198   198: //#include "../check/hpck/hpck.h"
+199   199: 
+200   200: 
+201   201: /*==========================================================================*/
+202   202: /*                         Function Prototypes                              */
+203   203: /*==========================================================================*/
+204   204: PRIVATE void
+205   205:          *pvVAaccess P((VACB pVA, DWORD dwIndex));
+206   206: 
+207   207: PRIVATE void
+208   208:          *pvVAread P((VACB pVA, DWORD dwIndex));
+209   209: 
+210   210: 
+211   211: 
+212   212: #ifdef MAIN
+213   213: /****************************************************************************/
+214   214: /******************************** MAIN **************************************/
+215   215: /****************************************************************************/
+216   216: 
+217   217: PRIVATE void
+218   218:         vSigCatch P((int iSigNum));
+219   219: 
+220   220: 
+221   221: /* Define "signon message" for testdriver, module va.c */
+222   222: PRIVATE char SIGNON[] =
+223   223:         "\nKMD VirtualArray (VA) Functions (Testdriver), Version 0.1.0\n"
+224   224:         "MOD[va.c] VER[0.1.0 Pre] DAT[92/07/10] DEV[ad dec]\n"
+
+XC ... 'C' Concordance Utility   va.c                       Page 5
+
+225   225:         "Copyright (c) KommuneData I/S 1992\n\n";
+226   226: 
+227   227: 
+228   228: #define   KEYMAX  50          /* Max. size of key (#byte) */
+229   229: #define   STEP    2L          /* Step-size for generating new VA file rec's */
+230   230: VACB      pVA = NULL;         /* Handle for "incore" descr.struct */
+231   231: 
+232   232: 
+233   233: 
+234   234: /*+1 MODULE VA.C ===========================================================*/
+235   235: /*   NAME   01                     main                                     */
+236   236: /*== SYNOPSIS ==============================================================*/
+237   237: int REAL_MAIN()
+238   238: {
+239   239: /* DESCRIPTION
+240   240:  *   Testdriver for module va.c; - exercises the functions in the module
+241   241:  *   and validates the functionality through trace-statements (when compiled
+242   242:  *   with flag "DEBUG").
+243   243:  *
+244   244:  *   1: Print signon message & setup to catch "break" signals.
+245   245:  *
+246   246:  *   2: MAKE and fill a new VirtualArray (VA) ... :
+247   247:  *      2.1: Try creating & opening new VA file, mode RW (init header), -
+248   248:  *           actions 2.x are skipped, if the VA-file already exists
+249   249:  *      2.2: Create dwArSize VA elements (in chunks of STEP)
+250   250:  *      2.3: Delete elements #10-#19 in VA
+251   251:  *      2.4: Try Re-initializing duplicate & deleted elements
+252   252:  *      2.5: Close VA gracefully (flush cache to disk & release resources)
+253   253:  *
+254   254:  *   3: TEST the Virtual Array (VA) by looking up entries in the VA file ... :
+255   255:  *      3.1: Open existing VA file, mode RO
+256   256:  *      3.2: Print VA statistics
+257   257:  *      3.3: Access all elements of the VA
+258   258:  *      3.4: Close VA gracefully (flush cache to disk & release resources)
+259   259:  *
+260   260:  * RETURN
+261   261:  *   main() is a testdriver and not intented to interface with any calling
+262   262:  *   program. The return value from main() is thus insignificant in this
+263   263:  *   context.
+264   264:  *   You should however notice the checking of error-conditions on return
+265   265:  *   from each call to a PUBLIC function defined in va.c; - This practice
+266   266:  *   should also be followed in your application to "catch" and diagnose any
+267   267:  *   malfunction in the system or in the services provided by this module.
+268   268:  *   (You will probably want to write your own error-handling, though).
+269   269:  *
+270   270:  * EXAMPLE
+271   271:  *   The contents of function main() demonstrates the basic aspects of
+272   272:  *   building and accessing a VirtualArray using the *LOW LEVEL* public data-
+273   273:  *   structures and interface-functions in VA.C/H.
+274   274:  *   The modules INDEX.C/H and KEY.C/H provides more *HIGL LEVEL* interfaces
+275   275:  *   for generating and using indexfiles from application programs.
+276   276:  *
+277   277:  * SEE ALSO
+278   278:  *   general.h, access.h & va.h for a detailed description of symbolic constants,
+279   279:  *   macro's, data structures, return codes and error codes.
+280   280:  *-1*/
+
+XC ... 'C' Concordance Utility   va.c                       Page 6
+
+281   281: 
+282   282:     char      pcKey[KEYMAX];     /* Key-value in string reprentation */
+283   283:     register  DWORD dwKey = 0L;  /* Key-value in numeric representation */
+284   284:     DWORD     dwOff    = 0L;     /* Offset of datarecord in datafile */
+285   285:     DWORD     dwArSize = 10000L; /* Max Size (#slots) for VirtualArray */
+286   286:     DWORD     dwSize   = 0L;     /* Current total slots in VA */
+287   287:     DWORD     dwUsed   = 0L;     /* Current used slots in VA */
+288   288:     WORD      wLoad    = 0;      /* Current load of VA: (100*dwUsed/dwSize) */
+289   289:     eRetType  eRetCode = ERROR;  /* Return code of VA function [ERROR | OK] */
+290   290: 
+291   291: 
+292   292:     /*----------------- 1: Signon and setup signal catcher -----------------*/
+293   293:     /* 1.1: Signon */
+294   294:     fputs(SIGNON, stdout);
+295   295: 
+296   296: 
+297   297:     /* 1.2: Setup to redirect interrupt signals to our own handler */
+298   298:     signal(SIGINT, vSigCatch);
+299   299:     signal(SIGTERM, vSigCatch);
+300   300: 
+301   301: 
+302   302:     /*----------------- 2: Make & fill a new VA index ----------------------*/
+303   303: 
+304   304:     /* 2.1: Try creating & opening new VA file, mode RW (init header) */
+305   305:     eRetCode = eVAIdxCreate(&pVA, "./VA/va.key", sizeof(REC), 0L);
+306   306: 
+307   307: 
+308   308:     /* If create OK, initialize elements of VA file ... */
+309   309:     if (eRetCode == OK) {
+310   310: 
+311   311: 	/* 2.2: Create dwArSize VA elements in chunks of STEP */
+312   312:     /*      OBS: for test only even recs (#define STEP 2L) */
+313   313: 	fprintf(stdout, "\nCreating %ld elements...\n", dwArSize);
+314   314: 	for (dwKey = 0L; dwKey < dwArSize; dwKey += STEP) {
+315   315: 	    sprintf(pcKey, "%lu", dwKey);
+316   316: 	    ACHK_ERR(eVAKeyInsert(&pVA, pcKey, dwKey), A_STOP)
+317   317: 	    fprintf(stdout, "\tGenerating :\tArray[%s] = %4lu            \r",
+318   318:               pcKey, dwKey);
+319   319:  	}
+320   320: 
+321   321: 	/* 2.3: Delete elements #10-#19 in VA */
+322   322: 	fprintf(stdout, "\n\nDeleting 10 of %ld elements: [#10-#19]...\n", dwArSize);
+323   323: 	for (dwKey = 10L; dwKey <= 19L; dwKey++) {
+324   324: 	    sprintf(pcKey, "%lu", dwKey);
+325   325: 	   	ACHK_ERR(eVAKeyDelete(&pVA, pcKey), A_CONT)
+326   326: 		fprintf(stdout, "\tDeleting  :\tArray[%s]\n", pcKey);
+327   327: 	}
+328   328: 
+329   329: 	/* 2.4: Try Re-initializing duplicate & deleted elements */
+330   330: 	fprintf(stdout, "\nRe-initializing 10 of %ld elements: [#5-#14] to #+100...\n", dwArSize);
+331   331: 	for (dwKey = 5L; dwKey <= 14L; dwKey++) {
+332   332: 	    sprintf(pcKey, "%lu", dwKey);
+333   333: 	    ACHK_ERR(eVAKeyInsert(&pVA, pcKey, dwKey + 100L), A_CONT)
+334   334:  	    D(fprintf(stdout, "\tRegenerating :\tArray[%s]= %4lu\n", pcKey, dwKey+100L);)
+335   335: 	}
+336   336: 
+
+XC ... 'C' Concordance Utility   va.c                       Page 7
+
+337   337: 	/* 2.5: Close index gracefully */
+338   338: 	ACHK_ERR(eVAIdxClose(&pVA), A_STOP)
+339   339: 
+340   340:     }   /* END 2: VA-create; - Else (create ERROR) assume file exists */
+341   341:     else {
+342   342: 
+343   343: 	/*----------------- 3: Find entries in the VA file ---------------------*/
+344   344: 
+345   345: 	/* 3.1: Open existing VA file, mode RO */
+346   346: 	ACHK_ERR(eVAIdxOpen(&pVA, "va.key", "rb"), A_STOP);
+347   347: 
+348   348: 	/* 3.2: Print VA statistics */
+349   349: 	ACHK_ERR(eVAIdxGetSize(&pVA, &dwSize, &dwUsed), A_STOP)
+350   350: 	fprintf(stdout, "\nIndex Keyrecords:\tSize=[%lu],\tUsed=[%lu]\n", dwSize, dwUsed);
+351   351: 	ACHK_ERR(eVAIdxGetLoad(&pVA, &wLoad), A_STOP)
+352   352: 	fprintf(stdout, "\nIndex Loadfactor:\tLoad=[%d]\n", wLoad);
+353   353: 
+354   354: 	/* 3.3: Access all elements of the VA */
+355   355: 	fprintf(stdout, "\nAccessing %ld elements...\n", dwArSize);
+356   356: 	for (dwKey = 0L; dwKey < dwArSize; dwKey++) {
+357   357:            sprintf(pcKey, "%lu", dwKey);
+358   358:            if (eVAKeyFind(&pVA, pcKey, &dwOff) == OK) {
+359   359: 	           D(fprintf(stdout, "\tACCESSING :\tArray[%4s] = %4lu\n", pcKey, dwOff);)
+360   360:            } else {
+361   361: 	           D(fprintf(stdout, "\tNOTFOUND  :\tArray[%4s] = %lu\n", pcKey, dwOff);)
+362   362:            }
+363   363: 	}
+364   364: 
+365   365: 	/* 3.4: Close VA */
+366   366: 	ACHK_ERR(eVAIdxClose(&pVA), A_STOP)
+367   367: 
+368   368:     } /* END 3: VA-open */
+369   369: 
+370   370: } /* END function main() */
+371   371: 
+372   372: 
+373   373: 
+374   374: /*+4 MODULE HASH.C ---------------------------------------------------------*/
+375   375: /*   NAME   01.01                 vSigCatch                                 */
+376   376: /*-- SYNOPSIS --------------------------------------------------------------*/
+377   377: #define    MAXLINE 81
+378   378: 
+379   379: PRIVATE void
+380   380: vSigCatch(iSigNum)
+381   381:     int       iSigNum;	       /* Signal number to catch */
+382   382: {
+383   383: /* DESCRIPTION
+384   384:  *    Support function for main() test driver.
+385   385:  *    Signal handler set up to catch the "break" signals : SIGINT (asynch.
+386   386:  *    interactive attention) & SIGTERM (asynch. interactive termination).
+387   387:  *    1: Prompts user for break confirmation
+388   388:  *    2: Depending on user confirmation : [Y]->terminate or [N]->continue... :
+389   389:  *       2.1: Terminates program "gracefully" (using global VA file descr.)
+390   390:  *       2.2: Continues : eat rest of line, reset signal, and continue.
+391   391:  * RETURN
+392   392:  *    If break confirmed: program terminated with exit code 'EXIT_FAILURE'
+
+XC ... 'C' Concordance Utility   va.c                       Page 8
+
+393   393:  *    else: signal 'iSigNum' reset and program execution resumed.
+394   394:  * BUGS
+395   395:  *    Asynch. signals don't guarantee access to volatile data at sequence pts;
+396   396:  *    Since we restrict our access to READ operations, this shouldn't pose any
+397   397:  *    problem, - though not strictly ANSI (cf. type sig_atomic_t).
+398   398:  *-4*/
+399   399: 
+400   400: 	/* --------------------------------------------------------------------------
+401   401:     char      pzLine[MAXLINE]; // Line buffer
+402   402:     DWORD     dwSize = 0L;     // Var. param1 for eVAGetSize
+403   403:     DWORD     dwUsed = 0L;     // Var. param2 for eVAGetSize
+404   404: 
+405   405:     assert(iSigNum > 0);
+406   406: 
+407   407:     // 1: Prompt user for break confirmation
+408   408:     fprintf(stdout, "\nINTERRUPT:  Signal [%d] received\n", iSigNum);
+409   409:     fprintf(stdout, "\tCurrent state of VirtualArray: integrity[%s]\n",
+410   410: 	    (pVA->indexmode == RW ? "UNKNOWN" : "OK"));
+411   411:     (void) eVAIdxGetSize(&pVA, &dwSize, &dwUsed);
+412   412:     fprintf(stdout, "\tCurrent size  of VirtualArray: total[%lu], used[%lu]\n",
+413   413: 	    dwSize, dwUsed);
+414   414:     fprintf(stdout, "\tAbort program? [Y|N]  => ");
+415   415: 
+416   416: 
+417   417:     // 2: Depending on user answer : terminate [Y] or continue [N]
+418   418:     if (toupper(getchar()) == 'Y') {
+419   419: 
+420   420: 	// 2.1: terminate program "gracefully"
+421   421: 	eVAIdxClose(&pVA);
+422   422: 	exit(EXIT_FAILURE);
+423   423:     }
+424   424:     else  {
+425   425: 	// 2.2: Continue : eat rest of line, reset signal, and continue
+426   426: 	fgets(pzLine, MAXLINE, stdin);
+427   427: 	signal(iSigNum, vSigCatch);
+428   428:     }
+429   429: 	-------------------------------------------------------------------------- */
+430   430: 
+431   431: 	/* 2.1: Terminate program "gracefully" */
+432   432: 	eVAIdxClose(&pVA);
+433   433: 	signal(iSigNum, SIG_DFL);
+434   434: 	raise(iSigNum);
+435   435: 	abort();
+436   436: 
+437   437: } /* END function vSigCatch() */
+438   438: 
+439   439: #endif			       /* MAIN */
+440   440: 
+441   441: 
+442   442: 
+443   443: 
+444   444: /**************************** [1]  HIGH LEVEL *******************************/
+445   445: /**************************** INDEX INTERFACE *******************************/
+446   446: /****************************************************************************/
+447   447: 
+448   448: 
+
+XC ... 'C' Concordance Utility   va.c                       Page 9
+
+449   449: /*+2 MODULE VA.C ===========================================================*/
+450   450: /*   NAME   02                     eVAIdxCreate                             */
+451   451: /*== SYNOPSIS ==============================================================*/
+452   452: PUBLIC    eRetType
+453   453: eVAIdxCreate(ppVA, pzIdxFile, dummy1, dummy2)
+454   454:     VACB     *ppVA;	       /* Handle for VA index descr.struct to create */
+455   455:     char     *pzIdxFile;       /* Name of physical Virtual Array index (file) */
+456   456:     WORD      dummy1;	       /* Dummy argument, - ignored */
+457   457:     DWORD     dummy2;	       /* Dummy argument, - ignored */
+458   458: {
+459   459: /* DESCRIPTION
+460   460:  *    Creates (and opens) a VirtualArray file in the current directory on
+461   461:  *    disk with the name of "pzIdxFile" and mode Read/Write. A header with
+462   462:  *    VA size-info (initially all zero) is written to the file, and an incore
+463   463:  *    descriptor structor for VA (VACB) is set up with handle ppVA.
+464   464:  *
+465   465:  *    1: Call iVAinit() to create new VA-file, write header & close file.
+466   466:  *    2: Call eVAIdxOpen() to (re)open the VA-file and set up an incore VACB.
+467   467:  *
+468   468:  * RETURN
+469   469:  *    Side effects (netto).: VirtualArray file created & opened.
+470   470:  *                           Incore VACB allocated & initialized.
+471   471:  *    Call-by-reference....: Handle ppVA pointed to new VACB.
+472   472:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+473   473:  *                           If ERROR, "Astat" holds the precise error code.
+474   474:  *-2*/
+475   475: 
+476   476:     /* 1: Call iVAinit() to create new VA-file, write header & close file */
+477   477:     ARET_ERR(iVAinit(pzIdxFile, sizeof(REC), ' ') == 0, A_NOTCREATE, 200)
+478   478: 
+479   479: 
+480   480:     /* 2: Call eVAIdxOpen() to (re)open VA-file and set up an incore VACB */
+481   481:     ARET_ERR(eVAIdxOpen(ppVA, pzIdxFile, "r+b") == ERROR, A_FILEOPEN, 201)
+482   482: 
+483   483:     ARET_OK
+484   484: 
+485   485: } /* END function eVAIdxCreate() */
+486   486: 
+487   487: 
+488   488: 
+489   489: /*+2 MODULE VA.C ===========================================================*/
+490   490: /*   NAME   03                     eVAIdxOpen                               */
+491   491: /*== SYNOPSIS ==============================================================*/
+492   492: PUBLIC    eRetType
+493   493: eVAIdxOpen(ppVA, pzIdxFile, pzAccess)
+494   494:     VACB     *ppVA;	   /* Handle for VA index descr.struct to open */
+495   495:     char     *pzIdxFile;   /* Name of physical Virtual Array index (file) */
+496   496:     char     *pzAccess;	   /* Mode "rb" (ReadOnly) or "w+b" (ReadWrite) */
+497   497: {
+498   498: /* DESCRIPTION
+499   499:  *    Opens an already existing VirtualArray file in the current directory
+500   500:  *    on disk with the name of "pzIdxFile" and mode "pzAccess".
+501   501:  *    Allocates an incore VA descr.struct. (VACB), initializes this with
+502   502:  *    sizeinfo from the VA-file header and points handle ppVA to the VACB.
+503   503:  *
+504   504:  *    1: Call pVAopen() to set up a default incore VACB (save handle in ppVA).
+
+XC ... 'C' Concordance Utility   va.c                       Page 10
+
+505   505:  *    2: Correct template for empty VA-rec in VACB to : EMPTY.
+506   506:  *       (the general/default empty VA-rec. template is : "all spaces")
+507   507:  *
+508   508:  * RETURN
+509   509:  *    Side effects.........: VA-file opened & incore VACB instantiated.
+510   510:  *    Call-by-reference....: Handle ppVA pointed to new VACB.
+511   511:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+512   512:  *                           If ERROR, "Astat" holds the precise error code.
+513   513:  *-2*/
+514   514: 
+515   515:     /* 1: Call pVAopen() to set up an "incore" VACB (save handle in *ppVA) */
+516   516:     *ppVA = pVAopen(pzIdxFile, pzAccess);
+517   517:     ARET_ERR(*ppVA == NULL, A_FILEOPEN, 300)
+518   518: 
+519   519: 
+520   520:     /* 2: Correct empty index-rec in VA header to : EMPTY */
+521   521:     *((DWORD *) ((*ppVA)->pcArElInit)) = EMPTY;
+522   522: 
+523   523:     ARET_OK
+524   524: 
+525   525: } /* END function eVAIdxOpen() */
+526   526: 
+527   527: 
+528   528: 
+529   529: /*+2 MODULE VA.C ===========================================================*/
+530   530: /*   NAME   04                     eVAIdxClose                              */
+531   531: /*== SYNOPSIS ==============================================================*/
+532   532: PUBLIC    eRetType
+533   533: eVAIdxClose(ppVA)
+534   534:     VACB     *ppVA;	       /* Handle for VA index descr.struct to open */
+535   535: {
+536   536: /* DESCRIPTION
+537   537:  *   Closes an open VA file, and releases the resources allocated for the
+538   538:  *   attached "in core" VA descriptor structure (VACB) pointed to by *ppVA.
+539   539:  *
+540   540:  *   1: Calls the generic VA function iVAclose() to perform the shutdown.
+541   541:  *
+542   542:  * RETURN
+543   543:  *    Side effects.........: VA cache buffer flushed (if VA opened mode RW).
+544   544:  *                           VirtualArray file (*ppVA)->pfArFile closed.
+545   545:  *    Call-by-reference....: *ppVA VA descr.struct. fully deallocated.
+546   546:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+547   547:  *                           If ERROR, "Astat" holds the precise error code.
+548   548:  *-2*/
+549   549: 
+550   550:     /* 1: Call iVAclose() to release all resources allocated to VACB */
+551   551:     ARET_ERR(iVAclose(*ppVA) == 0, A_FILECLOSE, 400)
+552   552: 
+553   553:     ARET_OK
+554   554: 
+555   555: } /* END function eVAIdxClose() */
+556   556: 
+557   557: 
+558   558: 
+559   559: /*+2 MODULE VA.C ===========================================================*/
+560   560: /*   NAME   05                     eVAKeyInsert                             */
+
+XC ... 'C' Concordance Utility   va.c                       Page 11
+
+561   561: /*== SYNOPSIS ==============================================================*/
+562   562: PUBLIC    eRetType
+563   563: eVAKeyInsert(ppVA, pcKey, dwDatOffset)
+564   564:     VACB     *ppVA;	       /* Handle for VA index descr.struct */
+565   565:     char     *pcKey;           /* Key-string (index/slot) for VirtualArray */  
+566   566:     DWORD     dwDatOffset;     /* Value to insert in VA-slot: VA[Key] */
+567   567: {
+568   568: /* DESCRIPTION
+569   569:  *   Inserts value "dwDatOffset" into the VirtualArray, slot VA[Key]; -
+570   570:  *   String "pcKey" holds a unique Key-value identifying a datafile-record,
+571   571:  *   Number dwDatOffset holds the file-offset of the rec. corresp. to pcKey.
+572   572:  *   The function inserts the value "dwDatOffset" into VA-slot: VA[Key].
+573   573:  *
+574   574:  *   1: CONVERT Key from string (pcKey) to number (dwKey) format.
+575   575:  *   2: ASSERT that slot VA[Key] -if it exists- is not already occupied;
+576   576:  *      If Key > VA-max, VA is extended with free slots until & incl. Key.
+577   577:  *      The unique value: EMPTY marks a free/new slot in the VirtualArray.
+578   578:  *   3: INSERT value "dwDatOffset" into the VirtualArray, slot VA[Key]; -
+579   579:  *      Duplicate keys are obviously not allowed (Key<->VAslot 1:1 relation).
+580   580:  *   4: UPDATE VA header with new "used count" (incr. #used slots).
+581   581:  *
+582   582:  * RETURN
+583   583:  *    Side effects.........: dwDatOffset inserted into VA-slot VA[Key]; -
+584   584:  *                           VA-file extended with free slots if past EOF.
+585   585:  *                           VACB & VA-file header size-info updated.
+586   586:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+587   587:  *                           If ERROR, "Astat" holds the precise error code.
+588   588:  *-2*/
+589   589: 
+590   590:     char     *pcScan   = NULL;  /* Scan-ptr for ANSI lib.func. strtoul() */
+591   591:     DWORD     dwKey    = 0L;    /* Numeric Key-value (converted from pcKey) */
+592   592:     DWORD     dwOff    = 0L;    /* Current val. in VA[Key], EMPTY if free */
+593   593:     REC      *pRec     = NULL;  /* Ptr to cache buffer entry holding VA-rec */
+594   594:     int       iRetCode = 0;     /* Integer return code */
+595   595: 
+596   596: 
+597   597:     /* 1: Convert Key from string to number format */
+598   598:     dwKey = strtoul(pcKey, &pcScan, 10);
+599   599:     ARET_ERR(pcScan == pcKey, A_OTHER, 500)
+600   600: 
+601   601: 
+602   602:     /* 2: Assert that slot VA[Key] (if it exists) is currently free */
+603   603:     if (dwKey < (DWORD) (*ppVA)->stSize.dwArSize) {
+604   604: 	(void) eVAKeyFind(ppVA, pcKey, &dwOff);
+605   605: 	ARET_ERR(dwOff != EMPTY, A_DUPLICATE, 501)
+606   606:     }
+607   607: 
+608   608: 
+609   609:     /* 3: Insert value "dwDatOffset" into VirtualArray, slot VA[dwKey] */
+610   610:     /* If dwKey > dwArSize, first extend VA with free slots, cf pvVAaccess */
+611   611:     pRec = pAREC(*ppVA, dwKey);
+612   612:     ARET_ERR(pRec == NULL, A_WRITE, 502)
+613   613:     pRec->dwOffset = dwDatOffset;
+614   614: 
+615   615: 
+616   616:     /* 4: Update VA header with new "used count" (incr. #used slots) */
+
+XC ... 'C' Concordance Utility   va.c                       Page 12
+
+617   617:     iRetCode = fseek((*ppVA)->pfArFile, sizeof(DWORD), SEEK_SET);
+618   618:     ARET_ERR(iRetCode != 0, A_SEEK, 503)
+619   619:     (*ppVA)->stSize.dwArUsed++;
+620   620:     iRetCode = fwrite(&(*ppVA)->stSize.dwArUsed, sizeof(DWORD), 1, (*ppVA)->pfArFile);
+621   621:     ARET_ERR(iRetCode != 1, A_WRITE, 504)
+622   622: 
+623   623: 
+624   624:     ARET_OK
+625   625: 
+626   626: } /* END function eVAKeyInsert() */
+627   627: 
+628   628: 
+629   629: 
+630   630: /*+2 MODULE VA.C ===========================================================*/
+631   631: /*   NAME   06                     eVAKeyDelete                             */
+632   632: /*== SYNOPSIS ==============================================================*/
+633   633: PUBLIC    eRetType
+634   634: eVAKeyDelete(ppVA, pcKey)
+635   635:     VACB     *ppVA;	       /* Handle for VA index descr.struct */
+636   636:     char     *pcKey;           /* Key-string (index/slot) for VirtualArray */  
+637   637: {
+638   638: /* DESCRIPTION
+639   639:  *   Inserts a "free-mark" into the VirtualArray, slot VA[Key]; -
+640   640:  *   String "pcKey" holds a unique Key-value identifying a datafile-record,
+641   641:  *   Const. EMPTY is a unique value used for marking a free VA-slot.
+642   642:  *   The function inserts EMPTY into VA-slot: VA[Key], thus deleting it.
+643   643:  *
+644   644:  *   1: CONVERT Key from string (pcKey) to number (dwKey) format.
+645   645:  *   2: ASSERT that slot VA[Key] exists and is currently occupied,
+646   646:  *      (unique value: EMPTY marks a free slot in the VirtualArray).
+647   647:  *   3: INSERT value EMPTY (ie. deleted/free) into VA, slot VA[Key].
+648   648:  *   4: UPDATE VA header with new "used count" (decr. #used slots).
+649   649:  *
+650   650:  * RETURN
+651   651:  *    Side effects.........: VA-slot VA[Key] marked deleted/free; -
+652   652:  *                           VACB & VA-file header size-info updated.
+653   653:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+654   654:  *                           If ERROR, "Astat" holds the precise error code.
+655   655:  *-2*/
+656   656: 
+657   657:     char     *pcScan   = NULL; /* Scan-ptr for ANSI lib.func. strtoul() */
+658   658:     DWORD     dwKey    = 0L;   /* Numeric Key-value (converted from pcKey) */
+659   659:     DWORD     dwOff    = 0L;   /* Current val. in VA[Key], EMPTY if free */
+660   660:     int       iRetCode = 0;    /* Integer return code */
+661   661: 
+662   662: 
+663   663:     /* 1: Convert Key from string to number format */
+664   664:     dwKey = strtoul(pcKey, &pcScan, 10);
+665   665:     ARET_ERR(pcScan == pcKey, A_OTHER, 600)
+666   666: 
+667   667: 
+668   668:     /* 2: Assert that slot VA[Key] exists and is occupied */
+669   669:     ARET_ERR(dwKey >= (*ppVA)->stSize.dwArSize, A_NOTFOUND, 601)
+670   670:     (void) eVAKeyFind(ppVA, pcKey, &dwOff);
+671   671:     ARET_ERR(dwOff == EMPTY, A_NOTFOUND, 602)
+672   672: 
+
+XC ... 'C' Concordance Utility   va.c                       Page 13
+
+673   673: 
+674   674:     /* 3: Insert value EMPTY (ie. free) into VirtualArray, slot VA[Key] */
+675   675:     dwAOFF(*ppVA, dwKey) = EMPTY;
+676   676: 
+677   677: 
+678   678:     /* 4: UPDATE VA header with new "used count" (decr. #used slots) */
+679   679:     iRetCode = fseek((*ppVA)->pfArFile, sizeof(DWORD), SEEK_SET);
+680   680:     ARET_ERR(iRetCode != 0, A_SEEK, 603)
+681   681:     (*ppVA)->stSize.dwArUsed--;
+682   682:     iRetCode = fwrite(&(*ppVA)->stSize.dwArUsed, sizeof(DWORD), 1, (*ppVA)->pfArFile);
+683   683:     ARET_ERR(iRetCode != 1, A_WRITE, 604)
+684   684: 
+685   685: 
+686   686:     ARET_OK
+687   687: 
+688   688: } /* END function eVAKeyDelete() */
+689   689: 
+690   690: 
+691   691: 
+692   692: /*+2 MODULE VA.C ===========================================================*/
+693   693: /*   NAME   07                     eVAKeyFind                               */
+694   694: /*== SYNOPSIS ==============================================================*/
+695   695: PUBLIC    eRetType
+696   696: eVAKeyFind(ppVA, pcKey, pdwDatOffset)
+697   697:     VACB     *ppVA;	       /* Handle for VA index descr.struct */
+698   698:     char     *pcKey;           /* Key-string (index/slot) for VirtualArray */  
+699   699:     DWORD    *pdwDatOffset;    /* Value to retrieve from VA-slot: VA[Key] */
+700   700: {
+701   701: /* DESCRIPTION
+702   702:  *   Finds VA-slot VA[Key], and reads it's value into var.param *pdwDatOffset.
+703   703:  *   String "pcKey" holds a unique Key-value identifying a datafile-record,
+704   704:  *   Ptr. "pdwDatOffset" points to a variable for returning an offset value.
+705   705:  *   The function read the value in VA[KEY], and assigns it to *pdwDatOffset.
+706   706:  *
+707   707:  *   1: CONVERT Key from string (pcKey) to number (dwKey) format.
+708   708:  *   2: ASSERT that slot VA[Key] exists (ie. Key is inside current VA range).
+709   709:  *   3: RETRIEVE value (ie. datafile-offset) from VA slot: VA[Key]; -
+710   710:  *         If    VA-file opened mode RW , flush cache entry before read,
+711   711:  *         Else (VA-file opened mode RO), just overwrite cache entry.
+712   712:  *
+713   713:  * RETURN
+714   714:  *    Call-by-reference....: Offset of datarecord identified by Key
+715   715:  *                           returned in var.param. *pdwDatOffset.
+716   716:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+717   717:  *                           If ERROR, "Astat" holds the precise error code.
+718   718:  *                           (eg. attempt to find a free/deleted key-record)
+719   719:  *-2*/
+720   720: 
+721   721:     char     *pcScan = NULL;   /* Scan-ptr for ANSI lib.func. strtoul() */
+722   722:     DWORD     dwKey  = 0L;     /* Numeric Key-value (converted from pcKey) */
+723   723: 
+724   724: 
+725   725:       /* 1: Convert Key from string to number format */
+726   726:     dwKey = strtoul(pcKey, &pcScan, 10);
+727   727:     ARET_ERR(pcScan == pcKey, A_OTHER, 700)
+728   728: 
+
+XC ... 'C' Concordance Utility   va.c                       Page 14
+
+729   729: 
+730   730:     /* 2: Assert that VirtualArray slot: VA[Key] currently exists */
+731   731:     ARET_ERR(dwKey >= (*ppVA)->stSize.dwArSize, A_NOTFOUND, 701)
+732   732: 
+733   733: 
+734   734:     /* 3: Retrieve datafile-offset from VA slot VA[Key] ... */
+735   735:     if ((*ppVA)->indexmode == RW)	      /* Flush cache entry bef. read */
+736   736: 	*pdwDatOffset = dwAOFF(*ppVA, dwKey);
+737   737:     else /* indexmode: RO */ 
+738   738: 	*pdwDatOffset = dwROFF(*ppVA, dwKey); /* Just overwrite cache entry */
+739   739: 
+740   740: 
+741   741:     /* Return offset in *pdwDatOffset; If free/deleted, signal NOTFOUND */
+742   742:     ARET_ERR(*pdwDatOffset == EMPTY, A_NOTFOUND, 702)
+743   743:     ARET_OK
+744   744: 
+745   745: } /* END function eVAKeyFind() */
+746   746: 
+747   747: 
+748   748: 
+749   749: /*+2 MODULE VA.C ===========================================================*/
+750   750: /*   NAME   08                     eVAIdxGetSize                            */
+751   751: /*== SYNOPSIS ==============================================================*/
+752   752: PUBLIC    eRetType
+753   753: eVAIdxGetSize(ppVA, pdwSize, pdwUsed)
+754   754:     VACB     *ppVA;	       /* Handle for VA index descr.struct (VACB) */
+755   755:     DWORD    *pdwSize;	       /* Ptr. to variable for returning size */
+756   756:     DWORD    *pdwUsed;	       /* Ptr. to variable for returning used */
+757   757: {
+758   758: /* DESCRIPTION
+759   759:  *    Retrieve current size (total #VA-slots) & usage (used #VA-slots)
+760   760:  *    from "incore" VA descriptor struct. (VACB) to var. parameters.
+761   761:  *
+762   762:  *    1: RETRIEVE array-size & -usage from "incore" VACB with handle ppVA.
+763   763:  *    2: ASSERT sensible values of size and used variables.
+764   764:  *
+765   765:  * RETURN
+766   766:  *    Call-by-reference....: VA-size & used returned in *pdwSize & *pdwUsed.
+767   767:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+768   768:  *                           If ERROR, "Astat" holds the precise error code.
+769   769:  *-2*/
+770   770: 
+771   771:     /* 1: Retrieve array-size & -used from incore descriptor structure */
+772   772:     *pdwSize = (*ppVA)->stSize.dwArSize;
+773   773:     *pdwUsed = (*ppVA)->stSize.dwArUsed;
+774   774: 
+775   775: 
+776   776:     /* 2: Assert sensible values (hard internal error if not!) */
+777   777:     assert(*pdwUsed <= *pdwSize);
+778   778: 
+779   779: 
+780   780:     /* 3: RETURN size- and used-values in var.param.: *pdwSize & *pdwUsed */
+781   781:     ARET_OK
+782   782: 
+783   783: } /* END function eVAIdxGetSize() */
+784   784: 
+
+XC ... 'C' Concordance Utility   va.c                       Page 15
+
+785   785: 
+786   786: 
+787   787: /*+2 MODULE VA.C ===========================================================*/
+788   788: /*   NAME   09                     eVAIdxGetLoad                            */
+789   789: /*== SYNOPSIS ==============================================================*/
+790   790: PUBLIC    eRetType
+791   791: eVAIdxGetLoad(ppVA, pwLoad)
+792   792:     VACB     *ppVA;	       /* Handle for VA index descr.struct (VACB) */
+793   793:     WORD     *pwLoad;	       /* Var. Param for ret. load = 100 * used/size */
+794   794: {
+795   795: /* DESCRIPTION
+796   796:  *    Retrieve current size (total #VA-slots) & usage (used #VA-slots)
+797   797:  *    from "incore" VA descriptor struct. (VACB), and use these values 
+798   798:  *    to calculate the current VA load-factor = (100 * used)/total.
+799   799:  *
+800   800:  *    1: RETRIEVE array-size & -used from incore VACB (call eVAIdxGetSize()).
+801   801:  *    2: ASSERT positive value of size (thus preventing divide-by-zero error).
+802   802:  *    3: CALCULATE the VA load-factor from size & used.
+803   803:  *
+804   804:  * RETURN
+805   805:  *    Call-by-reference....: VA-load factor returned in *pwLoad.
+806   806:  *    Function return value: OK if operation succeeded, ERROR otherwise.
+807   807:  *                           If ERROR, "Astat" holds the precise error code.
+808   808:  *-2*/
+809   809: 
+810   810:     DWORD     dwSize = 0L;    /* Current total size (#slots) of VA */
+811   811:     DWORD     dwUsed = 0L;    /* Current used size (#slots) of VA */
+812   812:     *pwLoad = 0;              /* Current load-factor of VA; - clear */
+813   813: 
+814   814: 
+815   815:     /* 1: Call eVAIdxGetSize() to get array-size & -used from incore VACB */
+816   816:     ARET_ERR(eVAIdxGetSize(ppVA, &dwSize, &dwUsed) != OK, Astat, 800)
+817   817: 
+818   818: 
+819   819:     /* 2: Assert positive value of size (prevent divide-by-zero error) */
+820   820:     if (dwSize == 0L) {
+821   821: 	ARET_OK
+822   822:     }
+823   823: 
+824   824:     /* 3: Calculate VA load-factor from size & used */
+825   825:     *pwLoad = (WORD) ((100L * dwUsed) / dwSize);
+826   826: 
+827   827: 
+828   828:     ARET_OK
+829   829: 
+830   830: } /* END function eVAIdxGetLoad() */
+831   831: 
+832   832: 
+833   833: 
+834   834: 
+835   835: /*************************** [2]  LOW  LEVEL ********************************/
+836   836: /*********************** VIRTUAL ARRAY INTERFACE ****************************/
+837   837: /****************************************************************************/
+838   838: 
+839   839: 
+840   840: /*+2 MODULE VA.C ===========================================================*/
+
+XC ... 'C' Concordance Utility   va.c                       Page 16
+
+841   841: /*   NAME   10                     iVAinit                                  */
+842   842: /*== SYNOPSIS ==============================================================*/
+843   843: PUBLIC int
+844   844: iVAinit(pzIdxFile, wElSize, iFill)
+845   845: char   *pzIdxFile;     /* Name of physical Virtual Array (file) */
+846   846: WORD   wElSize;	       /* Size (#byte) of one record in VA file */
+847   847: int    iFill;          /* Filler-char for initializing empty slot */
+848   848: {
+849   849: /* DESCRIPTION
+850   850:  *    Create a VirtualArray-index file in the current directory on disk
+851   851:  *    with the name of <pzIdxFile> and an record-size of <wElSize>:
+852   852:  *
+853   853:  *    1: Check that VA file does not already exist (bail out if it does!)
+854   854:  *    2: Create new VA file :
+855   855:  *       2.1: OPEN new VA file, mode <w+b> (create/truncate).
+856   856:  *       2.2: WRITE a VA header (for empty VirtualArray) to the file.
+857   857:  *       2.3: CLOSE the VA file.
+858   858:  *
+859   859:  * RETURN
+860   860:  *    Side effects.........: VA-file created, header-rec written, file closed.
+861   861:  *    Function return value: 1 if operation succeeded, 0 otherwise.
+862   862:  *-2*/
+863   863: 
+864   864:     FILE   *hVAFile  = NULL;        /* Handle for VA file */
+865   865:     DWORD   dwArSize = 0L;          /* Init. size of VA file (only header) */
+866   866:     DWORD   dwArUsed = 0L;          /* Init. #used entries,-empty from start */
+867   867:     char    cFill    = (char)iFill; /* Reset char param. promotion from int! */
+868   868:     int     iRetCode = 0;           /* Integer return code */
+869   869: 
+870   870: 
+871   871:     D(fprintf(stdout, "Creating VA-file[%s] :\n", pzIdxFile);)
+872   872: 
+873   873: 
+874   874:     /* ---------------------- Create empty VA-file ------------------------ */
+875   875: 
+876   876:     /* 1: Check that VA file does not already exist */
+877   877:     if ((hVAFile = fopen(pzIdxFile, "r")) != (FILE *) NULL)
+878   878:        goto L_ErrRet;
+879   879: 
+880   880:     assert(wElSize >= 1);
+881   881: 
+882   882: 
+883   883:     /* 2.1: Create new VA file (open mode RW) */
+884   884:     if (!(hVAFile = fopen(pzIdxFile, "w+b")))
+885   885:        goto L_ErrRet;
+886   886: 
+887   887: 
+888   888:     /* 2.2: Write an "empty" VA-header to the new VA file */
+889   889:     iRetCode  = fwrite(&dwArSize, sizeof(DWORD), 1, hVAFile);  /* Write VA size of zero */
+890   890:     iRetCode += fwrite(&dwArUsed, sizeof(DWORD), 1, hVAFile);  /* Write VA used of zero */
+891   891:     iRetCode += fwrite(&wElSize, sizeof(WORD), 1, hVAFile);    /* Write VA element size */
+892   892:     iRetCode += fwrite(&cFill, sizeof(char), 1, hVAFile);      /* Write fill char */
+893   893:     if (iRetCode != 4 || ferror(hVAFile))
+894   894:        goto L_ErrRet;
+895   895: 
+896   896:     D(fprintf(stdout, "\tWrote VA-header: dwArSize[%ld], dwArUsed[%ld], wArElSize[%d], cFill[%c]\n",
+           
+
+XC ... 'C' Concordance Utility   va.c                       Page 17
+
+897   897: 	     dwArSize, dwArUsed, wElSize, cFill));
+898   898: 
+899   899: 
+900   900:     /* -------------------------- Return ---------------------------------- */
+901   901: 
+902   902:     /* 2.3.1: Fall through to Return OK */
+903   903:     (void) fclose(hVAFile);
+904   904:     return (1);
+905   905: 
+906   906: L_ErrRet:
+907   907:     /* 2.3.2: Goto Return ERROR (after cleanup), - not considered harmfull! */
+908   908:    (void) fclose(hVAFile);
+909   909:    return (0);
+910   910: 
+911   911: 
+912   912: } /* END function iVAinit() */
+913   913: 
+914   914: 
+915   915: 
+916   916: /*+2 MODULE VA.C ===========================================================*/
+917   917: /*   NAME   11                     pVAopen                                  */
+918   918: /*== SYNOPSIS ==============================================================*/
+919   919: PUBLIC    VACB
+920   920: pVAopen(pzIdxFile, pzAccess)
+921   921:     char     *pzIdxFile;    /* Name of physical Virtual Array index (file) */
+922   922:     char     *pzAccess;     /* "rb" (for ReadOnly) or "w+b" (for ReadWrite) */
+923   923: {
+924   924: /* DESCRIPTION
+925   925:  *    Open an existing VirtualArray (VA) file & set up an incore descriptor:
+926   926:  *
+927   927:  *    1:   Instantiate an "incore" VA descriptor structure (VACB) :
+928   928:  *         1.2: Allocate "incore" VACB, and point pVA to it.
+929   929:  *         1.2: Open the (existing) VA file <pzIdxFile>, mode <pzAccess>.
+930   930:  *         1.3: Initialize the "incore" VACB from the VA file header.
+931   931:  *    2:   Instantiate a VA cache-buffer for the new VACB :
+932   932:  *         2.1: Allocate a VA cache buffer, size BFSIZE.
+933   933:  *         2.2: Set up last buf-rec as a blank (using fill-char from VA hdr).
+934   934:  *         2.3: Initialize buf-rec index negative (=empty) for all elements.
+935   935:  *
+936   936:  * RETURN (2.4)
+937   937:  *    Side effects.........: VA-file opened & VACB w/cache buffer instantiated.
+938   938:  *    Function return value: Ptr to instantiated VA descr., - NULL if error.
+939   939:  *-2*/
+940   940: 
+941   941:     VACB      pVA        = NULL;   /* Ptr to incore VA descr.struct. (VACB) */   
+942   942:     register  char *pcBf = NULL;   /* Ptr to VA cache buffer */
+943   943:     register  WORD  i    = 0;      /* Scratch count integer */
+944   944:     int       iRetCode   = 0;      /* Integer func return code */
+945   945: 
+946   946: 
+947   947:     D(fprintf(stdout, "Opening VA-file[%s], mode[%s] :\n",
+948   948: 	     pzIdxFile, (strcmp(pzAccess, "rb") == 0 ? "RO" : "RW"));)
+949   949: 
+950   950: 
+951   951:     /* ---------------------- Instantiate VACB ---------------------------- */
+952   952: 
+
+XC ... 'C' Concordance Utility   va.c                       Page 18
+
+953   953:     /* 1.1: Allocate an "incore" VA-file descr.struct. & point pVA to it */
+954   954:     pVA = (VACB) malloc(sizeof(struct stVACore));
+955   955:     if (pVA == NULL)
+956   956: 	return NULL;
+957   957: 
+958   958: 
+959   959:     /* 1.2: Open the (existing) VA file <pzIdxFile>, mode <pzAccess> */
+960   960:     pVA->pfArFile = fopen(pzIdxFile, pzAccess);
+961   961:     if (pVA->pfArFile == NULL)
+962   962:        goto L_ErrRet;
+963   963:     pVA->indexmode = (strcmp(pzAccess, "rb") == 0 ? RO : RW);
+964   964: 
+965   965: 
+966   966:     /* 1.3: Initialize an "incore" VA-index descriptor from the file header */
+967   967:     iRetCode  = fread(&(pVA->stSize.dwArSize), sizeof(DWORD), 1, pVA->pfArFile);
+968   968:     iRetCode += fread(&(pVA->stSize.dwArUsed), sizeof(DWORD), 1, pVA->pfArFile);
+969   969:     iRetCode += fread(&(pVA->stSize.wArElSize), sizeof(WORD), 1, pVA->pfArFile);
+970   970:     iRetCode += fread(&(pVA->stSize.cFill), sizeof(char), 1, pVA->pfArFile);
+971   971:     if (iRetCode != 4 || ferror(pVA->pfArFile))
+972   972:        goto L_ErrRet;
+973   973:     pVA->wBfElSize = sizeof(DWORD) + pVA->stSize.wArElSize;
+974   974:     D(fprintf(stdout, "\tRead  VA-header: dwArSize[%ld], dwArUsed[%ld], wArElSize[%d], cFill[%c]\n",
+           
+975   975:        pVA->stSize.dwArSize, pVA->stSize.dwArUsed,
+976   976:        pVA->stSize.wArElSize, pVA->stSize.cFill));
+977   977: 
+978   978: 
+979   979:     /* ---------------------- Instantiate BUFFER -------------------------- */
+980   980:            
+981   981:     /* 2.1: Allocate a VA cache buffer */
+982   982:     pVA->pcBf = (char *) malloc(pVA->wBfElSize * (BFSIZE + 1));
+983   983:     if (pVA->pcBf == NULL)
+984   984:        goto L_ErrRet;
+985   985:     pVA->wBfSize = BFSIZE;
+986   986: 
+987   987: 
+988   988:     /* 2.2: Set up blank-rec template, using filler-char "cFill" from VACB */
+989   989:     pcBf = pVA->pcBf + pVA->wBfElSize * pVA->wBfSize;
+990   990:     pVA->pcArElInit = pcBf + sizeof(DWORD);
+991   991:     for (i = 0; i < pVA->wBfElSize; i++)
+992   992: 	*pcBf++ = pVA->stSize.cFill;
+993   993: 
+994   994: 
+995   995:     /* 2.3: Init rec.index EMPTY (=ULONG_MAX) for all buffer elements */
+996   996:     pcBf = pVA->pcBf;
+997   997:     for (i = 0; i < pVA->wBfSize; i++) {
+998   998: 	*((DWORD *) pcBf) = EMPTY;
+999   999: 	pcBf += pVA->wBfElSize;
+1000 1000:     }
+1001 1001: 
+1002 1002: 
+1003 1003:     /* -------------------------- Return ---------------------------------- */
+1004 1004: 
+1005 1005:     /* 2.4.1: Fall through to Return OK */
+1006 1006:     return (pVA);
+1007 1007: 
+
+XC ... 'C' Concordance Utility   va.c                       Page 19
+
+1008 1008: L_ErrRet:
+1009 1009:     /* 2.4.2: Goto Return ERROR (after cleanup), - not considered harmfull! */
+1010 1010:     (void) fclose(pVA->pfArFile);
+1011 1011:     free(pVA);
+1012 1012:     return (NULL);
+1013 1013: 
+1014 1014: } /* END function pVAopen() */
+1015 1015: 
+1016 1016: 
+1017 1017: 
+1018 1018: /*+2 MODULE VA.C ===========================================================*/
+1019 1019: /*   NAME   12                     iVAclose                                 */
+1020 1020: /*== SYNOPSIS ==============================================================*/
+1021 1021: PUBLIC int
+1022 1022: iVAclose(pVA)
+1023 1023:     VACB      pVA;       /* Ptr to "incore" VA descriptor structure (VACB) */
+1024 1024: {
+1025 1025: /* DESCRIPTION
+1026 1026:  *    Close an existing VirtualArray (VA) file & release the incore descriptor:
+1027 1027:  *
+1028 1028:  *    1: If VA file opened mode Read/Write, flush VA cache buffer to disk.
+1029 1029:  *       1.1: Point to first VA cache record.
+1030 1030:  *       1.2: LOOP: flush all occupied VA cache records to disk.
+1031 1031:  *    2: Release all resources allocated to the VACB descriptor structure.
+1032 1032:  *
+1033 1033:  * RETURN
+1034 1034:  *    Side effects.........: VA cache flushed (if mode RW); VACB released.
+1035 1035:  *    Function return value: 1 if operation succeeded, 0 otherwise.
+1036 1036:  *-2*/
+1037 1037: 
+1038 1038:     DWORD     dwArIndex = 0L;     /* Index into VA-file (VA slot number) */
+1039 1039:     long      lFileOff  = 0L;     /* Offset into VA-file (#byte from start) */
+1040 1040:     char      *pcBf     = NULL;   /* Ptr to VA cache buffer */
+1041 1041:     register  WORD  i   = 0;      /* Scratch count integer */
+1042 1042: 
+1043 1043: 
+1044 1044:     D(fprintf(stdout, "\nClosing VA-file\n");)
+1045 1045: 
+1046 1046: 
+1047 1047:     /* 1: If VA file opened Read/Write, flush VA cache buffer to disk */
+1048 1048:     if (pVA->indexmode == RW) {
+1049 1049: 
+1050 1050: 	D(fprintf(stdout, "\tFlushing VA cache to disk\n");)
+1051 1051: 	/* 1.1: Point to first VA cache record */
+1052 1052: 	pcBf = pVA->pcBf;
+1053 1053: 
+1054 1054: 	/* 1.2: Flush all occupied VA cache records to disk */
+1055 1055: 	for (i = 0; i < pVA->wBfSize; i++) {
+1056 1056: 
+1057 1057: 	    /* Retrieve VA index from cache */
+1058 1058: 	    dwArIndex = *((DWORD *) pcBf);
+1059 1059: 
+1060 1060: 	    /* If slot occupied (index != ULONG_MAX), write cache-elem. to VA on disk */
+1061 1061: 	    if (dwArIndex != EMPTY) {
+1062 1062: 		   lFileOff = HEADER + dwArIndex * pVA->stSize.wArElSize;
+1063 1063: 		   (void) fseek(pVA->pfArFile, lFileOff, SEEK_SET);
+
+XC ... 'C' Concordance Utility   va.c                       Page 20
+
+1064 1064: 		   (void) fwrite(pcBf + sizeof(DWORD), pVA->stSize.wArElSize, 1, pVA->pfArFile);
+1065 1065: 	    }
+1066 1066: 
+1067 1067: 	    /* Point to next VA cache record */
+1068 1068: 	    pcBf += pVA->wBfElSize;
+1069 1069: 	}
+1070 1070:     }
+1071 1071: 
+1072 1072: 
+1073 1073:     /* 2: Release all resources allocated to the VACB */
+1074 1074:     D(fprintf(stdout, "\tReleasing all VACB resources\n");)
+1075 1075:     free(pVA->pcBf);
+1076 1076:     (void) fclose(pVA->pfArFile);
+1077 1077:     free(pVA);
+1078 1078: 
+1079 1079: 
+1080 1080:     return (1);
+1081 1081: 
+1082 1082: } /* END function iVAclose() */
+1083 1083: 
+1084 1084: 
+1085 1085: 
+1086 1086: /*+2 MODULE VA.C ===========================================================*/
+1087 1087: /*   NAME   13                     pvVAaccess                               */
+1088 1088: /*== SYNOPSIS ==============================================================*/
+1089 1089: PRIVATE void     *
+1090 1090: pvVAaccess(pVA, dwArIndex)
+1091 1091:     VACB      pVA;	            /* Pointer to VA-Control-Block struct */
+1092 1092:     DWORD     dwArIndex;	    /* Index in VA for record to access */
+1093 1093: {
+1094 1094: /* DESCRIPTION
+1095 1095:  *    Access (Read / Write) a record in the virtual array (VA) :
+1096 1096:  *
+1097 1097:  *    1:   Calc. cache buffer address (circular wrap) of VA rec# : "dwArIndex".
+1098 1098:  *    2:   Retrieve current rec# in calculated cache buffer entry (1. field).
+1099 1099:  *    3:   Test VA rec# "dwArIndex" against current rec# in the cache buffer :
+1100 1100:  *         3.1: If VA-rec present, return address of rec. contents (2. field),
+1101 1101:  *         3.2: else If past EOF of VA, create new element(s): extend VA file,
+1102 1102:  *         3.3: else If buffer slot occupied by other rec., flush to disk.
+1103 1103:  *    4:   Now read VA record "dwArIndex" from file to cache buffer, and
+1104 1104:  *         Return address of rec. contents (2. field of cache buffer entry).
+1105 1105:  *
+1106 1106:  * RETURN
+1107 1107:  *    Side effects.........: VA-file silently extended, if dwArIndex past EOF.
+1108 1108:  *    Call-by-reference....: VACB (handle pVA) updated with new sizeinfo.
+1109 1109:  *    Function return value: Pointer to record content (in cache-buffer), -
+1110 1110:  *                           NULL if error (disk full et. al.)
+1111 1111:  *-2*/
+1112 1112: 
+1113 1113:     WORD      wBfIndex    = 0;    /* Cache buffer addr. of VA-rec : "dwArIndex" */
+1114 1114:     DWORD     dwBfArIndex = 0L;   /* VA-rec curr. occupying cache for dwArIndex */
+1115 1115:     DWORD     dwTmpIndex  = 0L;   /* Temp. var. holding a VA index */
+1116 1116:     char      *pcBf       = NULL; /* Generic ptr. to cache buffer element */
+1117 1117: 
+1118 1118: 
+1119 1119:     /* 1: Calculate cache buffer address (pcBf) of VA record (dwArIndex) */
+
+XC ... 'C' Concordance Utility   va.c                       Page 21
+
+1120 1120:     wBfIndex = (WORD) (dwArIndex % pVA->wBfSize);
+1121 1121:     pcBf = pVA->pcBf + (wBfIndex * pVA->wBfElSize);
+1122 1122: 
+1123 1123: 
+1124 1124:     /* 2: Retrieve VA record currently in calculated cache buffer (dwBfArIndex) */
+1125 1125:     dwBfArIndex = *(DWORD *) pcBf;
+1126 1126: 
+1127 1127: 
+1128 1128:     /* 3.1: If dwArIndex present in buffer, return address of record contents */
+1129 1129:     if (dwBfArIndex == dwArIndex)
+1130 1130: 	return (void *) (pcBf + sizeof(DWORD));
+1131 1131: 
+1132 1132: 
+1133 1133:     /* 3.2: If past EOF of VA, create up to "dwArIndex" new EMPTY VA records */
+1134 1134:     if (dwArIndex >= pVA->stSize.dwArSize) {
+1135 1135: 
+1136 1136: 	/* Position on file-end & write EMPTY rec's up to dwArIndex (incl.) */
+1137 1137: 	(void) fseek(pVA->pfArFile, 0, SEEK_END);
+1138 1138: 	for (dwTmpIndex = pVA->stSize.dwArSize; dwTmpIndex++ <= dwArIndex; /* empty */ )
+1139 1139: 	   if (fwrite(pVA->pcArElInit, pVA->stSize.wArElSize, 1, pVA->pfArFile) != 1
+1140 1140:            || ferror(pVA->pfArFile) != 0 )         /* Check for disk full! */
+1141 1141:              return (void *) (NULL);
+1142 1142: 
+1143 1143: 	/* Update VA header with new file size */
+1144 1144: 	(void) fseek(pVA->pfArFile, 0, SEEK_SET);
+1145 1145: 	pVA->stSize.dwArSize = dwArIndex + 1L;
+1146 1146: 	(void) fwrite(&pVA->stSize.dwArSize, sizeof(DWORD), 1, pVA->pfArFile);
+1147 1147:     }
+1148 1148: 
+1149 1149: 
+1150 1150:     /* 3.3: If buffer slot occupied by other element, flush to disk */
+1151 1151:     if (dwBfArIndex != EMPTY) {
+1152 1152: 	(void) fseek(pVA->pfArFile, HEADER + (dwBfArIndex * pVA->stSize.wArElSize), SEEK_SET);
+1153 1153: 	(void) fwrite(pcBf + sizeof(DWORD), pVA->stSize.wArElSize, 1, pVA->pfArFile);
+1154 1154:     }
+1155 1155: 
+1156 1156: 
+1157 1157:     /* 4: Now read element from file to cache buffer */
+1158 1158:     (void) fseek(pVA->pfArFile, HEADER + (dwArIndex * pVA->stSize.wArElSize), SEEK_SET);
+1159 1159:     (void) fread(pcBf + sizeof(DWORD), pVA->stSize.wArElSize, 1, pVA->pfArFile);
+1160 1160: 
+1161 1161:     /* Reset buf.addr. of current rec. & Return addr. of rec.contents */
+1162 1162:     *((DWORD *) pcBf) = dwArIndex;
+1163 1163:     return (void *) (pcBf + sizeof(DWORD));
+1164 1164: 
+1165 1165: } /* END function pvVAaccess() */
+1166 1166: 
+1167 1167: 
+1168 1168: 
+1169 1169: /*+2 MODULE VA.C ===========================================================*/
+1170 1170: /*   NAME   14                     pvVAread                                 */
+1171 1171: /*== SYNOPSIS ==============================================================*/
+1172 1172: PRIVATE void     *
+1173 1173: pvVAread(pVA, dwArIndex)
+1174 1174:     VACB      pVA;	            /* Pointer to VA-Control-Block struct */
+1175 1175:     DWORD     dwArIndex;	    /* Index in VA for record to read */
+
+XC ... 'C' Concordance Utility   va.c                       Page 22
+
+1176 1176: {
+1177 1177: /* DESCRIPTION
+1178 1178:  *    Read a record in the virtual array (VA) :
+1179 1179:  *
+1180 1180:  *    0:   Check VA index out-of-range; If yes, return NULL-ptr (can't read).
+1181 1181:  *    1:   Calc. cache buffer address (circular wrap) of VA rec# : "dwArIndex".
+1182 1182:  *    2:   Retrieve current rec# in calculated cache buffer entry (1. field).
+1183 1183:  *    3:   Test VA rec# "dwArIndex" against current rec# in the cache buffer :
+1184 1184:  *         3.1: If VA-rec present, return address of rec. contents (2. field),
+1185 1185:  *         3.2: If buffer slot occupied by other elem, simply read new elem &
+1186 1186:  *              Return address of rec. contents (2. field of cache buf.entry).
+1187 1187:  * RETURN
+1188 1188:  *    Function return value: Pointer to record content (in cache-buffer), -
+1189 1189:  *                           NULL if error (index out-of-range).
+1190 1190:  *-2*/
+1191 1191: 
+1192 1192:     WORD     wBfIndex    = 0;    /* Cache buffer addr. of VA-rec : "dwArIndex" */
+1193 1193:     DWORD    dwBfArIndex = 0L;   /* VA-rec curr. occupying cache for dwArIndex */
+1194 1194:     char     *pcBf       = NULL; /* Generic ptr. to cache buffer element */
+1195 1195: 
+1196 1196: 
+1197 1197:     /* 0: Check for VA index out-of-range; if yes, return NULL ptr. */
+1198 1198:     if (dwArIndex >= pVA->stSize.dwArSize)
+1199 1199: 	return (void *) (NULL);
+1200 1200: 
+1201 1201: 
+1202 1202:     /* 1: Calculate cache buffer address (pcBf) of VA record (dwArIndex) */
+1203 1203:     wBfIndex = (WORD) (dwArIndex % (DWORD)pVA->wBfSize);
+1204 1204:     pcBf = pVA->pcBf + wBfIndex * pVA->wBfElSize;
+1205 1205: 
+1206 1206: 
+1207 1207:     /* 2: Retrieve VA record currently in calculated cache buffer (dwBfArIndex) */
+1208 1208:     dwBfArIndex = *(DWORD *) pcBf;
+1209 1209: 
+1210 1210: 
+1211 1211:     /* 3.1: If dwArIndex present in buffer, return address of record contents */
+1212 1212:     if (dwBfArIndex == dwArIndex)
+1213 1213: 	return (void *) (pcBf + sizeof(DWORD));
+1214 1214: 
+1215 1215: 
+1216 1216:     /* 3.2: Else (slot free or occupied by other), simply read new elem! */
+1217 1217:     (void) fseek(pVA->pfArFile, HEADER + (dwArIndex * pVA->stSize.wArElSize), SEEK_SET);
+1218 1218:     (void) fread(pcBf + sizeof(DWORD), pVA->stSize.wArElSize, 1, pVA->pfArFile);
+1219 1219: 
+1220 1220:     /* Reset buf.addr. of current rec. & Return addr. of rec.contents */
+1221 1221:     *((DWORD *) pcBf) = dwArIndex;
+1222 1222:     return (void *) (pcBf + sizeof(DWORD));
+1223 1223: 
+1224 1224: } /* END function pvVAread() */
+1225 1225: 
+1226 1226: 
+1227 1227: 
+1228 1228: /* END module va.c                                                          */
+1229 1229: /*==========================================================================*/
+1230 1230: 
+XC ... 'C' Concordance Utility                              Page 23
+
+_VA_ALLOC           :  189 
+ACHK_ERR            :  316  325  333  338  346  349  351  366 
+ARET_ERR            :  477  481  517  551  599  605  612  618  621  665  669  671  680  683  727 
+                       731  742  816 
+ARET_OK             :  483  523  553  624  686  743  781  821  828 
+A_CONT              :  325  333 
+A_DUPLICATE         :  605 
+A_FILECLOSE         :  551 
+A_FILEOPEN          :  481  517 
+A_NOTCREATE         :  477 
+A_NOTFOUND          :  669  671  731  742 
+A_OTHER             :  599  665  727 
+A_SEEK              :  618  680 
+A_STOP              :  316  338  346  349  351  366 
+A_WRITE             :  612  621  683 
+Astat               :  816 
+abort               :  435 
+assert              :  777  880 
+BFSIZE              :  982  985 
+cFill               :  867  892  897  970  976  992 
+D                   :  334  359  361  871  896  947  974 1044 1050 1074 
+DWORD               :  191  205  208  283  284  285  286  287  457  521  566  591  592  603  617 
+                       620  658  659  679  682  699  722  755  756  810  811  865  866  889  890 
+                       967  968  973  990  998 1038 1058 1064 1092 1114 1115 1125 1130 1146 1153 
+                      1159 1162 1163 1175 1193 1203 1208 1213 1218 1221 1222 
+define              :  196  197 
+dummy1              :  453  456 
+dummy2              :  453  457 
+dwAOFF              :  675  736 
+dwArIndex           : 1038 1058 1061 1062 1090 1092 1120 1129 1134 1138 1145 1158 1162 1173 1175 
+                      1198 1203 1212 1217 1221 
+dwArSize            :  285  313  314  322  330  355  356  603  669  731  772  865  889  897  967 
+                       975 1134 1138 1145 1146 1198 
+dwArUsed            :  619  620  681  682  773  866  890  897  968  975 
+dwBfArIndex         : 1114 1125 1129 1151 1152 1193 1208 1212 
+dwDatOffset         :  563  566  613 
+dwIndex             :  205  208 
+dwKey               :  283  314  314  314  315  316  318  323  323  323  324  331  331  331  332 
+                       333  334  356  356  356  357  591  598  603  611  658  664  669  675  722 
+                       726  731  736  738 
+dwOff               :  284  358  359  361  592  604  605  659  670  671 
+dwOffset            :  613 
+dwROFF              :  738 
+dwSize              :  286  349  350  810  816  820  825 
+dwTmpIndex          : 1115 1138 1138 
+dwUsed              :  287  349  350  811  816  825 
+EMPTY               :  191  521  605  671  675  742  998 1061 1151 
+ERROR               :  289  481 
+eRetCode            :  289  305  309 
+eRetType            :  289  452  492  532  562  633  695  752  790 
+eVAIdxClose         :  338  366  432  533 
+eVAIdxCreate        :  305  453 
+eVAIdxGetLoad       :  351  791 
+eVAIdxGetSize       :  349  753  816 
+eVAIdxOpen          :  346  481  493 
+eVAKeyDelete        :  325  634 
+
+XC ... 'C' Concordance Utility                              Page 24
+
+eVAKeyFind          :  358  604  670  696 
+eVAKeyInsert        :  316  333  563 
+FILE                :  864  877 
+fclose              :  903  908 1010 1076 
+ferror              :  893  971 1140 
+fopen               :  877  884  960 
+fprintf             :  313  317  322  326  330  334  350  352  355  359  361  871  896  947  974 
+                      1044 1050 1074 
+fputs               :  294 
+fread               :  967  968  969  970 1159 1218 
+free                : 1011 1075 1077 
+fseek               :  617  679 1063 1137 1144 1152 1158 1217 
+fwrite              :  620  682  889  890  891  892 1064 1139 1146 1153 
+HEADER              : 1062 1152 1158 1217 
+hVAFile             :  864  877  884  889  890  891  892  893  903  908 
+i                   :  943  991  991  991  997  997  997 1041 1055 1055 1055 
+iFill               :  844  847  867 
+iRetCode            :  594  617  618  620  621  660  679  680  682  683  868  889  890  891  892 
+                       893  944  967  968  969  970  971 
+iSigNum             :  218  380  381  433  434 
+iVAclose            :  551 1022 
+iVAinit             :  477  844 
+indexmode           :  735  963 1048 
+KEYMAX              :  228  282 
+L                   :  229  323  331  331 1145 
+L_ErrRet            :  878  885  894  906  962  972  984 1008 
+lFileOff            : 1039 1062 1063 
+MAIN                :  212 
+MAXLINE             :  377 
+main                :  197 
+malloc              :  954  982 
+NULL                :  230  517  590  593  612  657  721  864  877  941  942  955  956  961  983 
+                      1012 1040 1116 1141 1194 1199 
+OK                  :  309  358  816 
+P                   :  205  208  218 
+PRIVATE             :  204  207  217  222  379 1089 1172 
+PUBLIC              :  452  492  532  562  633  695  752  790  843  919 1021 
+pAREC               :  611 
+pRec                :  593  611  612  613 
+pVA                 :  205  208  230  305  316  325  333  338  346  349  351  358  366  432  941 
+                       954  955  960  961  963  967  967  968  968  969  969  970  970  971  973 
+                       973  975  975  976  976  982  982  983  985  989  989  989  990  991  992 
+                       996  997  999 1006 1010 1011 1022 1023 1048 1052 1055 1062 1063 1064 1064 
+                      1068 1075 1076 1077 1090 1091 1120 1121 1121 1134 1137 1138 1139 1139 1139 
+                      1140 1144 1145 1146 1146 1152 1152 1153 1153 1158 1158 1159 1159 1173 1174 
+                      1198 1203 1204 1204 1217 1217 1218 1218 
+pVAopen             :  516  920 
+pcArElInit          :  521  990 1139 
+pcBf                :  942  982  983  989  989  990  992  996  996  998  999 1040 1052 1052 1058 
+                      1064 1068 1075 1116 1121 1121 1125 1130 1153 1159 1162 1163 1194 1204 1204 
+                      1208 1213 1218 1221 1222 
+pcKey               :  282  315  316  318  324  325  326  332  333  334  357  358  359  361  563 
+                       565  598  599  604  634  636  664  665  670  696  698  726  727 
+pcScan              :  590  598  599  657  664  665  721  726  727 
+pdwDatOffset        :  696  699  736  738  742 
+pdwSize             :  753  755  772  777 
+
+XC ... 'C' Concordance Utility                              Page 25
+
+pdwUsed             :  753  756  773  777 
+pfArFile            :  617  620  679  682  960  961  967  968  969  970  971 1010 1063 1064 1076 
+                      1137 1139 1140 1144 1146 1152 1153 1158 1159 1217 1218 
+ppVA                :  453  454  481  493  494  516  517  521  533  534  551  563  564  603  604 
+                       611  617  619  620  620  634  635  669  670  675  679  681  682  682  696 
+                       697  731  735  736  738  753  754  772  773  791  792  816 
+pvVAaccess          :  205 1090 
+pvVAread            :  208 1173 
+pwLoad              :  791  793  812  825 
+pzAccess            :  493  496  516  920  922  948  960  963 
+pzIdxFile           :  453  455  477  481  493  495  516  844  845  871  877  884  920  921  948 
+                       960 
+REAL_MAIN           :  197  237 
+REC                 :  305  477  593 
+RO                  :  963 
+RW                  :  735  963 1048 
+raise               :  434 
+SEEK_END            : 1137 
+SEEK_SET            :  617  679 1063 1144 1152 1158 1217 
+SIGINT              :  298 
+SIGNON              :  222  294 
+SIGTERM             :  299 
+SIG_DFL             :  433 
+STCK                :  196 
+STEP                :  229  314 
+signal              :  298  299  433 
+sprintf             :  315  324  332  357 
+stSize              :  603  619  620  669  681  682  731  772  773  967  968  969  970  973  975 
+                       975  976  976  992 1062 1064 1134 1138 1139 1145 1146 1152 1153 1158 1159 
+                      1198 1217 1218 
+stVACore            :  954 
+stdout              :  294  313  317  322  326  330  334  350  352  355  359  361  871  896  947 
+                       974 1044 1050 1074 
+strcmp              :  948  963 
+strtoul             :  598  664  726 
+ULONG_MAX           :  191 
+VACB                :  205  208  230  454  494  534  564  635  697  754  792  919  941  954 1023 
+                      1091 1174 
+vSigCatch           :  218  298  299  380 
+void                :  204  207  217  379  604  670  903  908 1010 1063 1064 1076 1089 1130 1137 
+                      1141 1144 1146 1152 1153 1158 1159 1163 1172 1199 1213 1217 1218 1222 
+WORD                :  288  456  793  825  846  891  943  969 1041 1113 1120 1192 1203 
+wArElSize           :  969  973  976 1062 1064 1139 1152 1153 1158 1159 1217 1218 
+wBfElSize           :  973  982  989  991  999 1068 1121 1204 
+wBfIndex            : 1113 1120 1121 1192 1203 1204 
+wBfSize             :  985  989  997 1055 1120 1203 
+wElSize             :  844  846  880  891  897 
+wLoad               :  288  351  352 
+x                   :  196 
+
+

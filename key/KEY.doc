@@ -3,7 +3,7 @@
 
 
 
-Mon Feb 16 12:58:12 CET 2026
+Sat Feb 21 10:08:49 CET 2026
 CCITT CRC (REVERSE) for    KEY.h   is	[1A87]
 
 
@@ -66,123 +66,7 @@ CCITT CRC (REVERSE) for    KEY.h   is	[1A87]
  *                 Revision 0.1  92/08/14  07:59:49  Allan_Dystrup
  *                 PREREL (ALFA1)
  * 
- *-1========================================================================*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.h   is	[1A87]
-
-/*+1 =======================================================================*/
-/*   MODULE                       GENERAL.H                                 */
-/*==========================================================================*/
-/*   FUNCTION      Headerfile with declarations of general interest.
- *
- *   SYSTEM        Standard (ANSI/ISO) C,
- *                 Tested on PC/MS DOS v.3.3 (MSC600A) & UN*X SYS V3 (GNU GCC)
- *
- *   PROGRAMMER    Allan Dystrup
- *
- *   COPYRIGHT     (c) Allan Dystrup, Allan Dystrup, Aug. 1991
- *
- *   VERSION       $Header: d:/cwork/index/RCS/general.h 0.1 92/07/02 11:47:55
- *                 Allan_Dystrup PREREL Locker: Allan_Dystrup $
- *                 -----------------------------------------------------------
- *                 $Log:	general.h $
- *                 Revision 0.1  92/07/02  14:38:46  Allan_Dystrup
- *                 PreRelease (ALFA1)
- *
- *==========================================================================*/
-
-#ifndef _GENERAL_H	       /* Makes sure general.h is included once */
-#define _GENERAL_H	       /* Matching endif is at end of file */
-
-
-/*==========================================================================*/
-/*                     Setup for debugging [ON|OFF]                         */
-/*==========================================================================*/
-#ifdef   DEBUG               /* If DEBUG ---------------------------------- */
-#define  PRIVATE             /*    ignore static class                      */
-#define  D(x) x              /*    define debug trace                       */
-#ifdef   __STDC__            /*    If ANSI -------------------------------- */
-#include <assert.h>          /*       define assert                         */
-#else                        /*    NOANSI                                   */
-#define  assert(x)           /*       ignore assert                         */
-#endif                       /*    END If ANSI                              */
-#else                        /* NODEBUG ----------------------------------- */
-#define  PRIVATE  static     /*    define static class                      */
-#define  D(x)                /*    ignore debug trace                       */
-#define  assert(x)           /*    ignore assertions                        */
-#endif                       /* END If DEBUG ------------------------------ */
-
-#define PUBLIC               /* Ignore */
-
-
-/*==========================================================================*/
-/*                     Setup for compiler type [ANSI|K&R]                   */
-/*==========================================================================*/
-#define _POSIX_SOURCE  1     /* Assure POSIX compatibility */
-
-#ifdef __STDC__              /* If ANSI ----------------------------------- */
-#define P(x)  x              /*    put arg lists into function prototypes.  */
-#define VA_LIST  ...         /*    and use ellipsis if var. number of args  */
-#define VOID  void           /*    for use as parameter                     */
-#define CONST const          /*    use ANSI const keyword                   */
-#define _far                 /*    Port to C11 std  (MS proprietary _far)   */
-#else                        /* NON-ANSI ---------------------------------- */
-#define P(x)  ()             /*    discard argument lists and translate     */
-#define VA_LIST _a_r_g_s     /*    don't use ellipsis                       */
-#define void  int            /*    for use in casts                         */
-#define VOID                 /*    for use as parameter                     */
-#define const                /*    ignore ANSI const keyword                */ 
-#define volatile             /*    ignore ANSI volatile keyword             */
-#endif	                     /* END If ANSI ------------------------------- */
-
-
-/*==========================================================================*/
-/*                     Range test macros                                    */
-/*==========================================================================*/
-#define NUMELE(a)          (sizeof(a)/sizeof(*(a)))
-#define LASTELE(a)         ((a) + (NUMELE(a)-1))
-#define TOOHIGH(a,p)       ((p) - (a) > (NUMELE(a) - 1))
-#define TOOLOW(a,p)        ((p) - (a) <  0 )
-#define INBOUNDS(a,p)      ( ! (TOOHIGH(a,p) || TOOLOW(a,p)) )
-#define _IS(t,x)           (((t)1 << (x))!=0)
-#define NBITS(t)           (4 * (1 + _IS(t, 4) + _IS(t, 8) + _IS(t,12) \
-                                   + _IS(t,16) + _IS(t,20) + _IS(t,24) \
-                                   + _IS(t,28) + _IS(t,32) ) )
-#define MAXINT             (((unsigned)~0) >> 1)
-#define RANGE(a,b,c)       ( (a) <= (b) && (b) <= (c) )
-#define ISEVEN(n)          ( ((n) & 01) > 0 ? 0 : 1 )
-/*
-#define MAX(a,b)           ( ((a) > (b)) ? (a) : (b))
-#define MIN(a,b)           ( ((a) < (b)) ? (a) : (b))
-*/
-
-
-/*==========================================================================*/
-/*                     Derived types, cf. MS Windows & OS/2                 */
-/*==========================================================================*/
-typedef unsigned char  BYTE;
-typedef unsigned short USHORT;
-typedef unsigned int   WORD;
-typedef int            FLAG;     /* int (not USHORT) when param. on UNIX! */
-typedef long           LONG;
-typedef unsigned long  DWORD;
-
-
-/*==========================================================================*/
-/*                     Some boolean values                                  */
-/*==========================================================================*/
-#ifndef TRUE                               /* Basic BOOLEAN values */
-#   define TRUE  (FLAG) 1
-#   define FALSE (FLAG) 0
-#endif
-
-typedef enum { ERROR = 0, OK } eRetType;   /* Function return value */
-typedef enum { NO = 0, YES }   eAnsType;   /* Answer value [Y|N] */
-
-
-
-#endif	/* #ifdef _GENERAL_H */
-/* END of module general.h                                                  */
-/*-1========================================================================*/Mon Feb 16 12:58:12 CET 2026
+ *-1========================================================================*/Sat Feb 21 10:08:49 CET 2026
 CCITT CRC (REVERSE) for    KEY.h   is	[1A87]
 
 
@@ -190,8 +74,15 @@ CCITT CRC (REVERSE) for    KEY.h   is	[1A87]
 
 
 
-Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+END EXTRACTION
+
+
+
+
+
+
+Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 
 
@@ -218,13 +109,13 @@ CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
 
 
 
-#    #  ####### #     #          #####
-#   #   #        #   #          #     #
-#  #    #         # #           #
-###     #####      #            #
-#  #    #          #      ###   #
-#   #   #          #      ###   #     #
-#    #  #######    #      ###    #####
+#    #  ####### #     #
+#   #   #        #   #            ####
+#  #    #         # #            #    #
+###     #####      #             #
+#  #    #          #      ###    #
+#   #   #          #      ###    #    #
+#    #  #######    #      ###     ####
 
 
 
@@ -468,8 +359,8 @@ CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
  *                                        one of several methods
  *                                          cf. search modules
  *
- *-1========================================================================*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-1========================================================================*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+1*/
 
@@ -642,8 +533,8 @@ REAL_MAIN(argc, argv, envp)
     return (OK);
 
 } /* END function REAL_MAIN() */
-/*-1*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+/*-1*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+4 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   02.1               vSigCatch                                    */
@@ -662,8 +553,8 @@ vSigCatch(iSigNum)
  *    The REAL_MAIN() test driver is dialog intensive, so we can't prompt the
  *    user for an abortion confirmation (interrupting a C-library(DOS) I/O-
  *    routine with a new I/O-request will *NOT* work due to non-reentrancy).
- *-4*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-4*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+1 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   02.2               eKeyDBAccess                                 */
@@ -700,8 +591,8 @@ eKeyDBAccess(pstDBx, pstBF, pzKlist)
     KCHK_ERR(eKeyListScroll(pstDBx, pstBF), K_CONT)
     KRET_OK
 } /* END function eKeyDBAccess() */
-/*-1*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+/*-1*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+1 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   02.3               eKeyListScroll                               */
@@ -884,8 +775,8 @@ eKeyListScroll(pstDBx, pstBF)
     KRET_OK
 
 } /* END function eKeyListScroll */
-/*-1*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+/*-1*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+2 MODULE KEY.C ==========================================================*/
 /*   NAME   03                    eKeyDBOpen                                */
@@ -938,8 +829,8 @@ eKeyDBOpen(pstDBx, pzDatFile, pzIdxFile,
  *
  * SEE ALSO
  *    The functions eKeyDBRead() and eKeyDBClose(), both in module key.c
- *-2*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-2*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+2 MODULE KEY.C ==========================================================*/
 /*   NAME   04                    eKeyDBClose                               */
@@ -972,8 +863,8 @@ eKeyDBClose(pstDBx, pstBF)
  *
  * SEE ALSO
  *   The function eKeyDBOpen() in module key.c.
- *-2*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-2*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+2 MODULE KEY.C ==========================================================*/
 /*   NAME   05                    eKeyDBRead                                */
@@ -1052,8 +943,8 @@ eKeyDBRead(pstDBx, pstBF, lSetPos, lSetSiz)
  *
  * SEE ALSO
  *    The functions eKeyDBOpen() and eKeyDBClose(), both in module key.c
- *-2*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-2*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+2 MODULE KEY.C ==========================================================*/
 /*   NAME   06                    eKeyCacheFill                             */
@@ -1096,8 +987,8 @@ eKeyCacheFill(pstDBx, pzKeyList)
  *                           The cache struct. slotcount <dwCused> is updated.
  *    Function return value: OK if operation succeeded, ERROR otherwise; -
  *                           If ERROR, "Kstat" holds the precise error code.
- *-2*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-2*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+2 MODULE KEY.C ==========================================================*/
 /*   NAME   07                    eKeyCacheSearch                           */
@@ -1138,8 +1029,8 @@ eKeyCacheSearch(pstDBx, pstBF)
  *                           The cache struct. slotcount <dwCused> is updated.
  *    Function return value: OK if operation succeeded, ERROR otherwise; -
  *                           If ERROR, "Kstat" holds the precise error code.
- *-2*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-2*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C-----------------------------------------------------------*/
 /*   NAME   08                 eKeyCacheAlloc                               */
@@ -1170,8 +1061,8 @@ eKeyCacheAlloc(pstCache, rResize)
  *                           If ERROR, "Kstat" holds the precise error code.
  * SEE ALSO
  *    The function eKeyCacheFree() in module key.c.
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   09                 eKeyCacheFree                                */
@@ -1194,8 +1085,8 @@ eKeyCacheFree(pstCache)
  *                           If ERROR, "Kstat" holds the precise error code.
  * SEE ALSO
  *    The function eKeyCacheAlloc() in module key.c
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C-----------------------------------------------------------*/
 /*   NAME   10                 eKeyBufScan                                  */
@@ -1256,8 +1147,8 @@ eKeyBufScan(pstDBx, ppzKeyList, ppzKeyStr)
  *    than 100) KeyValues, the key lookup-operations required to setup the
  *    cache-array may consume a substantial amount of time (for a SS-key:
  *    6-12sec/100 keys, depending on key "hit rate" and machine type).
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+2 MODULE KEY.C ==========================================================*/
 /*   NAME   11                 eKeyBufRead                                  */
@@ -1287,8 +1178,8 @@ eKeyBufRead(fdData, pstBF, pdwOff)
  *                           read to buffer <pstBF>.
  *    Function return value: OK if operation succeeded, ERROR otherwise; -
  *                           If ERROR, "Kstat" holds the precise error code.
- *-2*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-2*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+2 MODULE KEY.C ==========================================================*/
 /*   NAME   12                    eKeyBufFill                               */
@@ -1343,8 +1234,8 @@ eKeyBufFill(pstDBx, pstBF, dwCbwinNew)
  *    To implement a more intelligent bufferfilling algorithm, you must main-
  *    tain a list of offsets into the databuffer for each datarecord currently
  *    in the cache (cf. the "old" buffer-window).
- *-2*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-2*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   13                    eKeyDBDump                                */
@@ -1369,8 +1260,8 @@ eKeyDBDump(pstDBx, pstBF)
  *                           If ERROR, "Kstat" holds the precise error code.
  * SEE ALSO
  *    The functions eKeyCacheDump(), eKeyIndexDump(), eKeyBufDump(), in key.c
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   14                    eKeyIndexDump                             */
@@ -1392,8 +1283,8 @@ eKeyIndexDump(pstDBx)
  *
  * BUG
  *    Function pt. only defined for key of type SS.
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   15                    eKeyCacheDump                             */
@@ -1416,8 +1307,8 @@ eKeyCacheDump(pstDBx, fAll)
  *    Side effects ........: Contents of <pstDBx->stCache> dumped on stdout.
  *    Function return value: OK if operation succeeded, ERROR otherwise; -
  *                           If ERROR, "Kstat" holds the precise error code.
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   16                    eKeyRecDump                               */
@@ -1430,8 +1321,8 @@ eKeyRecDump(key, dwFileOffset)
 /* DESCRIPTION
  *    Dump one key keyvalue and its associated datafile offset, 
  *    both passed as parameters.
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+3 MODULE KEY.C ----------------------------------------------------------*/
 /*   NAME   17                    eKeyDatDump                               */
@@ -1449,8 +1340,8 @@ eKeyDatDump(fdDataFile, dwFileOffset)
  *    both passed as parameters.
  *    1: Set filepointer on datarecord, using <dwFileOffset>
  *    2: Read datarecord line-by-line, and print on stdout.
- *-3*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-3*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 /*+1 MODULE KEY.C ==========================================================*/
 /*   NAME   18                    eKeyBufDump                               */
@@ -1478,8 +1369,8 @@ eKeyBufDump(pstBF, fAll)
  * RETURN
  *    Side effects ........: Buffer contents (if any) dumped on stdout.
  *    Function return value: OK (operation succeeded).
- *-1*/Mon Feb 16 12:58:12 CET 2026
-CCITT CRC (REVERSE) for    KEY.C   is	[A3DA]
+ *-1*/Sat Feb 21 10:08:49 CET 2026
+CCITT CRC (REVERSE) for    KEY.c   is	[A3DA]
 
 
 

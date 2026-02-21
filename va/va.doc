@@ -3,7 +3,7 @@
 
 
 
-Sun Feb 15 08:30:49 CET 2026
+Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.h   is	[7FFA]
 
 
@@ -67,7 +67,7 @@ CCITT CRC (REVERSE) for     va.h   is	[7FFA]
  *                 Revision 0.1  92/07/06  09:41:24  Allan_Dystrup
  *                 PREREL (ALFA1)
  *
- *-1========================================================================*/Sun Feb 15 08:30:49 CET 2026
+ *-1========================================================================*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.h   is	[7FFA]
 
 
@@ -82,7 +82,7 @@ END EXTRACTION
 
 
 
-Sun Feb 15 08:30:49 CET 2026
+Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 
@@ -298,7 +298,7 @@ CCITT CRC (REVERSE) for     va.c   is	[2555]
  *       +->+->pVAopen |
  *          iVAclose<--+
  *
- *-1========================================================================*/Sun Feb 15 08:30:49 CET 2026
+ *-1========================================================================*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+1 MODULE VA.C ===========================================================*/
@@ -347,7 +347,7 @@ int REAL_MAIN()
  * SEE ALSO
  *   general.h, access.h & va.h for a detailed description of symbolic constants,
  *   macro's, data structures, return codes and error codes.
- *-1*/Sun Feb 15 08:30:49 CET 2026
+ *-1*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -374,7 +374,7 @@ vSigCatch(iSigNum)
  *    Asynch. signals don't guarantee access to volatile data at sequence pts;
  *    Since we restrict our access to READ operations, this shouldn't pose any
  *    problem, - though not strictly ANSI (cf. type sig_atomic_t).
- *-4*/Sun Feb 15 08:30:49 CET 2026
+ *-4*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -402,7 +402,7 @@ eVAIdxCreate(ppVA, pzIdxFile, dummy1, dummy2)
  *    Call-by-reference....: Handle ppVA pointed to new VACB.
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -429,7 +429,7 @@ eVAIdxOpen(ppVA, pzIdxFile, pzAccess)
  *    Call-by-reference....: Handle ppVA pointed to new VACB.
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -451,7 +451,7 @@ eVAIdxClose(ppVA)
  *    Call-by-reference....: *ppVA VA descr.struct. fully deallocated.
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -483,7 +483,7 @@ eVAKeyInsert(ppVA, pcKey, dwDatOffset)
  *                           VACB & VA-file header size-info updated.
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -511,7 +511,7 @@ eVAKeyDelete(ppVA, pcKey)
  *                           VACB & VA-file header size-info updated.
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -541,7 +541,7 @@ eVAKeyFind(ppVA, pcKey, pdwDatOffset)
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
  *                           (eg. attempt to find a free/deleted key-record)
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -564,7 +564,7 @@ eVAIdxGetSize(ppVA, pdwSize, pdwUsed)
  *    Call-by-reference....: VA-size & used returned in *pdwSize & *pdwUsed.
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -588,7 +588,7 @@ eVAIdxGetLoad(ppVA, pwLoad)
  *    Call-by-reference....: VA-load factor returned in *pwLoad.
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -613,7 +613,7 @@ int    iFill;          /* Filler-char for initializing empty slot */
  * RETURN
  *    Side effects.........: VA-file created, header-rec written, file closed.
  *    Function return value: 1 if operation succeeded, 0 otherwise.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -639,7 +639,7 @@ pVAopen(pzIdxFile, pzAccess)
  * RETURN (2.4)
  *    Side effects.........: VA-file opened & VACB w/cache buffer instantiated.
  *    Function return value: Ptr to instantiated VA descr., - NULL if error.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -660,7 +660,7 @@ iVAclose(pVA)
  * RETURN
  *    Side effects.........: VA cache flushed (if mode RW); VACB released.
  *    Function return value: 1 if operation succeeded, 0 otherwise.
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -688,7 +688,7 @@ pvVAaccess(pVA, dwArIndex)
  *    Call-by-reference....: VACB (handle pVA) updated with new sizeinfo.
  *    Function return value: Pointer to record content (in cache-buffer), -
  *                           NULL if error (disk full et. al.)
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 /*+2 MODULE VA.C ===========================================================*/
@@ -712,7 +712,7 @@ pvVAread(pVA, dwArIndex)
  * RETURN
  *    Function return value: Pointer to record content (in cache-buffer), -
  *                           NULL if error (index out-of-range).
- *-2*/Sun Feb 15 08:30:49 CET 2026
+ *-2*/Sat Feb 21 10:26:55 CET 2026
 CCITT CRC (REVERSE) for     va.c   is	[2555]
 
 

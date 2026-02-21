@@ -3,7 +3,7 @@
 
 
 
-Sun Feb 15 09:14:14 CET 2026
+Sat Feb 21 10:13:05 CET 2026
 CCITT CRC (REVERSE) for     ss.h   is	[E5E5]
 
 
@@ -67,7 +67,7 @@ CCITT CRC (REVERSE) for     ss.h   is	[E5E5]
  *                 Revision 0.1  92/07/06  09:43:14  Allan_Dystrup
  *                 PREREL (ALFA1)
  *
- *-1=========================================================================*/Sun Feb 15 09:14:14 CET 2026
+ *-1=========================================================================*/Sat Feb 21 10:13:05 CET 2026
 CCITT CRC (REVERSE) for     ss.h   is	[E5E5]
 
 
@@ -82,7 +82,7 @@ END EXTRACTION
 
 
 
-Sun Feb 15 09:14:14 CET 2026
+Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 
@@ -613,7 +613,7 @@ CCITT CRC (REVERSE) for     ss.c   is	[E099]
  *                             +-> eWriteIdxKey <-------------------------+
  *
  *
- *-1========================================================================*/Sun Feb 15 09:14:14 CET 2026
+ *-1========================================================================*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+1 MODULE HASH.C =========================================================*/
@@ -671,7 +671,7 @@ REAL_MAIN(argc, argv, envp)
  * SEE ALSO
  *   hash.h for a detailed description of symbolic constants, macro's,
  *   data structures, return codes and error codes.
- *-1*/Sun Feb 15 09:14:14 CET 2026
+ *-1*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -702,7 +702,7 @@ vSigCatch(iSigNum)
  *    Asynch. signals don't guarantee access to volatile data at sequence pts;
  *    Since we restrict our access to READ operations, this shouldn't pose any
  *    problem, - though not strictly ANSI (cf. type sig_atomic_t).
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -725,7 +725,7 @@ vKeyGet(wKeySize, pzKeyBuf)
  *
  * RETURN
  *    Call-by-reference: A keystring of wKeySize chars placed in pzKeyBuf
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C----------------------------------------------------------*/
@@ -746,7 +746,7 @@ wKeyPrint(pzKeyBuf, dwDatOff)
  *    Side effects ........: Hashindex records (key & offset) printed on stdout
  *    Function return value: '1' indicating to eHashIdxProcess() that printing
  *                           should continue for ALL all key-records.
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C----------------------------------------------------------*/
@@ -763,7 +763,7 @@ eIdxStatPrint(pH)
  *    Side effects ........: Hashindex status (size & load) printed on stdout
  *    Function return value: OK if operation succeeded, ERROR otherwise.
  *                           If ERROR, "Astat" holds the precise error code.
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -782,7 +782,7 @@ dwHashFunc(pcKeystr, wKsize, dwMaxSlot)
  *       3: "P.J.Weinburger" hash - slower but solves the problems [DEFAULT]
  * RETURN
  *    Function return value: Hashvalue of pcKeystr, cf function spec: HF_TYPE.
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -802,7 +802,7 @@ dwRehashFunc(pcKeystr, wKsize, dwCurSlot, dwMaxSlot)
  *    3: Double hashing with twin primes [DEFAULT]
  * RETURN
  *    Function return value: ReHashvalue of pcKeystr, cf function spec: RF_TYPE.
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -816,7 +816,7 @@ vHashTrace(pcKeystr, wKsize, dwCurSlot)
 {
 /* DESCRIPTION
  *    Trace a hashing lookup : print (key-string, hashtable-slot)
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -859,7 +859,7 @@ eHashIdxCreate(pH, pzIdxFile, wKsize, dwIsize)
  *        fprintf(stderr, "ERROR[%d] : %s\n", Astat, ERRMSG[Astat]);
  * SEE ALSO
  *    hash.h, for a detailed description of data structures and return codes.
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -906,7 +906,7 @@ eHashIdxOpen(pH, pzIdxFile, pzAccess)
  *        fprintf(stderr, "ERROR[%d] : %s\n", Astat, ERRMSG[Astat]);
  * SEE ALSO
  *    hash.h, for a detailed description of data structures and return codes.
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -950,7 +950,7 @@ eHashIdxClose(pH)
  *        fprintf(stderr, "ERROR[%d] : %s\n", Astat, ERRMSG[Astat]);
  * SEE ALSO
  *    hash.h, for a detailed description of data structures and return codes.
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -972,7 +972,7 @@ vUpdate_stHdisk(H, pstIdxHdr, eIntegr)
  *    3: Sets the header integrity depending on the boolean parameter "eIntegr"
  *       -  NO : integrity is NOT guaranteed (for create and open in mode RW)
  *       - YES : integrity is guarenteed     (for open in mode RO)
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -1000,7 +1000,7 @@ eHashKeyInsert(pH, key, dwDatOffset)
  *
  * BUGS
  *    Duplicate keys are NOT allowed (this is reasonable)
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -1021,7 +1021,7 @@ eHashKeyDelete(pH, key)
  * RETURN
  *    OK when item found and marked "DELETED",
  *    else ERROR (Astat holds precise error-code).
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -1039,7 +1039,7 @@ eHashKeyFind(pH, key, pdwDatOffset)
  *
  * RETURN
  *    OK when key is found, else ERROR (Astat holds precise error-code)
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -1067,7 +1067,7 @@ eLocateKey(H, key, pdwKeySlot, pdwDatOffset)
  * RETURN
  *    Key found : OK w/ side-effects dwCurSlot & pdwDatOffset set,
  *    else ERROR (Astat holds precise error-code)
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -1089,7 +1089,7 @@ eHashIdxRestore(pH)
  *
  * RETURN
  *    OK if operation succeded, else ERROR (Astat holds precise error-code).
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -1126,7 +1126,7 @@ eHashIdxResize(pH, iResize)
  *
  * RETURN
  *    OK if operation succeded, else ERROR (Astat holds precise error-code).
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -1140,7 +1140,7 @@ wCopy2New(key, dwDatOffset)
 /* DESCRIPTION
  *    This function is passed as parameter to function "eHashIdxProcess"
  *    called by eHashIdxResize to regenerate a hash indexfile.
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -1157,7 +1157,7 @@ eHashIdxGetSize(pH, pdwSize, pdwUsed)
  *    from the hashindex descriptor to the var. parameters.
  * RETURN
  *    OK if operation succeded, else ERROR (Astat holds precise error-code).
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -1176,7 +1176,7 @@ eHashIdxGetLoad(pH, pwLoad)
  * RETURN
  *    returns OK  when loadfactor < 80%,
  *    else ERROR (Astat holds precise error-code).
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+2 MODULE HASH.C =========================================================*/
@@ -1204,7 +1204,7 @@ eHashIdxProcess(pH, ufunc)
  *
  * RETURN
  *    OK if all records processed, else ERROR with Astat=A_MOREDATA
- *-2*/Sun Feb 15 09:14:14 CET 2026
+ *-2*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -1222,7 +1222,7 @@ eWriteIdxHdr(H, pstHdrRec)
  *    2: Write header-record from struct stHdisk to indexfile H->fd
  * RETURN
  *    OK if operation succeded, else ERROR (Astat holds precise error-code).
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -1239,7 +1239,7 @@ eReadIdxHdr(H, pstHdrRec)
  *    2: Read header-record from indexfile H->fd to struct stHdisk
  * RETURN
  *    OK if operation succeded, else ERROR (Astat holds precise error-code).
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -1259,7 +1259,7 @@ eWriteIdxKey(H, dwSlot, pstKeyRec)
  *       from struct stHkey to indexfile H->fd (keyrecord dwSlot)
  * RETURN
  *    OK if operation succeded, else ERROR (Astat holds precise error-code).
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+3 MODULE HASH.C =========================================================*/
@@ -1278,7 +1278,7 @@ eReadIdxKey(H, dwSlot, pstKeyRec)
  *       from indexfile H->fd (keyrecord dwSlot) to struct stHkey
  * RETURN
  *    OK if operation succeded, else ERROR (Astat holds precise error-code).
- *-3*/Sun Feb 15 09:14:14 CET 2026
+ *-3*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -1296,7 +1296,7 @@ vGetPrime(pdwPrime, iUpward)
  *    The function calls fIsPrime() to perform a probabilistic primality test.
  * RETURN
  *    The first prime number found (starting from *pdwPrime) is returned in *pdwPrime.
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -1330,7 +1330,7 @@ fIsPrime(n)
  *
  * RETURN
  *    TRUE if n is prime, FALSE otherwise.
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -1376,7 +1376,7 @@ rRandom(VOID)
  *
  * RETURN
  *    A (pseudo-)random float value, normalized to the range [0 - 0.999...]
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -1409,7 +1409,7 @@ wCCITTcrc(pzData, wLength)
  *    are also stored in reverse order : 0x8408.
  * RETURN
  *    16-bit CCITT-reverse of block pointed to by pzData, length wLength byte.
- *-4*/Sun Feb 15 09:14:14 CET 2026
+ *-4*/Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 /*+4 MODULE HASH.C ---------------------------------------------------------*/
@@ -1427,7 +1427,7 @@ pzStrcpyAlloc(ppzDest, pzSrc)
  * RETURN
  *    Address of destination-string.
  *    NB: Memory allocated by pzStrcpyAlloc must be free'd after use.
- *-4 */Sun Feb 15 09:14:14 CET 2026
+ *-4 */Sat Feb 21 10:13:06 CET 2026
 CCITT CRC (REVERSE) for     ss.c   is	[E099]
 
 

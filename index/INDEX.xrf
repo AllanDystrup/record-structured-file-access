@@ -1,0 +1,1090 @@
+XC ... 'C' Concordance Utility   INDEX.c                    Page 1
+
+1       1: /*+1========================================================================*/
+2       2: /*   MODULE                       INDEX.C                                   */
+3       3: /*==========================================================================*/
+4       4: /* FUNCTION    Creates an indexfile from a sequential/flat datafile;
+5       5:  *             Compiles to an object-module with PUBLIC accessible functions
+6       6:  *             or a stand alone utility program taking the following options:
+7       7:  *              - file names of input/data-file and output/index-file
+8       8:  *              - a character for identifying the key in a datarecord
+9       9:  *              - the size of the keystring (#byte)
+10     10:  *              - the initial size of the indexfile (expected max #records)
+11     11:  *
+12     12:  * SYSTEM      Standard Ansi C.
+13     13:  *             Tested on PC/MS DOS V3.3 (MSC 6.00A) and UNIX SYS V.3 (GNU gcc)
+14     14:  *
+15     15:  * SEE ALSO    Modules : ACCESS.H, VA.H/C, HASH.H/C
+16     16:  *
+17     17:  * PROGRAMMER  Allan Dystrup
+18     18:  *
+19     19:  * COPYRIGHT   (c) Allan Dystrup, Kommunedata I/S 1991
+20     20:  *
+21     21:  * VERSION     $Header: d:/cwork/index/RCS/index.c 0.1 92/07/10 13:57:48
+22     22:  *             Allan_Dystrup PREREL Locker: Allan_Dystrup $
+23     23:  *             ---------------------------------------------------------------
+24     24:  *             $Log:	index.c $
+25     25:  *             Revision 0.1  92/07/10  13:57:48  Allan_Dystrup
+26     26:  *             PREREL (ALFA1)
+27     27:  *
+28     28:  * USAGE       Module index.c provides a "high level" interface for building
+29     29:  *             an indexfile from a record structured datafile, using one of
+30     30:  *             several predefined index-access methods. The actual access-
+31     31:  *             strategy is choosen by a compiletime switch :
+32     32:  *                -DVA : build a VirtualArray index (keyvalue = entry/slot in VA)
+33     33:  *                -DSS : build a ScatterStorage index (keyvalue hash'ed to entry)
+34     34:  *
+35     35:  *             The API offered by module index.c consist of 2 functions for
+36     36:  *             generating resp. checking an indexfile :
+37     37:  *                eIdxMake   // Create indexfile and insert (key,offset) values
+38     38:  *                eIdxTest   // Retrieve datarec's via index lookup key->offset
+39     39:  *
+40     40:  *             The module index.c may be compiled without main()-function
+41     41:  *             for direct access to the API from a user program. Alternatively
+42     42:  *             compiling the module with switch -DMAIN will build an executable
+43     43:  *             program with a command line interface (function vIdxDefine) for
+44     44:  *             generating indexfiles from datafiles.
+45     45:  *
+46     46:  * DOC         Documentation is incorporated into the module and may be
+47     47:  *             selectively extracted (using a utility such as ex.awk) :
+48     48:  *                Level 1: Module documentation (history, design, testdriver)
+49     49:  *                Level 2: PUBLIC functions (module program interface, "API")
+50     50:  *                Level 3: major PRIVATE functions (design)
+51     51:  *                Level 4: minor PRIVATE functions (support)
+52     52:  *
+53     53:  * BUGS        The module is coded in STANDARD C (ANSI/ISO), which is a
+54     54:  *             feature! -  It is however prepared to compile under "old"
+55     55:  *             K&R C (if you prefer bugs ...)
+56     56:  *
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 2
+
+57     57:  *             The sections embedded in <#ifdef SS ... #endif> apply only
+58     58:  *             to the ScatterStorage ("HASH") access method, which requires
+59     59:  *             index expansion by a total rehash of all keys. This might be
+60     60:  *             made transparent by checking for expansion in (*peKeyInsert).
+61     61:  *
+62     62:  *
+63     63:  *=========================== MODULE STRUCTURE ===============================
+64     64:  *
+65     65:  *
+66     66:  *                                Data Model
+67     67:  * The index functions are implemented simply as a sequence of calls of the
+68     68:  * appropriate access functions (using the generic access API). This design
+69     69:  * does not require any new datastructures (besides those offered by the
+70     70:  * access module, - cf. va.h and hash.h).
+71     71:  *
+72     72:  *
+73     73:  *                           Function Decomposition
+74     74:  * The functions of module index.c may be grouped into two (three) levels :
+75     75:  * (1) Main function (activated by compile switch -DMAIN), turning the
+76     76:  *     module into a utility program with a simple command-line interface
+77     77:  *     for building indexfiles from datafiles.
+78     78:  * (2) High level functions providing the basic index generation API for
+79     79:  *     use by main() - and possibly direct use by linking into user programs
+80     80:  *     (when the module is compiled to .OBJ, ie. without -DMAIN).
+81     81:  * [3] The index-generation functions calls the generic access API to perform
+82     82:  *     the actual indexfile I/O (ie. creating, updating, reading etc the index).
+83     83:  *     The generic access API is mapped to an actual access method, by inclusion
+84     84:  *     of a headerfile [va.h | hash.h], as indicated by a compiletime switch :
+85     85:  *     [-DVA | -DSS], - cf. the project makefile.
+86     86:  *        
+87     87:  * In this way the "high level" index generation code is made independent of
+88     88:  * the "low level" index access strategy, gaining flexibility in choice of
+89     89:  * access method, but retaining total transparancy for user programs.
+90     90:  *
+91     91:  * The calling hierachy is illustrated in the following diagram, where the
+92     92:  * signatures :
+93     93:  *     -> and <-   indicate input resp. output parameters to functions
+94     94:  *    < > and (_)  indicate choice resp. repetition in function call
+95     95:  *
+96     96:  * ..........................................................................
+97     97:  *  LEVEL 1
+98     98:  *  Main                          main()
+99     99:  *  Utility Pgm.                  | |  | 
+100   100:  *              __________________| |  |        
+101   101:  *              |                   |  |
+102   102:  *              |                   | < > -> -t
+103   103:  *          vIdxDefine              |  |__________________
+104   104:  *              |                   |                    |
+105   105:  *            getopt                |                    |
+106   106:  * .................................|....................|...................
+107   107:  * LEVEL 2                          |                    |
+108   108:  * Index Generation                 |                    |
+109   109:  * API                          eIdxMake---+      +---eIdxTest
+110   110:  *                              |   |      |      |      |   |
+111   111:  *                              |  (_)     |      |      |  (_)
+112   112:  *                              |   |    eIdxStatPrint   |   |
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 3
+
+113   113:  *                              |   |         |          |   |
+114   114:  * .............................|...|.........|..........|...|...............
+115   115:  * [LEVEL 3]                    |   |         |          |   |
+116   116:  * Index Access                 |   |         |          |   |
+117   117:  * API (generic)     (*peIdxCreate) |         | (*peIdxOpen) |
+118   118:  *                       (*peKeyInsert)       |     (*peKeyFind)
+119   119:  *                              |   |         |          |   |
+120   120:  *                              |   |  (*peIdxGetSize)   |   |
+121   121:  *                              |   |  (*peIdxGetLoad)   |   |
+122   122:  *                              |   |         |          |   |
+123   123:  *                              +---+---------+----------+---+
+124   124:  *                                            |
+125   125:  *                                           < >
+126   126:  * Map to actual                        -DVA  |  -DSS
+127   127:  * Access Method                    +---------+---------+
+128   128:  * (compile switch)                 |                   |
+129   129:  *                               [VA.H]             [SS.H]
+130   130:  *
+131   131:  *-1========================================================================*/
+132   132:  
+133   133: 
+134   134: 
+135   135: /*==========================================================================*/
+136   136: /*                                Includes                                  */
+137   137: /*==========================================================================*/
+138   138: 
+139   139: /* Standard C headerfiles */
+140   140: #include <stdlib.h>
+141   141: #include <stdio.h>
+142   142: #include <malloc.h>
+143   143: #include <signal.h>
+144   144: #include <string.h>
+145   145: #include <ctype.h>
+146   146: 
+147   147: /* #define S/H-DEBUG: runtime check of stack- and heap on DOS  */
+148   148: /* Relies on PC/MS DOS V.3.3 system files which are deprecated */
+149   149: //#include "../check/stck/stck.h"
+150   150:    # define STCK(x)
+151   151:    # define REAL_MAIN	main
+152   152: //#include "../check/hpck/hpck.h"
+153   153: 
+154   154: 
+155   155: /* Module headerfile */
+156   156: #define _INDEX_ALLOC
+157   157: #include "index.h"
+158   158: #include "UTIL/getopt/getopt.h"
+159   159: 
+160   160: 
+161   161: 
+162   162: /*==========================================================================*/
+163   163: /*                           Function prototypes                            */
+164   164: /*==========================================================================*/
+165   165: PRIVATE   void
+166   166:           vGetkey   P((int Ksz, char *Kbf));
+167   167: 
+168   168: PRIVATE   WORD
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 4
+
+169   169:           wKeyPrint P((char *pzKeyBuf, DWORD dwDatOff));
+170   170: 
+171   171: PRIVATE   eRetType
+172   172:           eIdxStatPrint P((ITYPE *hIdx));
+173   173: 
+174   174: 
+175   175: 
+176   176: /*==========================================================================*/
+177   177: /*                      Manifest constants & global var's                   */
+178   178: /*==========================================================================*/
+179   179: #define  MAXNAME    12                  /* Max length of filename (in DOS)  */
+180   180: #define  MAXLINE    1025                /* Max length of line in datafile.  */
+181   181: #define  DUMMY      (eRetCode=eRetCode) /* Dummy-expr for error-check macro */
+182   182: PRIVATE  char aIdxFile[MAXNAME+1]= " "; /* Name of indexfile,- can't preset */
+183   183: PRIVATE  int  iKeySize = 0;             /* Keysize (# bytes),- can't preset */
+184   184: PRIVATE  FLAG fVerbose = FALSE;         /* Verbose trace of index-generat.? */
+185   185: 
+186   186: 
+187   187: 
+188   188: 
+189   189: #ifdef MAIN
+190   190: /****************************************************************************/
+191   191: /******************************** MAIN **************************************/
+192   192: /****************************************************************************/
+193   193: 
+194   194: PRIVATE void
+195   195:         vSigCatch P((int iSigNum));
+196   196: 
+197   197: 
+198   198: /* Default values for index generation, - overridden by cmd line options! */
+199   199: PRIVATE char aDatFile[MAXNAME+1] = " "; /* Name of datafile, - can't preset */
+200   200: PRIVATE BYTE bKMark   = '\020';         /* Unique mark indicating start of key */
+201   201:                                         /* (Default: 16 = 0x10 = 020 = '') */
+202   202: PRIVATE int  iIdxSize = 100;            /* Initial reasonable index sixe */
+203   203: PRIVATE FLAG fTest    = FALSE;          /* Test index after generation ? */
+204   204: 
+205   205: 
+206   206: /* Allocate an "incore" ITYPE descriptor structure w. handle */
+207   207: PRIVATE ITYPE   pI    = NULL;           /* Ptr to "incore" index descr. */
+208   208: PRIVATE ITYPE  *hI    = &pI;            /* Handle (ptr.addr) of incore descr */
+209   209: 
+210   210: 
+211   211: /* Define "signon message" for index generation program */
+212   212: PRIVATE const char SIGNON[] =
+213   213:    "\nKMD Index Generator, Version 0.1.0\n"
+214   214:    "MOD[index.c] VER[0.1.0 Pre] DAT[92/07/10] DEV[ad dec]\n"
+215   215:    "Copyright (c) KommuneData I/S 1992\n\n";
+216   216: 
+217   217: 
+218   218: 
+219   219: /*+1 MODULE INDEX.C ========================================================*/
+220   220: /*   NAME   01                    MAIN                                      */
+221   221: /*== SYNOPSIS ==============================================================*/
+222   222: int
+223   223: REAL_MAIN(argc, argv, envp)
+224   224:     int argc;                  /* Argument count */
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 5
+
+225   225:     char *argv[];              /* Argument vector */
+226   226:     char *envp[];              /* Environment pointer */
+227   227: {
+228   228: /* DESCRIPTION
+229   229:  *    Testdriver and main function for module index.c; - exercises the
+230   230:  *    functions in the module and validates the functionality through 
+231   231:  *    trace-statements (when compiled with flag "-DDEBUG").
+232   232:  *
+233   233:  *    1: Print signon message & setup to catch "break" signals.
+234   234:  *    2: Get options (from the command line) defining the index to create.
+235   235:  *    3: Call eIdxMake() to generate an index file from the datafile.
+236   236:  *   [4: Optionally call eIdxTest() to test the index file.]
+237   237:  *
+238   238:  * RETURN
+239   239:  *    1 (OK)..., when function completed succesfully.
+240   240:  *    0 (ERROR), otherwise.
+241   241:  *-1*/
+242   242: 
+243   243:     /* 1: Signon and setup signal catcher */
+244   244:     fputs(SIGNON, stdout);
+245   245: 
+246   246:     (void) signal(SIGINT, vSigCatch);
+247   247:     (void) signal(SIGTERM, vSigCatch);
+248   248: 
+249   249: 
+250   250:     /* 2: Get options (from the command line) defining the index to create; - */
+251   251:     /* cf Module <GETOPT.H/.C> for a description of the function & parameters */
+252   252:     vIdxDefine(argc, argv, "k:K:h:H:m:M:d:D:i:I:tTvV");
+253   253: 
+254   254: 
+255   255:     /* 3: Make an index file from the datafile */
+256   256:     ICHK_ERR((void) eIdxMake(hI, aDatFile, (WORD) bKMark, iKeySize, aIdxFile, iIdxSize), I_CONT)
+257   257: 
+258   258: 
+259   259:     /* 4: Optionally test the index file */
+260   260:     if (fTest)
+261   261:        ICHK_ERR((void) eIdxTest(hI, aDatFile, (WORD) bKMark), I_CONT)
+262   262: 
+263   263: 
+264   264:     return (OK);
+265   265: 
+266   266: }   /* END function REAL_MAIN() */
+267   267: 
+268   268: 
+269   269: 
+270   270: /*+3 MODULE INDEX.C --------------------------------------------------------*/
+271   271: /*   NAME   01.01                 vIdxDefine                                */
+272   272: /*-- SYNOPSIS --------------------------------------------------------------*/
+273   273: PUBLIC void
+274   274: vIdxDefine(argc, argv, optstring)
+275   275:     int argc;                  /* Argument count */
+276   276:     char *argv[];              /* Argument vector */
+277   277:     char *optstring;           /* String defining valid options */
+278   278: {
+279   279: /* DESCRIPTION
+280   280:  *    Support routine for main() driver :
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 6
+
+281   281:  *    Parse commandline, and translate arguments to internal variables.
+282   282:  *
+283   283:  *    0: Check arguments: require at least 2 (keysize & inputfile)
+284   284:  *    1: LOOP:   // Parse command line
+285   285:  *          1.1: Retreive next option from cmd.line to <option>,<optarg>
+286   286:  *          1.2: Transfer/Convert <option>,<optarg> to program variables
+287   287:  *       ENDLOOP
+288   288:  *    2: If invalid cmdline, print "usage" & exit with error, else return. 
+289   289:  *-3*/
+290   290: 
+291   291:     register int option = 0;           /* Next option letter from cmd. line */
+292   292:     FLAG         fError = FALSE;       /* Flag for error in program options */
+293   293: 
+294   294: 
+295   295:     /* 0: Validate args; - Require at least 2 (keysize & inputfile) */
+296   296:     fError = (argc < 3 ? TRUE : FALSE);
+297   297: 
+298   298: 
+299   299:     /* 1: LOOP parse commandline for all options ... */
+300   300:     while ( ((option = getopt(argc, argv, optstring)) != NONOPT)
+301   301:             || (optarg != NULL) )   {
+302   302: 
+303   303: 
+304   304:        /* 1.1: Retreive next option from cmdline to <option>,<optarg> */
+305   305:        D(printf("Option = '%c'    Argument = \"%s\"\n", option,
+306   306:                 (optarg == NULL ? "<empty>" : optarg)));
+307   307: 
+308   308: 
+309   309:        /* 1.2: Transfer/Convert <option>,<optarg> to pgm. variables */
+310   310:        switch (option) {
+311   311: 
+312   312:           case 'k':   case 'K':           /* Size (#byte) of keystring */
+313   313:              iKeySize = atoi(optarg);
+314   314:              break;
+315   315: 
+316   316:           case 'h': case 'H':             /* Startsize (#rec) of index */
+317   317:              iIdxSize = atoi(optarg);
+318   318:              break;
+319   319: 
+320   320:           case 'm': case 'M':             /* Unique char marking keystart */  
+321   321:              bKMark = (BYTE) *optarg; 
+322   322:              break;
+323   323: 
+324   324:           case 'd': case 'D':             /* Name of data-file */
+325   325:              strncpy(aDatFile, optarg, MAXNAME);
+326   326:              break;
+327   327: 
+328   328:           case 'i': case 'I':             /* Name of index-file */
+329   329:              strncpy(aIdxFile, optarg, MAXNAME);
+330   330:              break;
+331   331: 
+332   332:           case 't': case 'T':             /* Test index after generation ? */
+333   333:              fTest = TRUE;
+334   334:              break;
+335   335: 
+336   336:           case 'v': case 'V':             /* Trace index generation on VDU? */
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 7
+
+337   337:              fVerbose = TRUE;
+338   338:              break;
+339   339: 
+340   340:           default:                        /* Should not occur! */
+341   341:              /*FALLTHROUGH*/
+342   342:           case '?':                       /* Illegal option or missing arg */
+343   343:              /*FALLTHROUGH*/
+344   344:           case NONOPT:                    /* Illegal arg or end-of-scan */
+345   345:              fError = TRUE;
+346   346:              break;
+347   347:         }
+348   348: 
+349   349:     } /* END [1]: LOOP parse commandline ... */
+350   350: 
+351   351: 
+352   352:     /* 2: If invalid cmdline, print "usage" & terminate */
+353   353:     if (fError) {
+354   354:        fprintf(stderr, "\nAnvendelse: indexX -d fi [-m c] -k # [-i fo] [-h #] [-v] [-t]\a\n");
+355   355:        fprintf(stderr, "hvor  X     er memory model : [S|M|L], typisk L\n");
+356   356:        fprintf(stderr, "     -d fi  angiver input datafil fil : 'fi'\n");
+357   357:        fprintf(stderr, "    [-m c]  angiver m�rketegn : 'c' (i pos 1) for n�gle\n");
+358   358:        fprintf(stderr, "            default '' (ie. 16=0x10=020)\n");
+359   359:        fprintf(stderr, "     -k #   angiver l�ngde (# byte) af n�gle\n");
+360   360:        fprintf(stderr, "    [-i fo] angiver output indexfil : 'fo'\n");
+361   361:        fprintf(stderr, "            default input datafil med extension .idx\n");
+362   362:        fprintf(stderr, "    [-h #]  angiver index startst�rrelse (# records)\n");
+363   363:        fprintf(stderr, "            default 100, - udvides dynamisk\n");
+364   364:        fprintf(stderr, "    [-v]    angiver om index-generering skal f�lges ('verbose')\n");
+365   365:        fprintf(stderr, "            default IKKE aktiveret\n");
+366   366:        fprintf(stderr, "    [-t]    angiver om index skal testes efter generering\n");
+367   367:        fprintf(stderr, "            default IKKE aktiveret\n\n");
+368   368:        fprintf(stderr, "Eksempel:   indexL -k5 -h6144 -d myfile.dat -v -m!\n\n");
+369   369:        exit(EXIT_FAILURE);
+370   370:     }
+371   371: 
+372   372: }   /* END function vIdxDefine() */
+373   373: 
+374   374: 
+375   375: 
+376   376: /*+4 MODULE INDEX.C --------------------------------------------------------*/
+377   377: /*   NAME   01.02                 vSigCatch                                 */
+378   378: /*-- SYNOPSIS --------------------------------------------------------------*/
+379   379: PRIVATE void
+380   380: vSigCatch(iSigNum)
+381   381:      int iSigNum;
+382   382: {
+383   383: /* DESCRIPTION
+384   384:  *    Support function for main() driver :
+385   385:  *    Signal handler set up to catch the "break" signals : SIGINT (asynch.
+386   386:  *    interactive attention) & SIGTERM (asynch. interactive termination).
+387   387:  *
+388   388:  *    1: Prompt user for break confirmation; We have two possible situations:
+389   389:  *       a: break during index generation (INTEGRITY="UNKNOWN"), - will leave
+390   390:  *          the index in a not fully generated state, possibly unusable.
+391   391:  *          Issue warning if this situation !
+392   392:  *       b: break during index test (INTEGRITY="OK"), - no problem!
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 8
+
+393   393:  *    2: Depending on user confirmation : [Y]->terminate or [N]->continue.
+394   394:  *
+395   395:  * RETURN
+396   396:  *    If break confirmed: program terminated with exit code 'EXIT_FAILURE'
+397   397:  *    else: signal 'iSigNum' reset and program execution resumed.
+398   398:  *
+399   399:  * BUGS
+400   400:  *    Asynch. signals don't guarantee access to volatile data at sequence pts;
+401   401:  *    Since we restrict our access to READ operations, this shouldn't pose any
+402   402:  *    problem, - though not strictly ANSI (cf. type sig_atomic_t).
+403   403:  *-4*/
+404   404: 
+405   405:     char      pzLine[MAXLINE];         /* Line buffer */
+406   406: 
+407   407: 
+408   408:     /* 1: Prompt user for break confirmation; Issue warning if situation a! */
+409   409:     fprintf(stderr, "\nAFBRYDELSE:\tSignal [%d] modtaget\n", iSigNum);
+410   410:     fprintf(stderr, "\tTilstanden af indexfil er p.t. : INTEGRITY [%s]\n",
+411   411:                     (pI->indexmode == RW ? "UNKNOWN" : "OK"));
+412   412:     fprintf(stderr, (pI->indexmode == RW ? "\tIndex'et er i den nuv�rende tilstand ufuldst�ndigt
+           !\n\t" : "\t"));
+413   413:     fprintf(stderr, "Skal programmet stoppes? [J|N] => ");
+414   414: 
+415   415: 
+416   416:     /* 2: Depending on user answer: Terminate[J] or continue [N] */
+417   417:     (void) fgets(pzLine, MAXLINE, stdin);
+418   418:     if (strchr(pzLine,'j') != NULL || strchr(pzLine, 'J') != NULL) {
+419   419:        /* 2.1: Terminate program "gracefully" */
+420   420:        (void) (*peIdxClose) (hI);
+421   421:        exit(EXIT_FAILURE);
+422   422:     }
+423   423:     else
+424   424:        /* 2.2: Continue : reset signal, and continue */
+425   425:        signal(iSigNum, vSigCatch);
+426   426: 
+427   427: 
+428   428: }   /* END function vSigCatch() */
+429   429: 
+430   430: #endif   /* ifdef MAIN */
+431   431: 
+432   432: 
+433   433: 
+434   434: 
+435   435: /****************************************************************************/
+436   436: /******************************** INDEX *************************************/
+437   437: /****************************************************************************/
+438   438: 
+439   439: 
+440   440: /*+2 MODULE INDEX.C ========================================================*/
+441   441: /*   NAME   02                    eIdxMake                                  */
+442   442: /*== SYNOPSIS ==============================================================*/
+443   443: PUBLIC    eRetType
+444   444: eIdxMake(hINDEX, pzDatFile, wKeyMark,
+445   445:          wKeySize, pzIdxFile, dwIdxSize)
+446   446: ITYPE   *hINDEX;        /* Handle (ptr-to-address) of incore struct */
+447   447: char    *pzDatFile;     /* Name of the datafile for the index */
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 9
+
+448   448: WORD    wKeyMark;       /* Tag indicating start of key (nb: WORD) */
+449   449: WORD    wKeySize;       /* Size of one key (# byte) */
+450   450: char    *pzIdxFile;     /* Name of the indexfile to create */
+451   451: DWORD   dwIdxSize;      /* #keyrecs. of the index to generate */
+452   452: {
+453   453: /* DESCRIPTION
+454   454:  *    Make and fill a new index (using the incore descriptor handle hINDEX)
+455   455:  *    from a specified datafile (named pzDatFile). The format of the datafile
+456   456:  *    MUST comply with the following specification :
+457   457:  *     - the file is a sequence of sequentially stored records
+458   458:  *     - each record consists of an arbitrary number of lines
+459   459:  *     - each line is at most MAXLINE characters long
+460   460:  *     - the first line in each datarecord contains :
+461   461:  *       1. position .....: a common tag "wKeyMark", indicating start of a key
+462   462:  *       2-(wKeySize+1)...: a unique key value, wKeySize byte long;
+463   463:  *                          If the key is shorter than wKeySize, it is
+464   464:  *                          silently padded at the end with spaces.
+465   465:  *                          If the key is longer than wKeySize, it is
+466   466:  *                          silently "chopped off" to wKeySize length.
+467   467:  *    The index is initially generated with room for "dwIdxSize" key-
+468   468:  *    records, but it is dynamically resized (expanded one or more times)
+469   469:  *    as required by the repeated (*peKeyInsert)()-operations.
+470   470:  *
+471   471:  *    1: Opens the input datafile <pzDatFile>, mode ReadOnly
+472   472:  *    2: Sets up the name for the output indexfile <pzIdxFile>
+473   473:  *       (using default name : "datafile".idx)
+474   474:  *    3: Makes the output indexfile (mode ReadWrite), by :
+475   475:  *       3.1: Creating (and opening) the file
+476   476:  *       3.2: Printing initial statistics for the indexfile (size, use-factor)
+477   477:  *       3.3: LOOP Reading the datafile one line at a time (MAXLINE chars);
+478   478:  *                 For each line starting with a keyword :
+479   479:  *              -  Getting the file offset (#byte from file start)
+480   480:  *              -  Entering a new keyrecord (key,offset) into the index file
+481   481:  *                 (Expanding and reporting the index filesize if nessecary)
+482   482:  *            ENDLOOP
+483   483:  *       3.4: Printing final statistics for the completed indexfile
+484   484:  *       3.5: Closing the index file (thereby ensuring the file integrity)
+485   485:  *    4: Closes the input datafile.
+486   486:  *
+487   487:  * RETURN
+488   488:  *    OK..., when function completed succesfully.
+489   489:  *    ERROR, otherwise.
+490   490:  *-2*/
+491   491: 
+492   492:     BYTE     bKeyMark     = (BYTE)wKeyMark;/* Unique mark (undo C-promotion) */
+493   493:     FILE     *fdDatFile   = NULL;          /* Filehandle for datafile */
+494   494:     register DWORD  dwDatFilePtr = 0L;     /* Flatfile ptr into the datafile */
+495   495:     char     aDatBuf[MAXLINE];             /* Line buffer for datafile */
+496   496:     char     *pDat        = NULL;          /* Ptr. for datafile name */
+497   497:     char     *pIdx        = NULL;          /* Ptr. for indexfile name */
+498   498:     WORD     wIdxLoad     = 0;             /* Index load factor */
+499   499:     eRetType eRetCode     = ERROR;         /* Func. return code [ERROR | OK] */
+500   500: 
+501   501: 
+502   502:     /* 1: Open the input datafile (mode RO) */
+503   503:     fdDatFile = fopen(pzDatFile, "r");
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 10
+
+504   504:     IRET_ERR(fdDatFile == NULL, I_DATOPEN, 200)
+505   505: 
+506   506: 
+507   507:     /* 2: Set up default name for the output indexfile = "pzDatFile".idx */
+508   508:     if (*pzIdxFile == ' ') {
+509   509:        strncpy(pzIdxFile, pzDatFile, MAXNAME);
+510   510:        if ((pIdx = strchr(pzIdxFile, '.')) == NULL)
+511   511:           pIdx = pzIdxFile + strlen(aIdxFile);
+512   512:        strcpy(pIdx, ".idx");
+513   513:     }
+514   514: 
+515   515: 
+516   516:     /* 3: Create (and open) the output indexfile, mode RW */
+517   517:     if (fVerbose)
+518   518:        fprintf(stdout, "Genererer indexfil til start-st�rrelse, vent venligst ...\n");
+519   519: 
+520   520: 
+521   521:     /* 3.1: Create & open file */
+522   522:     if ((*peIdxCreate) (hINDEX, aIdxFile, wKeySize, dwIdxSize) == OK) {
+523   523: 
+524   524: 
+525   525:        /* 3.2: Print initial statistics for the (empty) indexfile */
+526   526:        eRetCode = eIdxStatPrint(hINDEX);
+527   527:        D(ICHK_ERR(DUMMY, I_CONT))
+528   528:        IRET_ERR(eRetCode == ERROR, I_INDEX, 201)
+529   529: 
+530   530: 
+531   531:        /* 3.3: LOOP : Read datafile one line at a time ... */
+532   532:        for (dwDatFilePtr = (DWORD) 0L;
+533   533:             fgets(aDatBuf, MAXLINE - 1, fdDatFile) != (char *) NULL;
+534   534:             dwDatFilePtr = (DWORD) ftell(fdDatFile)) {
+535   535: 
+536   536:           /* For each line starting with a "bKeyMark" (in 1. position) */
+537   537:           if ((BYTE) *aDatBuf == bKeyMark) {
+538   538: 
+539   539:              /* Keystring now in start of linebuffer; - Chop off at wKeySize */
+540   540:              aDatBuf[1 + wKeySize] = '\0';
+541   541: 
+542   542:              /* Skip to end of key-string */
+543   543:              for (pDat=aDatBuf; (*pDat!='\r') && (*pDat!='\n') && (*pDat!='\0'); pDat++)
+544   544:                 /* skip to end-of-string */ ;
+545   545: 
+546   546:              /* Pad with trailing spaces */
+547   547:              while (pDat <= (aDatBuf + wKeySize))
+548   548:                 *pDat++ = ' ';
+549   549: 
+550   550:              if (fVerbose)
+551   551:                 fprintf(stdout, "Entering: KEY[%s] <-> OFFSET[%lu]               \r",
+552   552:                                  aDatBuf + 1, dwDatFilePtr);
+553   553: 
+554   554:              /* Enter new keyrecord (=key,offset) into the index file */
+555   555:              eRetCode = (*peKeyInsert) (hINDEX, aDatBuf + 1, dwDatFilePtr);
+556   556: 
+557   557:              /* Check for error (issue warning for duplicate key) */
+558   558:              D(ACHK_ERR(DUMMY, A_CONT))
+559   559:              if (eRetCode == ERROR && Astat == A_DUPLICATE) {
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 11
+
+560   560:                 aDatBuf[1 + wKeySize] = '\0';
+561   561:                 printf("\nDUPKEY : [%s]\n", aDatBuf + 1);
+562   562:              } else
+563   563:                 IRET_ERR(eRetCode == ERROR, I_INDEX, 202)
+564   564: 
+565   565: #ifdef SS
+566   566:              /* Expand index file, if nessecary (ie. SS-index > 80% full) */
+567   567:              (void) (*peIdxGetLoad) (hINDEX, &wIdxLoad);
+568   568:              if (Astat == A_XPAND) {
+569   569: 
+570   570:                 /* Double the index size */
+571   571:                 if (fVerbose)
+572   572:                    fprintf(stdout, "Expanding indexfile to double size, please wait ...\n");
+573   573:                 eRetCode = (*peIdxResize) (hINDEX, 200);
+574   574:                 D(ACHK_ERR(DUMMY, A_CONT))
+575   575:                 IRET_ERR(eRetCode == ERROR, I_INDEX, 203)
+576   576: 
+577   577:                 /* Print new statistics after the index expansion */
+578   578:                 eRetCode = eIdxStatPrint(hINDEX);
+579   579:                 D(ICHK_ERR(DUMMY, I_CONT))
+580   580:                 IRET_ERR(eRetCode == ERROR, I_INDEX, 204)
+581   581: 
+582   582:              } /* END if Astat==A_XPAND */
+583   583: #endif /*SS*/
+584   584: 
+585   585:           } /* END For each line starting with a "bKeyMark" (in 1. position) */
+586   586: 
+587   587:        } /* END [3.3]: LOOP Read datafile one line at a time */
+588   588: 
+589   589: 
+590   590:        /* 3.4: Print the final statistics for completed index */
+591   591:        eRetCode = eIdxStatPrint(hINDEX);
+592   592:        D(ICHK_ERR(DUMMY, I_CONT))
+593   593:        IRET_ERR(eRetCode == ERROR, I_INDEX, 205)
+594   594: 
+595   595: 
+596   596:        /* 3.5: Close the indexfile */
+597   597:        eRetCode = (*peIdxClose)(hINDEX);
+598   598:        D(ACHK_ERR(DUMMY, A_CONT))
+599   599:        IRET_ERR(eRetCode == ERROR, I_INDEX, 206)
+600   600: 
+601   601:     } /* END [3]: Create and open output indexfile */
+602   602:     else {
+603   603:        /* (*peIdxCreate)() == ERROR */
+604   604:        /* Report error during creation of index file */
+605   605:        D(ACHK_ERR(DUMMY, A_CONT))
+606   606:        IRET_ERR(TRUE, I_INDEX, 207)
+607   607:     }
+608   608: 
+609   609: 
+610   610:     /* 4: Close the datafile */
+611   611:     fclose(fdDatFile);
+612   612: 
+613   613: 
+614   614:     /* Return status to caller */
+615   615:     STCK("eIdxMake");
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 12
+
+616   616:     IRET_OK
+617   617: 
+618   618: }   /* END function eIdxMake() */
+619   619: 
+620   620: 
+621   621: 
+622   622: /*+2 MODULE INDEX.C=========================================================*/
+623   623: /*   NAME   03                    eIdxTest                                  */
+624   624: /*== SYNOPSIS ==============================================================*/
+625   625: PUBLIC    eRetType
+626   626: eIdxTest( hINDEX, pzDatFile, wKeyMark)
+627   627:     ITYPE   *hINDEX;        /* handle (ptr->addr) of incore indexstruct */
+628   628:     char    *pzDatFile;     /* name of datafile for which to make an index */
+629   629:     WORD    wKeyMark;       /* unique mark indicating start of key */
+630   630: {
+631   631: /* DESCRIPTION
+632   632:  *    Test an index by repeated key lookup operations :
+633   633:  *
+634   634:  *    1: Opens the datafile <pzDatFile>, mode ReadOnly.
+635   635:  *    2: Sets up default name for the indexfile = "pzDatFile".idx
+636   636:  *    3: Tests the indexfile by :
+637   637:  *       3.1: Opening the indexfile <aIdxFile[]>, mode ReadOnly.
+638   638:  *       3.2: Printing initial statistics for the indexfile
+639   639:  *       3.3: LOOP Reading keyvalue (from stdin/keybd or a random generator) :
+640   640:  *              -  Lookup datafile offset in index file
+641   641:  *              -  Read & print key- & datarecord
+642   642:  *            ENDLOOP // while more input (ie. keystring not empty)
+643   643:  *    4: Closes the index- & data-files
+644   644:  *
+645   645:  * RETURN
+646   646:  *    OK..., when function completed succesfully.
+647   647:  *    ERROR, otherwise.
+648   648:  *-2*/
+649   649: 
+650   650:     BYTE     bKeyMark     = (BYTE)wKeyMark;/* Unique mark (undo C-promotion) */
+651   651:     FILE     *fdDatFile   = NULL;          /* Filehandle for datafile */
+652   652:     DWORD    dwDatFilePtr = 0L;            /* Flatfile ptr into the datafile */
+653   653:     char     aDatBuf[MAXLINE];             /* Line buffer for datafile */
+654   654:     char     *pIdx        = NULL;          /* Ptr. for indexfile name */
+655   655:     eRetType eRetCode     = ERROR;         /* Func. return code [ERROR | OK] */
+656   656: 
+657   657: 
+658   658:     /* 1: Open the datafile <pzDatFile>, mode RO */
+659   659:     fdDatFile = fopen(pzDatFile, "r");
+660   660:     IRET_ERR(!fdDatFile, I_DATOPEN, 300)
+661   661: 
+662   662: 
+663   663:     /* 2: Set up default name for the indexfile <aIdxFile[]> = pzDatFile.idx */
+664   664:     if (aIdxFile[0] == ' ') {
+665   665:        strncpy(aIdxFile, pzDatFile, MAXNAME);
+666   666:        if ((pIdx = strchr(aIdxFile, '.')) == NULL)
+667   667:           pIdx = aIdxFile + strlen(aIdxFile);
+668   668:        strcpy(pIdx, ".idx");
+669   669:     }
+670   670: 
+671   671: 
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 13
+
+672   672:     /* 3: Test lookup of datafile records, using the indexfile ... */
+673   673: 
+674   674:     /* 3.1: Open the indexfile (mode RO) */
+675   675:     eRetCode = (*peIdxOpen) (hINDEX, aIdxFile, "rb");
+676   676:     D(ACHK_ERR(DUMMY, A_CONT))
+677   677:     IRET_ERR(eRetCode == ERROR, I_INDEX, 301)
+678   678: 
+679   679: 
+680   680:     /* 3.2: Print initial statistics for the indexfile */
+681   681:     eRetCode = eIdxStatPrint(hINDEX);
+682   682:     D(ICHK_ERR(DUMMY, I_CONT))
+683   683:     IRET_ERR(eRetCode == ERROR, I_INDEX, 302)
+684   684: #ifdef  SS
+685   685:     if (fVerbose)
+686   686:        (void) eHashIdxProcess(hINDEX, wKeyPrint);
+687   687: #endif /*SS*/
+688   688: 
+689   689: 
+690   690:     /* 3.3: LOOP while more input : */
+691   691:     /* Enter keyvalue, lookup in index file, print key- & datarec. */
+692   692:     do {
+693   693:        /* 3.3.1: Get key value (from stdin or a random generator) */
+694   694:        vGetkey(iKeySize, aDatBuf);
+695   695: 
+696   696: 
+697   697:        /* 3.3.2: Lookup keyrecord in index file, print key- & datarecord */
+698   698:        eRetCode = (*peKeyFind) (hINDEX, aDatBuf, &dwDatFilePtr);
+699   699:        D(ACHK_ERR(DUMMY, A_CONT))
+700   700: 
+701   701: 
+702   702:        /* If keyrecord found ... */
+703   703:        if (Astat == A_OK) {
+704   704: 
+705   705:           /* Print keyrecord from index file : (key, flatfileoffset) */
+706   706:           (void) wKeyPrint(aDatBuf, dwDatFilePtr);
+707   707: 
+708   708:           /* Lookup datarecord in datafile using flatfileoffset from keyrec */
+709   709:           IRET_ERR(fseek(fdDatFile, dwDatFilePtr, SEEK_SET) != 0, I_DATSEEK, I_STOP)
+710   710: 
+711   711:           /* Print contents of datarecord on stdout, starting w. key-line */
+712   712:           if (fgets(aDatBuf, 1023, fdDatFile) != (char *) NULL)
+713   713:              fputs(aDatBuf, stdout);
+714   714: 
+715   715:           while ((fgets(aDatBuf, 1023, fdDatFile) != (char *) NULL) &&
+716   716:                  (BYTE) *aDatBuf != bKeyMark)
+717   717:              fputs(aDatBuf, stdout);
+718   718: 
+719   719:        } /* END If keyrecord found */
+720   720: 
+721   721:     } while (*aDatBuf != '\0');
+722   722:     /* END do enter keyvalue (while keyvalue not empty) */
+723   723: 
+724   724: 
+725   725:     /* 4: Close index- & data-file */
+726   726:     eRetCode = (*peIdxClose) (hINDEX);
+727   727:     D(ACHK_ERR(DUMMY, A_CONT))
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 14
+
+728   728:     IRET_ERR(eRetCode == ERROR, I_INDEX, 303)
+729   729: 
+730   730:     IRET_ERR(fclose(fdDatFile) != 0, I_DATCLOSE, I_STOP)
+731   731: 
+732   732: 
+733   733:     /* Return status to caller */
+734   734:     STCK("eIdxTest");
+735   735:     IRET_OK
+736   736: 
+737   737: }   /* END function eIdxTest() */
+738   738: 
+739   739: 
+740   740: 
+741   741: /****************************************************************************/
+742   742: /******************************** UTILITY ***********************************/
+743   743: /****************************************************************************/
+744   744: 
+745   745: 
+746   746: /*+4 MODULE INDEX.C --------------------------------------------------------*/
+747   747: /*   NAME   04                   vGetkey                                    */
+748   748: /*-- SYNOPSIS --------------------------------------------------------------*/
+749   749: PRIVATE void
+750   750: vGetkey(Ksz, Kbf)
+751   751:     int  Ksz;       /* Actual length of keystring */
+752   752:     char *Kbf;      /* Ptr to buffer for entering keystring (at least 30 chr) */
+753   753: {
+754   754: /* DESCRIPTION
+755   755:  *    Generate one keyvalue in buffer <Kbf[]>, with keylength <Ksz>;
+756   756:  *    1.1: If compileswitch -DRANDOM set, generate a (pseudo)random keyvalue
+757   757:  *    1.2: Else prompt for, and read a keyvalue from stdin.
+758   758:  *
+759   759:  * RETURN
+760   760:  *    Sidefect: Generated keyvalue in buffer (var.param) <Kbf[]>, length <Ksz>.
+761   761:  *-4*/
+762   762: 
+763   763: #ifdef RANDOM
+764   764: 
+765   765:     /* 1.1: Generate a (pseudo)random keystring, using std.C rand() function */
+766   766:     int       k = Ksz;            /* Size of keystring (#byte) to generate */
+767   767:     char     *p = Kbf;            /* Scan ptr. into keystring-buffer Kbf[] */
+768   768: 
+769   769:     while (k-- > 0)
+770   770:        *p++ = (char) ((rand() % 10) + '0');
+771   771: 
+772   772: #else
+773   773: 
+774   774:     /* 1.2: Prompt user for keystring, and read it from stdin */
+775   775:     fprintf(stdout, "\nEnter a key value %d chars -> ", Ksz);
+776   776:     strncpy(Kbf, "                             ", Ksz+1); /* Clear keybuffer */
+777   777:     (void) fgets(Kbf, Ksz+1, stdin);                      /* Read new keyval */
+778   778:     while (fgetc(stdin) != '\n')
+779   779:        /* eat rest of line */;
+780   780: 
+781   781: #endif
+782   782: 
+783   783: 
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 15
+
+784   784:     /* "Clamp" (chop off) keystring in Kbf at length Ksz */   
+785   785:     *(Kbf + Ksz) = '\0';
+786   786: 
+787   787: }   /* END function vGetkey() */
+788   788: 
+789   789: 
+790   790: 
+791   791: /*+4 MODULE INDEX.C --------------------------------------------------------*/
+792   792: /*   NAME   05                    wKeyPrint                                 */
+793   793: /*-- SYNOPSIS --------------------------------------------------------------*/
+794   794: #define CONTINUE   1
+795   795: #define MAXKEY     80
+796   796: PRIVATE char pzKBuf[MAXKEY + 1];
+797   797: 
+798   798: PRIVATE   WORD
+799   799: wKeyPrint(pzKeyBuf, dwDatOff)
+800   800:     char     *pzKeyBuf;            /* Keystring, - not zero terminated */
+801   801:     DWORD     dwDatOff;            /* Corresponding datafile offset */
+802   802: {
+803   803: /* DESCRIPTION
+804   804:  *    Print one index key-record: (keyvalue,offset) on stdout; -
+805   805:  *    1: Make sure key-string is zero-terminated
+806   806:  *    2: Print an index-record, ie. corresponding (key-value,datafile offset)
+807   807:  *
+808   808:  * RETURN
+809   809:  *    Return "Again" code, ie: [1] continue or [0] stop, cf (*peIdxProcess)();
+810   810:  *    This function may be passed as parameter to function : *peIdxProcess()
+811   811:  *    for looping through the index-file and printing the contents of all
+812   812:  *    valid (ie. USED) indexrecords.
+813   813:  *-4*/
+814   814: 
+815   815: 
+816   816:     /* 1: Make sure key-string is zero-terminated */
+817   817:     strncpy(pzKBuf, pzKeyBuf, iKeySize);
+818   818:     *(pzKBuf + iKeySize) = '\0';
+819   819: 
+820   820: 
+821   821:     /* 2: Print an index-record: corresponding (key-value,datafile offset) */
+822   822:     fprintf(stdout, "Key[%s]-(lookup)->FlatfileOffset[%lu]\n", pzKBuf, dwDatOff);
+823   823: 
+824   824: 
+825   825:     /* 3: Return "Again" code: [1] continue/[0] stop, - cf. (*peIdxProcess)() */
+826   826:     return(CONTINUE);
+827   827: 
+828   828: }   /* END function wKeyPrint() */
+829   829: 
+830   830: 
+831   831: 
+832   832: /*+4 MODULE INDEX.C---------------------------------------------------------*/
+833   833: /*   NAME   06                    eIdxStatPrint                             */
+834   834: /*-- SYNOPSIS --------------------------------------------------------------*/
+835   835: PRIVATE   eRetType
+836   836: eIdxStatPrint(hIdx)
+837   837:     ITYPE    *hIdx;        /* Handle for index descr.struct */
+838   838: {
+839   839: /* DESCRIPTION
+
+XC ... 'C' Concordance Utility   INDEX.c                    Page 16
+
+840   840:  *    If FLAG fVerbose on :
+841   841:  *    1: Print size- and
+842   842:  *    2: load-statistics for index file.
+843   843:  *
+844   844:  * RETURN
+845   845:  *    OK...: when function completed succesfully.
+846   846:  *    ERROR: otherwise.
+847   847:  *-4*/
+848   848:     DWORD     dwSize   = 0L;       /* Indexfile size  (#keyrecords) */
+849   849:     DWORD     dwUsed   = 0L;       /* Indexfile usage (#keyrecords in use) */
+850   850:     WORD      wLoad    = 0;        /* Indexfile load factor: 100*dwUsed/dwSize */
+851   851:     eRetType  eRetCode = ERROR;    /* Func. return code : [ERROR | OK] */
+852   852: 
+853   853: 
+854   854:     if (fVerbose) {
+855   855: 
+856   856:        /* 1: Retrieve and print index size */
+857   857:        eRetCode = (*peIdxGetSize)(hIdx, &dwSize, &dwUsed);
+858   858:        D(ACHK_ERR(DUMMY, A_CONT))
+859   859:        IRET_ERR(eRetCode == ERROR, I_INDEX, 400)
+860   860:        fprintf(stdout, "Index keyrecords : Size=[%lu], Used=[%lu]\n", dwSize, dwUsed);
+861   861: 
+862   862: 
+863   863:        /* 2: Retrieve and print index load */
+864   864:        eRetCode = (*peIdxGetLoad)(hIdx, &wLoad);
+865   865:        D(ACHK_ERR(DUMMY, A_CONT))
+866   866:        IRET_ERR(eRetCode == ERROR, I_INDEX, 400)
+867   867:        fprintf(stdout, "Index loadfactor : Load=[%d]\n", wLoad);
+868   868:     }
+869   869: 
+870   870: 
+871   871:     IRET_OK
+872   872: 
+873   873: }   /* END function eIdxStatPrint() */
+874   874: 
+875   875: 
+876   876: 
+877   877: /* END module index.c                                                       */
+878   878: /*==========================================================================*/
+879   879: 
+XC ... 'C' Concordance Utility                              Page 17
+
+_INDEX_ALLOC        :  156 
+ACHK_ERR            :  558  574  598  605  676  699  727  858  865 
+A_CONT              :  558  574  598  605  676  699  727  858  865 
+A_DUPLICATE         :  559 
+A_OK                :  703 
+A_XPAND             :  568 
+Astat               :  559  568  703 
+aDatBuf             :  495  533  537  540  543  547  552  555  560  561 
+                       653  694  698  706  712  713  715  716  717  721 
+                      
+aDatFile            :  199  256  261  325 
+aIdxFile            :  182  256  329  511  522  664  665  666  667  667 
+                       675 
+argc                :  223  224  252  274  275  296  300 
+argv                :  223  225  252  274  276  300 
+atoi                :  313  317 
+BYTE                :  200  321  492  492  537  650  650  716 
+bKMark              :  200  256  261  321 
+bKeyMark            :  492  537  650  716 
+const               :  212 
+D                   :  305  527  558  574  579  592  598  605  676  682 
+                       699  727  858  865 
+DUMMY               :  181  527  558  574  579  592  598  605  676  682 
+                       699  727  858  865 
+DWORD               :  169  451  494  532  534  652  801  848  849 
+define              :  150  151 
+dwDatFilePtr        :  494  532  534  552  555  652  698  706  709 
+dwDatOff            :  169  799  801  822 
+dwIdxSize           :  445  451  522 
+dwSize              :  848  857  860 
+dwUsed              :  849  857  860 
+ERROR               :  499  528  559  563  575  580  593  599  655  677 
+                       683  728  851  859  866 
+EXIT_FAILURE        :  369  421 
+eHashIdxProcess     :  686 
+eIdxMake            :  256  444 
+eIdxStatPrint       :  172  526  578  591  681  836 
+eIdxTest            :  261  626 
+eRetCode            :  181  181  499  526  528  555  559  563  573  575 
+                       578  580  591  593  597  599  655  675  677  681 
+                       683  698  726  728  851  857  859  864  866 
+eRetType            :  171  443  499  625  655  835  851 
+envp                :  223  226 
+exit                :  369  421 
+FALSE               :  184  203  292  296 
+FILE                :  493  651 
+FLAG                :  184  203  292 
+fError              :  292  296  345  353 
+fTest               :  203  260  333 
+fVerbose            :  184  337  517  550  571  685  854 
+fclose              :  611  730 
+fdDatFile           :  493  503  504  533  534  611  651  659  660  709 
+                       712  715  730 
+fgetc               :  778 
+fgets               :  417  533  712  715  777 
+fopen               :  503  659 
+
+XC ... 'C' Concordance Utility                              Page 18
+
+fprintf             :  354  355  356  357  358  359  360  361  362  363 
+                       364  365  366  367  368  409  410  412  413  518 
+                       551  572  775  822  860  867 
+fputs               :  244  713  717 
+fseek               :  709 
+ftell               :  534 
+getopt              :  300 
+hI                  :  208  256  261  420 
+hINDEX              :  444  446  522  526  555  567  573  578  591  597 
+                       626  627  675  681  686  698  726 
+hIdx                :  172  836  837  857  864 
+ICHK_ERR            :  256  261  527  579  592  682 
+IRET_ERR            :  504  528  563  575  580  593  599  606  660  677 
+                       683  709  728  730  859  866 
+IRET_OK             :  616  735  871 
+ITYPE               :  172  207  208  446  627  837 
+I_CONT              :  256  261  527  579  592  682 
+I_DATCLOSE          :  730 
+I_DATOPEN           :  504  660 
+I_DATSEEK           :  709 
+I_INDEX             :  528  563  575  580  593  599  606  677  683  728 
+                       859  866 
+I_STOP              :  709  730 
+iIdxSize            :  202  256  317 
+iKeySize            :  183  256  313  694  817  818 
+iSigNum             :  195  380  381  409  425 
+indexmode           :  411  412 
+Kbf                 :  166  750  752  767  776  777  785 
+Ksz                 :  166  750  751  766  775  776  777  785 
+k                   :  766  769 
+MAIN                :  189 
+MAXKEY              :  795  796 
+MAXLINE             :  180  405  417  495  533  653 
+MAXNAME             :  179  182  199  325  329  509  665 
+main                :  151 
+NONOPT              :  300  344 
+NULL                :  207  301  306  418  418  493  496  497  504  510 
+                       533  651  654  666  712  715 
+OK                  :  264  522 
+optarg              :  301  306  306  313  317  321  325  329 
+option              :  291  300  305  310 
+optstring           :  274  277  300 
+P                   :  166  169  172  195 
+PRIVATE             :  165  168  171  182  183  184  194  199  200  202 
+                       203  207  208  212  379  749  796  798  835 
+PUBLIC              :  273  443  625 
+p                   :  767  770 
+pDat                :  496  543  543  543  543  543  547  548 
+pI                  :  207  208  411  412 
+pIdx                :  497  510  511  512  654  666  667  668 
+peIdxClose          :  420  597  726 
+peIdxCreate         :  522 
+peIdxGetLoad        :  567  864 
+peIdxGetSize        :  857 
+peIdxOpen           :  675 
+peIdxResize         :  573 
+
+XC ... 'C' Concordance Utility                              Page 19
+
+peKeyFind           :  698 
+peKeyInsert         :  555 
+printf              :  305  561 
+pzDatFile           :  444  447  503  509  626  628  659  665 
+pzIdxFile           :  445  450  508  509  510  511 
+pzKBuf              :  796  817  818  822 
+pzKeyBuf            :  169  799  800  817 
+pzLine              :  405  417  418  418 
+RANDOM              :  763 
+REAL_MAIN           :  151  223 
+RW                  :  411  412 
+rand                :  770 
+SEEK_SET            :  709 
+SIGINT              :  246 
+SIGNON              :  212  244 
+SIGTERM             :  247 
+SS                  :  565  684 
+STCK                :  150  615  734 
+signal              :  246  247  425 
+stderr              :  354  355  356  357  358  359  360  361  362  363 
+                       364  365  366  367  368  409  410  412  413 
+stdin               :  417  777  778 
+stdout              :  244  518  551  572  713  717  775  822  860  867 
+                      
+strchr              :  418  418  510  666 
+strcpy              :  512  668 
+strlen              :  511  667 
+strncpy             :  325  329  509  665  776  817 
+TRUE                :  296  333  337  345  606 
+vGetkey             :  166  694  750 
+vIdxDefine          :  252  274 
+vSigCatch           :  195  246  247  380  425 
+void                :  165  194  246  247  256  261  273  379  417  420 
+                       567  686  706  749  777 
+WORD                :  168  256  261  448  449  498  629  798  850 
+wIdxLoad            :  498  567 
+wKeyMark            :  444  448  492  626  629  650 
+wKeyPrint           :  169  686  706  799 
+wKeySize            :  445  449  522  540  547  560 
+wLoad               :  850  864  867 
+x                   :  150 
+
+
