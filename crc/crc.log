@@ -1,0 +1,41 @@
+Module CRC.C, internal test :
+   1. Functionality test
+
+[00000]:  1B26
+Final CRC : 1B26
+Complement: E4D9
+Byte Swap : D9E4
+TEST [T],				 expected:0xD9E4 - got:0xD9E4
+
+
+[00000]:  1B26  0F63  F0B8
+Final CRC : F0B8
+Complement: 0F47
+Byte Swap : 470F
+TEST [T <CRC>],				 expected:0x470F - got:0x470F
+
+
+[00000]:  1B26  8A63  44BE  B7DF  6DC1  D2C0  191B  DED4  6CA0  4E08
+[00010]:  ED10  61FB  F3CE  09BB  A02B  741F  CF30  8BBF  933A  7524
+[00020]:  56D0  F6D1  D563  5250  2570  158C  1AC4  C50E  5470  DF91
+Final CRC : DF91
+Complement: 206E
+Byte Swap : 6E20
+TEST [THE,QUICK,BROWN,FOX,0123456789],	 expected:0x6E20 - got:0x6E20
+
+   2. Range test
+
+Final CRC : FFFF
+Complement: 0000
+Byte Swap : 0000
+TEST [],				 expected:0x0000 - got:0x0000
+
+
+[00000]:  0F87  7BC8  4547  0F3D  F0B8
+Final CRC : F0B8
+Complement: 0F47
+Byte Swap : 470F
+TEST [0x00 0x7F 0xFF <CRC>],		 expected:0x470F - got:0x470F
+
+
+CCITT CRC (REVERSE) for    CRC.C   is	[396B]

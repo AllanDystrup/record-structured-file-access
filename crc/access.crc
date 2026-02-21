@@ -1,0 +1,81 @@
+--------------------------------------------------
+DATE:
+Tue Feb 17 16:42:35 CET 2026
+--------------------------------------------------
+SIZE.H:
+-rwxrwxrwx 1 allan  4873 Feb 10 15:32 ../../access.h
+-rwxrwxrwx 1 allan  6145 Feb 10 15:32 ../../general.h
+-rwxrwxrwx 1 allan  6693 Feb 15 10:58 ../../index.h
+-rwxrwxrwx 1 allan 12006 Feb 16 12:56 ../../key.h
+-rwxrwxrwx 1 allan 10727 Feb 14 16:55 ../../ss.h
+-rwxrwxrwx 1 allan 10092 Feb 14 14:06 ../../va.h
+-rwxrwxrwx 1 allan  8777 Feb 17 13:44 ../find/TBM//tbm.h
+-rwxrwxrwx 1 allan  4067 Feb 15 14:17 ../getopt/getopt.h
+LINES WORDS BYTES
+  232   979 10092 ../../va.h
+  260  1027 10727 ../../ss.h
+  152   651  6693 ../../index.h
+  265  1196 12006 ../../key.h
+  184  1053  8777 ../find/TBM//tbm.h
+   96   368  4067 ../getopt/getopt.h
+  113   469  4873 ../../access.h
+  114   568  6145 ../../general.h
+ 1416  6311 63380 total
+--------------------------------------------------
+SIZE.C:
+-rwxrwxrwx 1 allan  36309 Feb 15 15:07 ../../index.c
+-rwxrwxrwx 1 allan 112272 Feb 16 12:04 ../../key.c
+-rwxrwxrwx 1 allan 111222 Feb 15 09:12 ../../ss.c
+-rwxrwxrwx 1 allan  52671 Feb 14 11:39 ../../va.c
+-rwxrwxrwx 1 allan  22372 Feb 17 13:48 ../find/TBM//tbm.c
+-rwxrwxrwx 1 allan  10019 Feb 12 08:24 ../getopt//getopt.c
+LINES WORDS BYTES
+  1229   6449  52671 ../../va.c
+  2582  14263 111222 ../../ss.c
+   878   4227  36309 ../../index.c
+  2490  13668 112272 ../../key.c
+   577   3256  22372 ../find/TBM//tbm.c
+   232   1107  10019 ../getopt//getopt.c
+  7988  42970 344865 total
+--------------------------------------------------
+SIZE.O:
+-rwxrwxrwx 1 allan 39432 Feb 16 09:49 ../../index//index.o
+-rwxrwxrwx 1 allan 74704 Feb 16 12:23 ../../key/key.o
+-rwxrwxrwx 1 allan 65688 Feb 15 09:12 ../../ss/ss.o
+-rwxrwxrwx 1 allan 38288 Feb 15 08:29 ../../va/va.o
+-rwxrwxrwx 1 allan 10360 Feb 17 13:54 ../find/TBM/tbm.o
+-rwxrwxrwx 1 allan  9824 Feb 12 12:27 ../getopt/getopt.o
+LINES WORDS BYTES
+   391    863  38288 ../../va/va.o
+   571   1190  65688 ../../ss/ss.o
+   368    852  39432 ../../index//index.o
+   573   1570  74704 ../../key/key.o
+    65    203  10360 ../find/TBM/tbm.o
+    93    206   9824 ../getopt/getopt.o
+  2061   4884 238296 total
+--------------------------------------------------
+SIZE EXEC:
+-rwxrwxrwx 1 allan 71600 Feb 16 09:49 ../../index/index
+-rwxrwxrwx 1 allan 96728 Feb 16 12:23 ../../key/key
+-rwxrwxrwx 1 allan 51704 Feb 15 09:12 ../../ss/ss
+-rwxrwxrwx 1 allan 31424 Feb 15 08:29 ../../va/va
+-rwxrwxrwx 1 allan 23832 Feb 17 13:49 ../find/TBM/tbm
+LINES WORDS BYTES
+   108    721  31424 ../../va/va
+   153    968  51704 ../../ss/ss
+   294   1749  71600 ../../index/index
+   331   2352  96728 ../../key/key
+    61    371  23832 ../find/TBM/tbm
+   947   6161 275288 total
+--------------------------------------------------
+CRC:
+CCITT CRC (REVERSE) for ../../va.h   is	[7FFA]
+CCITT CRC (REVERSE) for ../../va.c   is	[2555]
+CCITT CRC (REVERSE) for ../../ss.h   is	[E5E5]
+CCITT CRC (REVERSE) for ../../ss.c   is	[E099]
+CCITT CRC (REVERSE) for ../../index.h   is	[20BE]
+CCITT CRC (REVERSE) for ../../index.c   is	[667B]
+CCITT CRC (REVERSE) for ../../key.h   is	[1A87]
+CCITT CRC (REVERSE) for ../../key.c   is	[A3DA]
+CCITT CRC (REVERSE) for ../find/TBM//tbm.h   is	[B148]
+CCITT CRC (REVERSE) for ../find/TBM/tbm.c   is	[B07E]

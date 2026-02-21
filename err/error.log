@@ -1,0 +1,126 @@
+
+=>Force Continue
+  STOP : [BOOL|BM] : E[000]ARG
+  Argumentfejl i inddata : forkert aktuel parameter i funktionskald
+  Programmør: Læs manualside. --- Bruger: Underret Udvikler.
+
+
+=>Force Continue
+  STOP : [BOOL|BM] : E[001]ARG
+  Argumentfejl i inddata : forkert aktuel parameter i funktionskald
+  Programmør: Læs manualside. --- Bruger: Underret Udvikler.
+
+
+=>Force Continue
+  STOP : [BOOL|BM] : E[002]ARG
+  Argumentfejl i inddata : forkert aktuel parameter i funktionskald
+  Programmør: Læs manualside. --- Bruger: Underret Udvikler.
+
+
+=>Force Continue
+  STOP : [BOOL|BM] : E[003]ARG
+  Argumentfejl i inddata : forkert aktuel parameter i funktionskald
+  Programmør: Læs manualside. --- Bruger: Underret Udvikler.
+
+
+=>Force Continue
+  STOP : [BOOL|BM] : E[004]ARG
+  Argumentfejl i inddata : forkert aktuel parameter i funktionskald
+  Programmør: Læs manualside. --- Bruger: Underret Udvikler.
+
+
+=>Force Continue
+  STOP : BOOL[bScan] : E[005]LEX
+  Skrivefejl i inddata : ikke tilladt eller manglende tegn i søgeudtryk
+  Ret søgeudtryk og gentag søgning
+
+
+=>Force Continue
+  STOP : BOOL[pzParse] : E[006]SYN
+  Syntaksfejl i inddata : forkert opbygning af søgeudtryk
+  Ret søgeudtryk og gentag søgning
+
+
+=>Force Continue
+  STOP : BOOL[vEmit|iSymInsert] : E[007]TAB
+  Programfejl i tabeller : ikke plads nok i programmets datastrukturer
+  Underret Udvikler, - prøv med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : BOOL[vEmit|iSymInsert] : E[008]TAB
+  Programfejl i tabeller : ikke plads nok i programmets datastrukturer
+  Underret Udvikler, - prøv med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : BOOL[vEmit|iSymInsert] : E[009]TAB
+  Programfejl i tabeller : ikke plads nok i programmets datastrukturer
+  Underret Udvikler, - prøv med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : BOOL[vEmit|fInterpret] : E[010]TOK
+  Programfejl i intermediær kode : ukendt kompilersymbol (token)
+  Underret Udvikler.
+
+
+=>Force Continue
+  STOP : BOOL[vEmit|fInterpret] : E[011]TOK
+  Programfejl i intermediær kode : ukendt kompilersymbol (token)
+  Underret Udvikler.
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[012]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[013]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[014]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[015]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[016]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[017]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[018]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[019]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
+
+=>Force Continue
+  STOP : [AC|BM] : E[020]MEM
+  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)
+  Underret Udvikler, - pr›v med kortere søgeudtryk
+
