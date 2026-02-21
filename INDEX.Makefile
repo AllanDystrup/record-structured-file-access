@@ -91,28 +91,24 @@
 #
 #=============================================================================
 
+# [0] FILES ------------------------------------------------------------------
 # ACCESS METHOD: [VA | SS], for Virtual Array or Scatter Storage (HASH)
 # cmdline use: 	(default $(TARGET).XX where XX is [AA|SS]) 
-#		make realclean ACCESS=XX
-#		make ACCESS=XX	    
-#             	make test ACCESS=XX
-#		make log  ACCESS=XX 
+#		make -f INDEX.Makefile realclean ACCESS=XX
+#		make -f INDEX.Makefile ACCESS=XX	    
+#             	make -f INDEX.Makefile test ACCESS=XX
+#		make -f INDEX.Makefile log  ACCESS=XX 
 # ACCESS  = [VA | SS]
 
 TARGET  = INDEX
-
 HEADERS = INDEX.h  GENERAL.h $(ACCESS).h  UTIL/find/TBM/tbm.h UTIL/getopt/GETOPT.H
-
 OBJECTS =  $(TARGET)/$(TARGET).o  $(TARGET)/$(ACCESS).o $(TARGET)/tbm.o $(TARGET)/getopt.o
 
-
-
 .PRECIOUS: $(HEADERS)
-
 default: $(TARGET)
 
 
-# CLEAN -----------------------------------------------------------------------
+# [1] CLEAN -------------------------------------------------------------------
   
 # 	----- make -f INDEX.Makefile realclean ACCESS=[VA | S] -----
 .PHONY: realclean
@@ -139,7 +135,7 @@ clean:
 	-rm -f $(TARGET)/SOUL.IDX.$(ACCESS)
 
 
-# COMPILE -----------------------------------------------------------------------
+# [2] BUILD -------------------------------------------------------------------
 
 #	----- make -f INDEX.Makefile ACCESS=[VA | SS] -----
 CC = gcc
@@ -156,8 +152,6 @@ $(TARGET)/$(TARGET).o:	$(TARGET).c $(HEADERS)
 	$(CC) $(CFLAGS) -c $(TARGET).c -o $(TARGET)/$(TARGET).o
 	
 
-# LINK -----------------------------------------------------------------------
-
 #	----- EXE -----
 LIBS = -lm
 $(TARGET):	$(OBJECTS)
@@ -166,32 +160,44 @@ $(TARGET):	$(OBJECTS)
 	ls -al . ./$(TARGET)
 
 
-# TEST -----------------------------------------------------------------------
+# [3] TEST -------------------------------------------------------------------
 
 #	----- make -f INDEX.Makefile test ACCESS=[VA | SS] -----
 .PHONY: test
-test .IGNORE:
+test:
 	# Generate new SOUL.IDX and copy to SOUL.IDX.[VA|SS]
 	rm -f SOUL.DAT
 	cp $(TARGET)/SOUL.DAT .
 	./$(TARGET)/$(TARGET).$(ACCESS) -k5 -h6144 -d SOUL.DAT -v -t
 
-testclean .IGNORE:
+testclean:
 	cp SOUL.IDX ./$(TARGET)
 	cp SOUL.IDX ./$(TARGET)/SOUL.IDX.$(ACCESS)
 	rm -f SOUL*
 	ls -al . ./$(TARGET)
-
-
-# LOG ------------------------------------------------------------------------
-
 .PHONY: log
-.IGNORE log:
+log:
 	-./index -k5 -h6144 -d SOUL.DAT -v -t 2>&1 >idx_create_$(ACCESS).txt
 	-ls -al
 	-head -n 30 idx_create_$(ACCESS).txt
 
 
+# [4] DOC ------- make -f INDEX.makefile doc ----------	
+doc:
+	cp ./util/ext/EX* .
+	-rm -f $(TARGET)/$(TARGET).doc
+	awk -f EX.AWK  $(TARGET).h   > $(TARGET)/$(TARGET).doc
+	awk -f EX.AWK  $(TARGET).c  >> $(TARGET)/$(TARGET).doc
+	-rm -f ex.* EX.*
+	ls -al ./$(TARGET)
+	more $(TARGET)/$(TARGET).doc
 
+xref:
+	rm -f $(TARGET)/$(TARGET).xrf
+	./UTIL/xrf/XRF $(TARGET).c -o $(TARGET)/$(TARGET).xrf
+	ls -al
+	more $(TARGET)/$(TARGET).xrf
+
+	
 # END makefile INDEX.Makefile
 #=============================================================================

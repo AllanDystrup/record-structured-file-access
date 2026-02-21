@@ -134,14 +134,19 @@ test_lookup:
 
 # [4] ---------- make -f VA.makefile doc ----------	
 doc:
-	cp ./UTIL/ext/EX* .
-	-rm -f $(ROOT)/$(ROOT).doc
-	awk -f EX.AWK  $(HEADER)   > $(ROOT)/$(ROOT).doc
-	awk -f EX.AWK  $(SOURCE)  >> $(ROOT)/$(ROOT).doc
+	cp ./util/ext/EX* .
+	-rm -f $(TARGET)/$(TARGET).doc
+	awk -f EX.AWK  $(HEADER)   > $(TARGET).doc
+	awk -f EX.AWK  $(SOURCE)  >> $(TARGET).doc
 	-rm -f ex.* EX.*
-	ls -al ./$(ROOT)
-	more $(ROOT)/$(ROOT).doc
-	
+	ls -al ./$(TARGET)
+	more $(TARGET).doc
+
+xref:
+	rm -f $(TARGET).xrf
+	./UTIL/xrf/XRF $(SOURCE) -o $(TARGET).xrf
+	ls -al
+	more $(TARGET).xrf
 		
 # END makefile
 #=============================================================================

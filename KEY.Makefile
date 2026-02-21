@@ -157,12 +157,11 @@
 # ACCESS  = [VA | SS]
 
 TARGET  = KEY
-
 HEADERS = KEY.h  GENERAL.h $(ACCESS).h  UTIL/find/TBM/tbm.h UTIL/getopt/GETOPT.H
 SOURCE  = KEY.C
 OBJECTS =  $(TARGET)/$(TARGET).o  $(TARGET)/$(ACCESS).o $(TARGET)/tbm.o $(TARGET)/getopt.o
-.PRECIOUS: $(HEADERS)
 
+.PRECIOUS: $(HEADERS)
 default: $(TARGET)
 
 
@@ -193,7 +192,7 @@ clean:
 	-rm -f $(TARGET)/SOUL.IDX.$(ACCESS)
 
 
-# [2] COMPILE ---------------------------------------------------------------
+# [2] BUILD ---------------------------------------------------------------
 
 #	----- make -f KEY.Makefile ACCESS=[VA | SS] -----
 CC = gcc
@@ -208,9 +207,6 @@ $(TARGET)/$(TARGET).o:	$(TARGET).c $(HEADERS)
 	$(CC) -g -DDEBUG -c UTIL/find/TBM/TBM.c -o $(TARGET)/tbm.o
 	$(CC) -g -DDEBUG -c UTIL/getopt/GETOPT.c -o $(TARGET)/getopt.o
 	$(CC) $(CFLAGS) -c $(TARGET).c -o $(TARGET)/$(TARGET).o
-	
-
-# [3] LINK -------------------------------------------------------------------
 
 #	----- EXE -----
 LIBS = -lm
@@ -220,7 +216,7 @@ $(TARGET):	$(OBJECTS)
 	ls -al . ./$(TARGET)
 
 
-# [4] TEST -------------------------------------------------------------------
+# [3] TEST -------------------------------------------------------------------
 
 #	----- make -f KEY.Makefile test ACCESS=[VA | SS] -----
 .PHONY: test
@@ -234,8 +230,6 @@ testclean .IGNORE:
 	rm -f SOUL*
 	ls -al . ./$(TARGET)
 
-
-# [5] LOG --------------------------------------------------------------------
 .PHONY: log
 log .IGNORE :
 	-rm -f $(TARGET)/$(TARGET).$(ACCESS).log
@@ -244,16 +238,21 @@ log .IGNORE :
 	-head -n 30  key$(ACCESS).txt
 
 
-# [6] DOC ------- make -f SS.makefile doc ----------	
+# [4] DOC ------- make -f KEY.makefile doc ----------	
 doc:
-	#/UTIL/crc/crc >
 	cp ./util/ext/EX* .
 	-rm -f $(TARGET)/$(TARGET).doc
-	awk -f EX.AWK  $(HEADERS)   > $(TARGET)/$(TARGET).doc
-	awk -f EX.AWK  $(SOURCE)  >> $(TARGET)/$(TARGET).doc
+	awk -f EX.AWK  $(TARGET).h   > $(TARGET)/$(TARGET).doc
+	awk -f EX.AWK  $(TARGET).c  >> $(TARGET)/$(TARGET).doc
 	-rm -f ex.* EX.*
 	ls -al ./$(TARGET)
 	more $(TARGET)/$(TARGET).doc
+
+xref:
+	rm -f $(TARGET)/$(TARGET).xrf
+	./UTIL/xrf/XRF $(TARGET).c -o $(TARGET)/$(TARGET).xrf
+	ls -al
+	more $(TARGET)/$(TARGET).xrf
 	
 
 
