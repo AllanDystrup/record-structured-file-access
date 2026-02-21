@@ -48,12 +48,11 @@
 #
 #=============================================================================
 
-# ----------------------------------------------------------------------------
+# [0] FILES ------------------------------------------------------------------
 # FILES
 HEADERS = tbm.h 
 OBJECT  = tbm.o
 TARGET  = tbm
-
 
 # TARGETS
 .PRECIOUS: $(TARGET) $(SOURCE)
@@ -62,15 +61,16 @@ default: $(TARGET)
 all: default
 
 
-# CLEAN	----- make -f TBM.Makefile clean -----
+# [1] CLEAN	----- make -f TBM.Makefile clean -----
 clean:
 	-rm -f *.o
 	-rm -f $(TARGET)
 
 
-# BUILD -----  make -f TBM.Makefile -----
-# BUILD --------------------------------------------------------------------
+
+# [2] BUILD -----  make -f TBM.Makefile ---------------------------------------
 CC = gcc
+
 # 	----- COMPILE -----
 # CFLAGS = -DMAIN -DDEBUG -g
 CFLAGS = -g
@@ -83,9 +83,35 @@ $(TARGET):	$(OBJECT)
 	$(CC) $(OBJECT) -Wall $(LIBS) -o $(TARGET)
 	ls -al
 
-# TEST
+
+# [3] TEST --------------------------------------------------------------------
 test:
 	./tbm p ./tbm.c
+
+log: 
+	rm -f $(TARGET).log
+	./tbm p ./tbm.c > $(TARGET).log
+	more $(TARGET).log
+
+
+# [4] DOC ---------------------------------------------------------------------
+doc:	
+	cp ../../ext/EX*  .
+	-rm -f $(TARGET).doc
+	awk -f EX.AWK  $(TARGET).h   > $(TARGET).doc
+	awk -f EX.AWK  $(TARGET).c  >> $(TARGET).doc
+	-rm -f ex.* EX.*
+	ls -al 
+	more $(TARGET).doc
+
+
+xref:
+	  ------- make -f STACK.Makefile xref -------
+	rm -f $(TARGET).xrf
+	../../xrf/XRF $(TARGET).c -o $(TARGET).xrf
+	ls -al
+	more $(TARGET).xrf
+
 
 
 

@@ -1,0 +1,2820 @@
+TBM Search Functions (Testdriver), Version 1.8
+MOD[tbm.c] VER[1.8] DAT[2025/12/08] DEV[ad]
+Copyright (c) Allan Dystrup 1992, 2025
+
+Input File: ./tbm.c
+Pattern[P], Length[1]
+	Skip :	[P]=0
+	Match:	Guard[P], Offset[0]
+	Shift:	MD2[1]
+INPUT: /*+1========================================================================*/
+INPUT: /* MODULE TBM.C */
+INPUT: /*==========================================================================*/
+INPUT: /* FUNCTION
+INPUT:  *			Tuned Boyer-Moore (BM) algorithm for fast string searching; -
+INPUT:  * 			This module implements a compact, portable and fast BM
+TBM-SHIFT:
+->lements a compact, portable and fast BM
+Pg; -
+
+TBM-SHIFT:
+->act, portable and fast BM
+Pg; -
+
+TBM-SHIFT:
+->ortable and fast BM
+Pg; -
+
+[6:3]	 * 			This module implements a compact, portable and fast BM
+INPUT:  * 			algorithm (ie. a classic BM including a skip-loop).
+TBM-SHIFT:
+->-loop).
+PM
+
+TBM-SHIFT:
+->).
+PM
+
+[7:2]	 * 			algorithm (ie. a classic BM including a skip-loop).
+INPUT:  *
+INPUT:  * 			Search algorithms have a common structure performing a repeated
+TBM-SHIFT:
+->erforming a repeated
+P=====*/
+
+TBM-SHIFT:
+->eated
+P=====*/
+
+[9:2]	 * 			Search algorithms have a common structure performing a repeated
+INPUT:  * 			loop through a sequence of positions in the text being searched
+TBM-SHIFT:
+-> through a sequence of positions in the text being searched
+P=====*/
+
+TBM-SHIFT:
+->ositions in the text being searched
+P=====*/
+
+[10:2]	 * 			loop through a sequence of positions in the text being searched
+INPUT:  * 			and testing whether the pattern does or does not match the text
+TBM-SHIFT:
+->attern does or does not match the text
+P=====*/
+
+[11:1]	 * 			and testing whether the pattern does or does not match the text
+INPUT:  * 			at each position :
+TBM-SHIFT:
+->osition :
+Pthe pattern does or does not match the text
+
+[12:1]	 * 			at each position :
+INPUT:  * 			FOR pos in text DO { 			// SEARCH LOOP:
+TBM-SHIFT:
+->os in text DO { 			// SEARCH LOOP:
+Poes not match the text
+
+TBM-SHIFT:
+->:
+Poes not match the text
+
+[13:2]	 * 			FOR pos in text DO { 			// SEARCH LOOP:
+INPUT:  * 				skiploop                    // 1: skip past immediate mismatch
+TBM-SHIFT:
+->loop                    // 1: skip past immediate mismatch
+P=====*/
+
+TBM-SHIFT:
+->                    // 1: skip past immediate mismatch
+P=====*/
+
+TBM-SHIFT:
+-> past immediate mismatch
+P=====*/
+
+TBM-SHIFT:
+->ast immediate mismatch
+P=====*/
+
+[14:4]	 * 				skiploop                    // 1: skip past immediate mismatch
+INPUT:  * 				match(pattern,text[pos])	// 2: compare pattern against text
+TBM-SHIFT:
+->attern,text[pos])	// 2: compare pattern against text
+Ph
+
+TBM-SHIFT:
+->os])	// 2: compare pattern against text
+Ph
+
+TBM-SHIFT:
+->are pattern against text
+Ph
+
+TBM-SHIFT:
+->attern against text
+Ph
+
+[15:4]	 * 				match(pattern,text[pos])	// 2: compare pattern against text
+INPUT:  * 				pos += shift(pos, off)		// 3: text[pos+off] != pattern[off]
+TBM-SHIFT:
+->os += shift(pos, off)		// 3: text[pos+off] != pattern[off]
+Ph
+
+TBM-SHIFT:
+->os, off)		// 3: text[pos+off] != pattern[off]
+Ph
+
+TBM-SHIFT:
+->os+off] != pattern[off]
+Ph
+
+TBM-SHIFT:
+->attern[off]
+Ph
+
+[16:4]	 * 				pos += shift(pos, off)		// 3: text[pos+off] != pattern[off]
+INPUT:  * 			}
+INPUT:  *
+INPUT:  * 			Several choices of algorithm exist for the 3 steps of the
+TBM-SHIFT:
+->s of the
+P]
+
+[19:1]	 * 			Several choices of algorithm exist for the 3 steps of the
+INPUT:  * 			search loop : (1) skip, (2) match and (3) shift.
+TBM-SHIFT:
+-> : (1) skip, (2) match and (3) shift.
+P of the
+
+TBM-SHIFT:
+->, (2) match and (3) shift.
+P of the
+
+[20:2]	 * 			search loop : (1) skip, (2) match and (3) shift.
+INPUT:  * 			In the Tuned BM (TBM) we use the following components :
+TBM-SHIFT:
+->onents :
+P
+
+[21:1]	 * 			In the Tuned BM (TBM) we use the following components :
+INPUT:  * 				(1) TBM skip : 	portable, unrolled variant of search forward
+TBM-SHIFT:
+-> : 	portable, unrolled variant of search forward
+P
+
+TBM-SHIFT:
+->ortable, unrolled variant of search forward
+P
+
+[22:2]	 * 				(1) TBM skip : 	portable, unrolled variant of search forward
+INPUT:  * 					for last (rightmost) char in pattern; (fast BM)
+TBM-SHIFT:
+->attern; (fast BM)
+Pch forward
+
+[23:1]	 * 					for last (rightmost) char in pattern; (fast BM)
+INPUT:  * 				(2) TBM match : test guard before forward (l->r) linear scan.
+INPUT:  * 				(3) TBM shift : "mini Sunday DELTA-2(pattern)".
+TBM-SHIFT:
+->attern)".
+Plinear scan.
+
+[25:1]	 * 				(3) TBM shift : "mini Sunday DELTA-2(pattern)".
+INPUT:  *
+INPUT:  * 			For a further description of these (and alternative) components
+TBM-SHIFT:
+->tion of these (and alternative) components
+P=====*/
+
+TBM-SHIFT:
+->onents
+P=====*/
+
+[27:2]	 * 			For a further description of these (and alternative) components
+INPUT:  * 			cf. the references given below.
+INPUT:  *
+INPUT:  * SYSTEM
+INPUT:  *			Standard C: ANSI/ISO C (1992), ported to ISO/IEC C11 (2011).
+TBM-SHIFT:
+->orted to ISO/IEC C11 (2011).
+Pts
+
+[31:1]	 *			Standard C: ANSI/ISO C (1992), ported to ISO/IEC C11 (2011).
+INPUT:  * 			1992 -	Tested on PC/MS DOS V.3.3 and UNIX Sys V.3. (ANSI/ISO C)
+TBM-SHIFT:
+->C/MS DOS V.3.3 and UNIX Sys V.3. (ANSI/ISO C)
+P=====*/
+
+[32:1]	 * 			1992 -	Tested on PC/MS DOS V.3.3 and UNIX Sys V.3. (ANSI/ISO C)
+INPUT:  * 			2025 -	Tested on Win.10 (Terminal) and on Win.10 WSL UBUNTU.
+INPUT:  * 					Using JetBrains CLion IDE (ISO/IEC C11)
+INPUT:  *
+INPUT:  * SEE ALSO
+INPUT:  *			Modules : TBM.H, MAKEFILE
+INPUT:  *
+INPUT:  * PROGRAMMER
+TBM-SHIFT:
+->ROGRAMMER
+PTBM.H, MAKEFILE
+
+[39:1]	 * PROGRAMMER
+INPUT:  *			Allan Dystrup (AD)
+TBM-SHIFT:
+-> (AD)
+PEFILE
+
+[40:1]	 *			Allan Dystrup (AD)
+INPUT:  *
+INPUT:  * COPYRIGHT(c)
+TBM-SHIFT:
+->YRIGHT(c)
+Pp (AD)
+
+[42:1]	 * COPYRIGHT(c)
+INPUT:  *			Allan Dystrup, March 1992, December 2025.
+TBM-SHIFT:
+->, March 1992, December 2025.
+P
+[43:1]	 *			Allan Dystrup, March 1992, December 2025.
+INPUT:  *
+INPUT:  * VERSION 	$Header: d:/cwork/index/tbm/RCS/tbm.c 1.3 92/02/27 15:11:30
+INPUT:  * 			Allan_Dystrup Exp Locker: Allan_Dystrup $
+TBM-SHIFT:
+-> Exp Locker: Allan_Dystrup $
+P 1.3 92/02/27 15:11:30
+
+TBM-SHIFT:
+-> Locker: Allan_Dystrup $
+P 1.3 92/02/27 15:11:30
+
+TBM-SHIFT:
+-> $
+P 1.3 92/02/27 15:11:30
+
+[46:3]	 * 			Allan_Dystrup Exp Locker: Allan_Dystrup $
+INPUT:  *			$Log: tbm.c $
+INPUT:  * 			Revision 1.0 92/03202 13:40:40 Allan_Dystrup
+TBM-SHIFT:
+->
+P3 92/02/27 15:11:30
+
+[48:1]	 * 			Revision 1.0 92/03202 13:40:40 Allan_Dystrup
+INPUT:  * 			Initial revision*
+INPUT:  *			Revision 1.1 92/02/27 15:11:30 Allan_Dystrup
+TBM-SHIFT:
+->
+P
+[50:1]	 *			Revision 1.1 92/02/27 15:11:30 Allan_Dystrup
+INPUT:  * 			*** empty log message ***
+TBM-SHIFT:
+->ty log message ***
+P30 Allan_Dystrup
+
+[51:1]	 * 			*** empty log message ***
+INPUT:  * 			Revision 1.2 92/02/28 10:55:34 Allan_Dystrup
+TBM-SHIFT:
+->
+P3 92/02/27 15:11:30
+
+[52:1]	 * 			Revision 1.2 92/02/28 10:55:34 Allan_Dystrup
+INPUT:  * 			fbuf & ucase (hack)
+INPUT:  * 			Revision 1.3 92/02/28 11:54:16 Allan_Dystrup
+TBM-SHIFT:
+->
+P3 92/02/27 15:11:30
+
+[54:1]	 * 			Revision 1.3 92/02/28 11:54:16 Allan_Dystrup
+INPUT:  * 			S-L-O-W UCASE
+INPUT:  * 			Revision 1.4 92/03/11 14:54:40 Allan_Dystrup
+TBM-SHIFT:
+->
+P3 92/02/27 15:11:30
+
+[56:1]	 * 			Revision 1.4 92/03/11 14:54:40 Allan_Dystrup
+INPUT:  * 			hack'ed UCASE
+INPUT:  * 			Revision 1.5 92/03/13 08:40:32 Allan_Dystrup
+TBM-SHIFT:
+->
+P3 92/02/27 15:11:30
+
+[58:1]	 * 			Revision 1.5 92/03/13 08:40:32 Allan_Dystrup
+INPUT:  * 			main ucase
+INPUT:  * 			Revision 1.6 92/03/13 11:15:25 Allan_Dystrup
+TBM-SHIFT:
+->
+P3 92/02/27 15:11:30
+
+[60:1]	 * 			Revision 1.6 92/03/13 11:15:25 Allan_Dystrup
+INPUT:  * 			integrated UCASE
+INPUT:  * 			Revision 1.7 92/03/13 13:34:44 Allan_Dystrup
+TBM-SHIFT:
+->
+P3 92/02/27 15:11:30
+
+[62:1]	 * 			Revision 1.7 92/03/13 13:34:44 Allan_Dystrup
+INPUT:  * 			linted DOS/UX
+INPUT:  *          ------------------------------------------
+INPUT:  *	        Revision 1.8 2025/12/09 11:00:00 Allan_Dystrup
+TBM-SHIFT:
+->
+P/27 15:11:30
+
+[65:1]	 *	        Revision 1.8 2025/12/09 11:00:00 Allan_Dystrup
+INPUT:  *          Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
+TBM-SHIFT:
+->ort to UBUNTU  on Win.10 / WSL, Using CLion for Linux
+P:30
+
+[66:1]	 *          Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
+INPUT:  *			Port to Win. 10 native/terminal, Using CLion for Windows
+TBM-SHIFT:
+->ort to Win. 10 native/terminal, Using CLion for Windows
+Pnux
+
+[67:1]	 *			Port to Win. 10 native/terminal, Using CLion for Windows
+INPUT:  *
+INPUT:  * REFERENCES
+INPUT:  *			The references concentrate on the Boyer-Moore family of string
+INPUT:  * 			search algorithms, which is superior for single string matching;
+TBM-SHIFT:
+->erior for single string matching;
+P
+[71:1]	 * 			search algorithms, which is superior for single string matching;
+INPUT:  * 			Other strategies for string search (eg. KMP for single string
+TBM-SHIFT:
+-> for single string
+P;
+
+[72:1]	 * 			Other strategies for string search (eg. KMP for single string
+INPUT:  * 			match, Aho-Corasic for parallel string match and general NFA/DFA
+TBM-SHIFT:
+->arallel string match and general NFA/DFA
+P
+[73:1]	 * 			match, Aho-Corasic for parallel string match and general NFA/DFA
+INPUT:  * 			for regular expressions) are NOT considered.
+TBM-SHIFT:
+->ressions) are NOT considered.
+Pnd general NFA/DFA
+
+[74:1]	 * 			for regular expressions) are NOT considered.
+INPUT:  *			Please consult an algorithm textbook for a broad introduction
+TBM-SHIFT:
+->lease consult an algorithm textbook for a broad introduction
+PFA
+
+[75:1]	 *			Please consult an algorithm textbook for a broad introduction
+INPUT:  *			to these techniques, (for instance Sedgewick, R. [1983] :
+INPUT:  *			"Algorithms", Addison-Wesley, August 1984).
+INPUT:  *
+INPUT:  * 			Boyer, R.S and J.S. Moore [1977] : "A Fast String Searching
+INPUT:  * 			Algorithm", CACM, Vol.20, No.10, October 1977.
+INPUT:  *
+INPUT:  * 			Schaback, R. [1988] : "On the Expected Sublinearity of the BM
+TBM-SHIFT:
+->ected Sublinearity of the BM
+PA
+
+[82:1]	 * 			Schaback, R. [1988] : "On the Expected Sublinearity of the BM
+INPUT:  * 			Algorithm", SIAM J. COMPUT, Vol.17, No.4, August 1988.
+TBM-SHIFT:
+->UT, Vol.17, No.4, August 1988.
+Phe BM
+
+[83:1]	 * 			Algorithm", SIAM J. COMPUT, Vol.17, No.4, August 1988.
+INPUT:  *
+INPUT:  * 			Rivest, R. [1979] : "On Improving the Worst Case Running Time of
+TBM-SHIFT:
+->roving the Worst Case Running Time of
+P
+[85:1]	 * 			Rivest, R. [1979] : "On Improving the Worst Case Running Time of
+INPUT:  * 			the BM String Matching Algorithm", CACM, Vol.22, No.9,Sept.1979
+TBM-SHIFT:
+->t.1979
+P
+[86:1]	 * 			the BM String Matching Algorithm", CACM, Vol.22, No.9,Sept.1979
+INPUT:  *
+INPUT:  * 			Sunday, D.M. [1990] : "A Very Fast Substring Search Algorithm",
+INPUT:  * 			Communications of the ACM, Vol.33, No.8, August 1990.
+INPUT:  *
+INPUT:  * 			Smith, P.D. [1991] : "Experiments with a Very Fast Substring
+TBM-SHIFT:
+->.D. [1991] : "Experiments with a Very Fast Substring
+P,
+
+TBM-SHIFT:
+->eriments with a Very Fast Substring
+P,
+
+[91:2]	 * 			Smith, P.D. [1991] : "Experiments with a Very Fast Substring
+INPUT:  * 			Search Algorithm", Software-Practice and Experience,
+TBM-SHIFT:
+->ractice and Experience,
+Pstring
+
+TBM-SHIFT:
+->erience,
+Pstring
+
+[92:2]	 * 			Search Algorithm", Software-Practice and Experience,
+INPUT:  * 			Vol.21(10), 1065-1074, October 1991
+INPUT:  *
+INPUT:  * 			Hume, A and D. Sunday [1991] : "Fast String Searching",
+INPUT:  * 			Algorithm", Software-Practice and Experience,
+TBM-SHIFT:
+->ractice and Experience,
+Prching",
+
+TBM-SHIFT:
+->erience,
+Prching",
+
+[96:2]	 * 			Algorithm", Software-Practice and Experience,
+INPUT:  *  		Vol.21(11), 1221-1248, November 1991.
+INPUT:  *
+INPUT:  * USAGE
+INPUT:  *			Module tbm.c features the following public routines for
+TBM-SHIFT:
+->ublic routines for
+P
+[100:1]	 *			Module tbm.c features the following public routines for
+INPUT:  * 			performing fast string search in text :
+TBM-SHIFT:
+->erforming fast string search in text :
+P routines for
+
+[101:1]	 * 			performing fast string search in text :
+INPUT:  * 				vBuildTBM() // prepare pattern for search function
+TBM-SHIFT:
+->repare pattern for search function
+Pr
+
+TBM-SHIFT:
+->are pattern for search function
+Pr
+
+TBM-SHIFT:
+->attern for search function
+Pr
+
+[102:3]	 * 				vBuildTBM() // prepare pattern for search function
+INPUT:  * 				iRunTBM()   // perform search for pattern in text
+TBM-SHIFT:
+->erform search for pattern in text
+P
+TBM-SHIFT:
+->attern in text
+P
+[103:2]	 * 				iRunTBM()   // perform search for pattern in text
+INPUT:  * 			See headerfile tbm.h and the documentation in this file for
+INPUT:  * 			a detailed description of the user accessible compile switches,
+TBM-SHIFT:
+->tion of the user accessible compile switches,
+P
+TBM-SHIFT:
+->ile switches,
+P
+[105:2]	 * 			a detailed description of the user accessible compile switches,
+INPUT:  * 			datastructures and functions.
+INPUT:  *
+INPUT:  * DOC
+INPUT:  *			Documentation is incorporated into the module and may be
+TBM-SHIFT:
+->orated into the module and may be
+Ptches,
+
+[109:1]	 *			Documentation is incorporated into the module and may be
+INPUT:  * 			selectively extracted (using a utility such as ex.awk) :
+INPUT:  * 				Level 1: Module documentation (history, design, testdriver)
+INPUT:  * 				Level 2: PUBLIC functions (module program interface, "API")
+TBM-SHIFT:
+->UBLIC functions (module program interface, "API")
+P,
+
+TBM-SHIFT:
+->rogram interface, "API")
+P,
+
+TBM-SHIFT:
+->I")
+P,
+
+[112:3]	 * 				Level 2: PUBLIC functions (module program interface, "API")
+INPUT:  * 				Level 3: major PRIVATE functions (design)
+TBM-SHIFT:
+->RIVATE functions (design)
+Pnterface, "API")
+
+[113:1]	 * 				Level 3: major PRIVATE functions (design)
+INPUT:  * 				Level 4: minor PRIVATE functions (support)
+TBM-SHIFT:
+->RIVATE functions (support)
+Pterface, "API")
+
+TBM-SHIFT:
+->port)
+Pterface, "API")
+
+TBM-SHIFT:
+->ort)
+Pterface, "API")
+
+[114:3]	 * 				Level 4: minor PRIVATE functions (support)
+INPUT:  *
+INPUT:  * BUGS
+INPUT:  *			The module contains highly optimized code for maximum speed;
+TBM-SHIFT:
+->timized code for maximum speed;
+P
+TBM-SHIFT:
+->eed;
+P
+[117:2]	 *			The module contains highly optimized code for maximum speed;
+INPUT:  * 			As a consequence the algorithms may not be immediately compre-
+TBM-SHIFT:
+->re-
+P
+[118:1]	 * 			As a consequence the algorithms may not be immediately compre-
+INPUT:  * 			hensible. I have tried to counter this effect by an extensive
+INPUT:  * 			documentation of the program, but if in doubt, please consult
+TBM-SHIFT:
+->rogram, but if in doubt, please consult
+P
+TBM-SHIFT:
+->lease consult
+P
+[120:2]	 * 			documentation of the program, but if in doubt, please consult
+INPUT:  * 			the references.
+INPUT:  *
+INPUT: *-1========================================================================*/
+INPUT: 
+INPUT: 
+INPUT: /*=========================================================================*/
+INPUT: /*                            Includes			                           */
+INPUT: /*=========================================================================*/
+INPUT: /* Standard C (ANSI/ISO( headerfiles */
+INPUT: #include <stdio.h>
+INPUT: #include <stdlib.h>
+INPUT: #include <string.h>
+INPUT: #include <ctype.h>
+TBM-SHIFT:
+->e.h>
+P
+[133:1]	#include <ctype.h>
+INPUT: 
+INPUT: /* Project headerfile */
+TBM-SHIFT:
+->roject headerfile */
+Peaderfiles */
+
+[135:1]	/* Project headerfile */
+INPUT: //#define DEBUG
+INPUT: #define _TBM_ALLOC
+INPUT: #include "tbm.h"
+INPUT: 
+INPUT: /* Project main() */
+TBM-SHIFT:
+->roject main() */
+P*/
+
+[140:1]	/* Project main() */
+INPUT: //#define MAIN
+INPUT: //#define DUMMY
+INPUT: 
+INPUT: 
+INPUT: /*=========================================================================*/
+INPUT: /*                            Function Prototypes                          */
+TBM-SHIFT:
+->rototypes                          */
+P
+TBM-SHIFT:
+->es                          */
+P
+[146:2]	/*                            Function Prototypes                          */
+INPUT: /*=========================================================================*/
+INPUT: 
+INPUT: PRIVATE BYTE
+TBM-SHIFT:
+->RIVATE BYTE
+P=============================================================*/
+
+[149:1]	PRIVATE BYTE
+INPUT: 	bDKupper(int ii);
+TBM-SHIFT:
+->per(int ii);
+P=======================================================*/
+
+TBM-SHIFT:
+->er(int ii);
+P=======================================================*/
+
+[150:2]		bDKupper(int ii);
+INPUT: 	
+INPUT: 	
+INPUT: 	
+INPUT: 	
+INPUT: #ifdef MAIN
+INPUT: /****************************************************************************/
+INPUT: /******************************** MAIN **************************************/
+INPUT: /****************************************************************************/
+INPUT: 
+INPUT: /* Define "signon message" for module tbm.c */
+INPUT: PRIVATE char SIGNON[] =
+TBM-SHIFT:
+->RIVATE char SIGNON[] =
+P" for module tbm.c */
+
+[161:1]	PRIVATE char SIGNON[] =
+INPUT: 	"\TBM Search Functions (Testdriver), Version 1.8\n"
+INPUT: 	"MOD[tbm.c] VER[1.8] DAT[2025/12/08] DEV[ad]\n"
+INPUT: 	"Copyright (c) Allan Dystrup 1992, 2025\n\n";
+TBM-SHIFT:
+->yright (c) Allan Dystrup 1992, 2025\n\n";
+P
+
+TBM-SHIFT:
+-> 1992, 2025\n\n";
+P
+
+[164:2]		"Copyright (c) Allan Dystrup 1992, 2025\n\n";
+INPUT: 
+INPUT: /* Define "usage message" for module tbm.c */
+INPUT: PRIVATE char USAGE[] =
+TBM-SHIFT:
+->RIVATE char USAGE[] =
+P" for module tbm.c */
+
+[167:1]	PRIVATE char USAGE[] =
+INPUT: 	"\n\aUSAGE: \ttbm <pattern> <file>\n"
+TBM-SHIFT:
+->attern> <file>\n"
+P.c */
+
+[168:1]		"\n\aUSAGE: \ttbm <pattern> <file>\n"
+INPUT: 	"where       <pattern>  is string to find\n"
+TBM-SHIFT:
+->attern>  is string to find\n"
+P
+[169:1]		"where       <pattern>  is string to find\n"
+INPUT: 	"            <file>     is file to search\n"
+INPUT: 	"example: tbm  fee  foo.bar\n\n";
+TBM-SHIFT:
+->le: tbm  fee  foo.bar\n\n";
+Psearch\n"
+
+[171:1]		"example: tbm  fee  foo.bar\n\n";
+INPUT: 
+INPUT: 
+INPUT: #define MAXLIN 512 /* Max. #chars in one line of text */
+INPUT: #define MAXPAT 256 /* Max. #chars in search pattern */
+TBM-SHIFT:
+->AT 256 /* Max. #chars in search pattern */
+P
+
+TBM-SHIFT:
+->attern */
+P
+
+[175:2]	#define MAXPAT 256 /* Max. #chars in search pattern */
+INPUT: 
+INPUT: 
+INPUT: /*+4 MODULE TBM.C ----------------------------------------------------------*/
+INPUT: /*   NAME							CHKERR                                  */
+INPUT: /*-- SYNOPSIS --------------------------------------------------------------*/
+TBM-SHIFT:
+->SIS --------------------------------------------------------------*/
+P¶a‘{b
+[180:1]	/*-- SYNOPSIS --------------------------------------------------------------*/
+INPUT: /* DESCRIPTION
+TBM-SHIFT:
+->TION
+P------------------------------------------------------------*/
+
+[181:1]	/* DESCRIPTION
+INPUT: * Simple macro for main() testdriver providing error test & diagnostic.
+TBM-SHIFT:
+->le macro for main() testdriver providing error test & diagnostic.
+P---*/
+
+TBM-SHIFT:
+->roviding error test & diagnostic.
+P---*/
+
+[182:2]	* Simple macro for main() testdriver providing error test & diagnostic.
+INPUT: *-4*/
+INPUT: 
+INPUT: #define CHKERR(expr, msg)	{ 		\
+TBM-SHIFT:
+->r, msg)	{ 		\
+Pver providing error test & diagnostic.
+
+[185:1]	#define CHKERR(expr, msg)	{ 		\
+INPUT: 		if (expr) 					\
+TBM-SHIFT:
+->r) 					\
+P msg)	{ 		\
+
+[186:1]			if (expr) 					\
+INPUT: 		{ 							\
+INPUT: 			fprintf(stderr,			\
+TBM-SHIFT:
+->rintf(stderr,			\
+P)	{ 		\
+
+[188:1]				fprintf(stderr,			\
+INPUT: 			"\n\aERROR: File[%s]-Line[%d] Date[%s]-Time[%s]\nCAUSE: %s\n", \
+INPUT: 			__FILE__, __LINE__, __DATE__, __TIME__, msg);				   \
+INPUT: 			exit(EXIT_FAILURE);		\
+INPUT: 		} 							\
+INPUT:     }  /* End define CHKERR */
+INPUT: 	
+INPUT: 
+INPUT: 
+INPUT: /*+1 MODULE TBM.C ==========================================================*/
+INPUT: /*	 NAME 00						main									*/
+INPUT: /*== SYNOPSIS ==============================================================*/
+TBM-SHIFT:
+->SIS ==============================================================*/
+P¶a‘{b
+[199:1]	/*== SYNOPSIS ==============================================================*/
+INPUT: int main(argc, argv)
+INPUT: 	int argc; 		/* Argument count : should be 3, cf. argv[] */
+INPUT: 	char *argv[]; 	/* Argument vector: <tbm>, <pattern>, <file> */
+TBM-SHIFT:
+->attern>, <file> */
+P===========*/
+
+[202:1]		char *argv[]; 	/* Argument vector: <tbm>, <pattern>, <file> */
+INPUT: {
+INPUT: 	/* DESCRIPTION
+TBM-SHIFT:
+->TION
+P* Argument vector: <tbm>, <pattern>, <file> */
+
+[204:1]		/* DESCRIPTION
+INPUT: 	* Testdriver for module tbm.c ; -
+INPUT: 	*
+INPUT: 	* I: 	The testdriver exercises the functions in the module, and validates
+INPUT: 	* 		the functionality through trace-statements (compiled with -DDEBUG).
+TBM-SHIFT:
+->iled with -DDEBUG).
+P
+
+[208:1]		* 		the functionality through trace-statements (compiled with -DDEBUG).
+INPUT: 	* 		1: Test reaction to boundary conditions : Empty pattern/textbuffer.
+TBM-SHIFT:
+->ty pattern/textbuffer.
+P
+
+TBM-SHIFT:
+->attern/textbuffer.
+P
+
+[209:2]		* 		1: Test reaction to boundary conditions : Empty pattern/textbuffer.
+INPUT: 	*
+INPUT: 	* II:	The testdriver may be used as a stand alone utility with a simple
+TBM-SHIFT:
+->le
+P
+
+[211:1]		* II:	The testdriver may be used as a stand alone utility with a simple
+INPUT: 	* 		commandline interface for searching a file for a textstring :
+INPUT: 	* 		tbm <pattern> <file>, - (cf. the "USAGE" description above).
+TBM-SHIFT:
+->attern> <file>, - (cf. the "USAGE" description above).
+P
+TBM-SHIFT:
+->tion above).
+P
+[213:2]		* 		tbm <pattern> <file>, - (cf. the "USAGE" description above).
+INPUT: 	* 		1: Signon & check args
+INPUT: 	* 		2: Open textfile to search
+TBM-SHIFT:
+->en textfile to search
+P the "USAGE" description above).
+
+[215:1]		* 		2: Open textfile to search
+INPUT: 	*		3: Prepare pattern for TBM search
+TBM-SHIFT:
+->repare pattern for TBM search
+PUSAGE" description above).
+
+TBM-SHIFT:
+->are pattern for TBM search
+PUSAGE" description above).
+
+TBM-SHIFT:
+->attern for TBM search
+PUSAGE" description above).
+
+[216:3]		*		3: Prepare pattern for TBM search
+INPUT: 	* 		4: Perform TBM search on textfile, one line at a time, until EOF
+TBM-SHIFT:
+->erform TBM search on textfile, one line at a time, until EOF
+Pe
+
+[217:1]		* 		4: Perform TBM search on textfile, one line at a time, until EOF
+INPUT: 	* 		5: Clean up & Terminate
+TBM-SHIFT:
+-> & Terminate
+Ptextfile, one line at a time, until EOF
+
+[218:1]		* 		5: Clean up & Terminate
+INPUT: 	*-1*/
+INPUT: 
+INPUT: 	FILE  *fdTxt; 				/* File handle for textfile */
+INPUT: 	BYTE  cBuf[MAXLIN+MAXPAT]; 	/* Linebuffer for textfile */
+TBM-SHIFT:
+->AT]; 	/* Linebuffer for textfile */
+Puntil EOF
+
+[222:1]		BYTE  cBuf[MAXLIN+MAXPAT]; 	/* Linebuffer for textfile */
+INPUT: 	DWORD dwCount = 0L; 		/* Linecount for textlines */
+INPUT: 	int   iMatch; 				/* Integer return code (line matches) */
+INPUT: 	DWORD dwMatchTotal = 0L;	/* Total number matches (input stream)*/
+TBM-SHIFT:
+->ut stream)*/
+PF
+
+[225:1]		DWORD dwMatchTotal = 0L;	/* Total number matches (input stream)*/
+INPUT: 
+INPUT: #ifdef DUMMY
+INPUT: 	/*-----------------------------------------------------------------------*/
+INPUT: 	/* I: INTERNAL TEST PART OF MAIN() TESTDRIVER */
+TBM-SHIFT:
+->ART OF MAIN() TESTDRIVER */
+P-----------------------*/
+
+[229:1]		/* I: INTERNAL TEST PART OF MAIN() TESTDRIVER */
+INPUT: 	/* 1: Test reaction to boundary conditions : Empty pattern/textbuffer. */
+TBM-SHIFT:
+->ty pattern/textbuffer. */
+P
+
+TBM-SHIFT:
+->attern/textbuffer. */
+P
+
+[230:2]		/* 1: Test reaction to boundary conditions : Empty pattern/textbuffer. */
+INPUT: 	strcpy((char *)cBuf, ""); /* 1.1: Empty pattern */
+TBM-SHIFT:
+->y((char *)cBuf, ""); /* 1.1: Empty pattern */
+Pattern/textbuffer. */
+
+TBM-SHIFT:
+->ty pattern */
+Pattern/textbuffer. */
+
+TBM-SHIFT:
+->attern */
+Pattern/textbuffer. */
+
+[231:3]		strcpy((char *)cBuf, ""); /* 1.1: Empty pattern */
+INPUT: 	vBuildTBM(cBuf, strlen(cBuf));
+INPUT: 
+INPUT: 	strcpy((char *)cBuf, "Dummy\n");
+TBM-SHIFT:
+->y((char *)cBuf, "Dummy\n");
+PEmpty pattern */
+
+[234:1]		strcpy((char *)cBuf, "Dummy\n");
+INPUT: 	if ( iRunTBM(cBuf, strlen((char*)cBuf)) )
+INPUT: 		printf("[%05lu]\t%s", dwCount, cBuf);
+TBM-SHIFT:
+->rintf("[%05lu]\t%s", dwCount, cBuf);
+P)
+
+[236:1]			printf("[%05lu]\t%s", dwCount, cBuf);
+INPUT: 
+INPUT: 	strcpy((char *)cBuf, "Dummy"); /* 1.2: Empty textbuffer */
+TBM-SHIFT:
+->y((char *)cBuf, "Dummy"); /* 1.2: Empty textbuffer */
+Pextbuffer. */
+
+TBM-SHIFT:
+->ty textbuffer */
+Pextbuffer. */
+
+[238:2]		strcpy((char *)cBuf, "Dummy"); /* 1.2: Empty textbuffer */
+INPUT: 	vBuildTBM(cBuf, strlen(cBuf));
+INPUT: 
+INPUT: 	strcpy((char *)cBuf, "");
+TBM-SHIFT:
+->y((char *)cBuf, "");
+P));
+
+[241:1]		strcpy((char *)cBuf, "");
+INPUT: 	if ( iRunTBM(cBuf, strlen((char*)cBuf)) )
+INPUT: 		printf("[%05lu]\t%s", dwCount, cBuf);
+TBM-SHIFT:
+->rintf("[%05lu]\t%s", dwCount, cBuf);
+P)
+
+[243:1]			printf("[%05lu]\t%s", dwCount, cBuf);
+INPUT: #endif /* DUMMY */
+INPUT: 
+INPUT: 
+INPUT: 	/*-----------------------------------------------------------------------*/
+INPUT: 	/* II: APPLICATION PART OF MAIN() TESTDRIVER */
+TBM-SHIFT:
+->PLICATION PART OF MAIN() TESTDRIVER */
+P------------------------*/
+
+TBM-SHIFT:
+->LICATION PART OF MAIN() TESTDRIVER */
+P------------------------*/
+
+TBM-SHIFT:
+->ART OF MAIN() TESTDRIVER */
+P------------------------*/
+
+[248:3]		/* II: APPLICATION PART OF MAIN() TESTDRIVER */
+INPUT: 
+INPUT: 	/* 1: Signon & check args */
+INPUT: 	fputs(SIGNON, stdout);
+TBM-SHIFT:
+->uts(SIGNON, stdout);
+Ps */
+
+[251:1]		fputs(SIGNON, stdout);
+INPUT: 
+INPUT: 	if (argc != 3) {
+INPUT: 		fputs(USAGE, stdout);
+TBM-SHIFT:
+->uts(USAGE, stdout);
+Ps */
+
+[254:1]			fputs(USAGE, stdout);
+INPUT: 		exit(EXIT_FAILURE);
+INPUT: 	}
+INPUT: 
+INPUT: 	/* 2: Open textfile to search */
+TBM-SHIFT:
+->en textfile to search */
+PTESTDRIVER */
+
+[258:1]		/* 2: Open textfile to search */
+INPUT: 	D( printf("Input File: %s\n", argv[2]); )
+TBM-SHIFT:
+->rintf("Input File: %s\n", argv[2]); )
+PR */
+
+TBM-SHIFT:
+->ut File: %s\n", argv[2]); )
+PR */
+
+[259:2]		D( printf("Input File: %s\n", argv[2]); )
+INPUT: 	fdTxt = fopen(argv[2], "r");
+TBM-SHIFT:
+->en(argv[2], "r");
+Pargv[2]); )
+
+[260:1]		fdTxt = fopen(argv[2], "r");
+INPUT: 	CHKERR(fdTxt == NULL, "Function fopen()")
+TBM-SHIFT:
+->en()")
+PR */
+
+[261:1]		CHKERR(fdTxt == NULL, "Function fopen()")
+INPUT: 	int iRet = setvbuf(fdTxt, NULL, _IOFBF, 4*1024);
+INPUT: 	CHKERR(iRet != 0, "Function setvbuf()")
+INPUT: 
+INPUT: 
+INPUT: 	/* 3: Prepare pattern for TBM search */
+TBM-SHIFT:
+->repare pattern for TBM search */
+P*1024);
+
+TBM-SHIFT:
+->are pattern for TBM search */
+P*1024);
+
+TBM-SHIFT:
+->attern for TBM search */
+P*1024);
+
+[266:3]		/* 3: Prepare pattern for TBM search */
+INPUT: 	vBuildTBM( (BYTE*) argv[1], strlen(argv[1])); /* len. of pattern (EXCL \0) */
+TBM-SHIFT:
+->attern (EXCL \0) */
+P¶a‘{b
+[267:1]		vBuildTBM( (BYTE*) argv[1], strlen(argv[1])); /* len. of pattern (EXCL \0) */
+INPUT: 
+INPUT: 
+INPUT: 	/* 4: Perform TBM search on textfile, one line at a time, until EOF */
+TBM-SHIFT:
+->erform TBM search on textfile, one line at a time, until EOF */
+P0) */
+
+[270:1]		/* 4: Perform TBM search on textfile, one line at a time, until EOF */
+INPUT: 	while (1) {
+INPUT: 		/*CONSTEXPR*/
+TBM-SHIFT:
+->R*/
+PM search on textfile, one line at a time, until EOF */
+
+[272:1]			/*CONSTEXPR*/
+INPUT: 
+INPUT: 		/* Read next input line from file to buffer; - Break at EOF */
+TBM-SHIFT:
+->ut line from file to buffer; - Break at EOF */
+POF */
+
+[274:1]			/* Read next input line from file to buffer; - Break at EOF */
+INPUT: 		if ( fgets((char*)cBuf, MAXLIN, fdTxt) == NULL || feof(fdTxt) )
+INPUT: 			break;
+INPUT: 		D( printf( "INPUT: %s", cBuf); )
+TBM-SHIFT:
+->rintf( "INPUT: %s", cBuf); )
+PTxt) == NULL || feof(fdTxt) )
+
+TBM-SHIFT:
+->UT: %s", cBuf); )
+PTxt) == NULL || feof(fdTxt) )
+
+[277:2]			D( printf( "INPUT: %s", cBuf); )
+INPUT: 		dwCount++;
+INPUT: 
+INPUT: 		/* Run TBM search on text in buffer; - echo text if match */
+INPUT: 		if ( iMatch = iRunTBM(cBuf, strlen((char*)cBuf)) ) {
+INPUT: 			printf("[%ld:%d]\t%s", dwCount, iMatch, cBuf);
+TBM-SHIFT:
+->rintf("[%ld:%d]\t%s", dwCount, iMatch, cBuf);
+P) {
+
+[282:1]				printf("[%ld:%d]\t%s", dwCount, iMatch, cBuf);
+INPUT: 			dwMatchTotal += iMatch;
+INPUT: 		}
+INPUT: 	}
+INPUT: 	printf("\nTotal match of [%s] in input stream [%s]: [%ld]",	\
+TBM-SHIFT:
+->rintf("\nTotal match of [%s] in input stream [%s]: [%ld]",	\
+P)
+
+TBM-SHIFT:
+->ut stream [%s]: [%ld]",	\
+P)
+
+[286:2]		printf("\nTotal match of [%s] in input stream [%s]: [%ld]",	\
+INPUT: 		argv[1], argv[2], dwMatchTotal);
+INPUT: 
+INPUT: 	/* 5: Cleanup & Terminate */
+TBM-SHIFT:
+-> & Terminate */
+Pl);
+
+[289:1]		/* 5: Cleanup & Terminate */
+INPUT: 	free(fdTxt);
+INPUT: 	return(EXIT_SUCCESS);	
+INPUT: }
+INPUT: #endif /* MAIN */
+INPUT: 
+INPUT: 
+INPUT: /****************************************************************************/
+INPUT: /******************************** TBM ***************************************/
+INPUT: /****************************************************************************/
+INPUT: 
+INPUT: /* Structure defining search pattern and TBM parameters */
+TBM-SHIFT:
+->attern and TBM parameters */
+P*****************/
+
+TBM-SHIFT:
+->arameters */
+P*****************/
+
+[300:2]	/* Structure defining search pattern and TBM parameters */
+INPUT: PRIVATE struct {
+TBM-SHIFT:
+->RIVATE struct {
+Ping search pattern and TBM parameters */
+
+[301:1]	PRIVATE struct {
+INPUT: 	BYTE 	pat[1024]; 		/* PATTERN Buffer holding pattern to match   */
+TBM-SHIFT:
+->at[1024]; 		/* PATTERN Buffer holding pattern to match   */
+P********/
+
+TBM-SHIFT:
+->ATTERN Buffer holding pattern to match   */
+P********/
+
+TBM-SHIFT:
+->attern to match   */
+P********/
+
+[302:3]		BYTE 	pat[1024]; 		/* PATTERN Buffer holding pattern to match   */
+INPUT: 	int 	patlen; 		/* ------- Sizeof(pattern) pat[] (incl. \0)  */
+TBM-SHIFT:
+->atlen; 		/* ------- Sizeof(pattern) pat[] (incl. \0)  */
+P*/
+
+TBM-SHIFT:
+->attern) pat[] (incl. \0)  */
+P*/
+
+TBM-SHIFT:
+->at[] (incl. \0)  */
+P*/
+
+[303:3]		int 	patlen; 		/* ------- Sizeof(pattern) pat[] (incl. \0)  */
+INPUT: 	int 	delta[ASIZE];	/* SKIP..: BM skip table for pattern endchar */
+TBM-SHIFT:
+->..: BM skip table for pattern endchar */
+P********/
+
+TBM-SHIFT:
+-> table for pattern endchar */
+P********/
+
+TBM-SHIFT:
+->attern endchar */
+P********/
+
+[304:3]		int 	delta[ASIZE];	/* SKIP..: BM skip table for pattern endchar */
+INPUT: 	BYTE 	rarec; 			/* MATCH.: Guard, "rarest" char in pattern   */
+TBM-SHIFT:
+->attern   */
+P/
+
+[305:1]		BYTE 	rarec; 			/* MATCH.: Guard, "rarest" char in pattern   */
+INPUT: 	int 	rareoff; 		/* ------- Position in pattern of guard-char */
+TBM-SHIFT:
+->osition in pattern of guard-char */
+P/
+
+TBM-SHIFT:
+->attern of guard-char */
+P/
+
+[306:2]		int 	rareoff; 		/* ------- Position in pattern of guard-char */
+INPUT: 	int 	md2; 			/* SHIFT.: Mini-sd2 shift value 	     */
+INPUT: } pat;
+TBM-SHIFT:
+->at;
+P2; 			/* SHIFT.: Mini-sd2 shift value 	     */
+
+[308:1]	} pat;
+INPUT: 
+INPUT: 
+INPUT: /*+2 MODULE TBM.C ==========================================================*/
+INPUT: /*	 NAME 01							vBuildTBM							*/
+INPUT: /*== SYNOPSIS ==============================================================*/
+TBM-SHIFT:
+->SIS ==============================================================*/
+P¶a‘{b
+[313:1]	/*== SYNOPSIS ==============================================================*/
+INPUT: PUBLIC void
+TBM-SHIFT:
+->UBLIC void
+P ==============================================================*/
+
+[314:1]	PUBLIC void
+INPUT: vBuildTBM(pb, len)
+TBM-SHIFT:
+->b, len)
+P========================================================*/
+
+[315:1]	vBuildTBM(pb, len)
+INPUT: 	BYTE *pb; /* Ptr begin of (\0-terminated) pattern string */
+TBM-SHIFT:
+->b; /* Ptr begin of (\0-terminated) pattern string */
+P==============*/
+
+TBM-SHIFT:
+->tr begin of (\0-terminated) pattern string */
+P==============*/
+
+TBM-SHIFT:
+->attern string */
+P==============*/
+
+[316:3]		BYTE *pb; /* Ptr begin of (\0-terminated) pattern string */
+INPUT: 	int  len; /* Length of pattern-string (#byte, EXCL \0) */
+TBM-SHIFT:
+->attern-string (#byte, EXCL \0) */
+P
+
+[317:1]		int  len; /* Length of pattern-string (#byte, EXCL \0) */
+INPUT: {
+INPUT: /* DESCRIPTION
+TBM-SHIFT:
+->TION
+Pngth of pattern-string (#byte, EXCL \0) */
+
+[319:1]	/* DESCRIPTION
+INPUT: * Init. datastructures necessary for running a Tuned Boyer-Moore search :
+INPUT: * fill in delta table for skip-loop, find rarest pattern-char (guard) for
+TBM-SHIFT:
+->-loop, find rarest pattern-char (guard) for
+P=*/
+
+TBM-SHIFT:
+->, find rarest pattern-char (guard) for
+P=*/
+
+TBM-SHIFT:
+->attern-char (guard) for
+P=*/
+
+[321:3]	* fill in delta table for skip-loop, find rarest pattern-char (guard) for
+INPUT: * match-loop, and get "endcharacter reoccurrence" (md2) for shift-function.
+TBM-SHIFT:
+->, and get "endcharacter reoccurrence" (md2) for shift-function.
+P/
+
+[322:1]	* match-loop, and get "endcharacter reoccurrence" (md2) for shift-function.
+INPUT: *
+INPUT: * 1:	Initialize fields of struct "pat" from function arguments.
+TBM-SHIFT:
+->at" from function arguments.
+P-function.
+
+[324:1]	* 1:	Initialize fields of struct "pat" from function arguments.
+INPUT: *
+INPUT: * 2: 	For SKIP-LOOP: Define the BM (Boyer-Moore) delta skip-table d[];
+TBM-SHIFT:
+->-LOOP: Define the BM (Boyer-Moore) delta skip-table d[];
+Pon.
+
+TBM-SHIFT:
+->: Define the BM (Boyer-Moore) delta skip-table d[];
+Pon.
+
+TBM-SHIFT:
+->-table d[];
+Pon.
+
+[326:3]	* 2: 	For SKIP-LOOP: Define the BM (Boyer-Moore) delta skip-table d[];
+INPUT: * 		d[] is the "delta" array precomputed for each char A in the alphabet
+TBM-SHIFT:
+->recomputed for each char A in the alphabet
+P.
+
+TBM-SHIFT:
+->uted for each char A in the alphabet
+P.
+
+TBM-SHIFT:
+->habet
+P.
+
+[327:3]	* 		d[] is the "delta" array precomputed for each char A in the alphabet
+INPUT: * 		to hold the #chars from the last char in the pattern to the rightmost
+TBM-SHIFT:
+->attern to the rightmost
+P
+
+[328:1]	* 		to hold the #chars from the last char in the pattern to the rightmost
+INPUT: *		occurrence of A in the pattern (0 for the last char, patlen for all
+TBM-SHIFT:
+->attern (0 for the last char, patlen for all
+Pt
+
+TBM-SHIFT:
+->atlen for all
+Pt
+
+[329:2]	*		occurrence of A in the pattern (0 for the last char, patlen for all
+INPUT: * 		chars not in the pattern); -
+TBM-SHIFT:
+->attern); -
+P(0 for the last char, patlen for all
+
+[330:1]	* 		chars not in the pattern); -
+INPUT: * 		d[] is used in the skip loop to match the last pattern-char P with
+TBM-SHIFT:
+-> loop to match the last pattern-char P with
+Pt
+
+TBM-SHIFT:
+-> to match the last pattern-char P with
+Pt
+
+TBM-SHIFT:
+->attern-char P with
+Pt
+
+TBM-SHIFT:
+-> with
+Pt
+
+[331:4]	* 		d[] is used in the skip loop to match the last pattern-char P with
+INPUT: * 		the corresponding text-char T : If ((k = d[T]) > 0), k holds the
+TBM-SHIFT:
+->onding text-char T : If ((k = d[T]) > 0), k holds the
+P
+
+[332:1]	* 		the corresponding text-char T : If ((k = d[T]) > 0), k holds the
+INPUT: * 		"delta-value" to shift the pattern right for aligning the last T
+TBM-SHIFT:
+->attern right for aligning the last T
+P
+
+[333:1]	* 		"delta-value" to shift the pattern right for aligning the last T
+INPUT: *		in the pattern with T in the text (or for shifting the pattern past
+TBM-SHIFT:
+->attern with T in the text (or for shifting the pattern past
+Pt
+
+TBM-SHIFT:
+->attern past
+Pt
+
+TBM-SHIFT:
+->ast
+Pt
+
+[334:3]	*		in the pattern with T in the text (or for shifting the pattern past
+INPUT: * 		T in the text, when k = patlen).
+TBM-SHIFT:
+->atlen).
+Por for shifting the pattern past
+
+[335:1]	* 		T in the text, when k = patlen).
+INPUT: *
+INPUT: * 3: 	For MATCH-LOOP: Define guard as the rarest character of the pattern;
+TBM-SHIFT:
+->: Define guard as the rarest character of the pattern;
+P
+TBM-SHIFT:
+->attern;
+P
+[337:2]	* 3: 	For MATCH-LOOP: Define guard as the rarest character of the pattern;
+INPUT: * 		In the match-loop we will test the guard against the text before
+TBM-SHIFT:
+-> we will test the guard against the text before
+Pern;
+
+[338:1]	* 		In the match-loop we will test the guard against the text before
+INPUT: * 		doing a full match test.
+INPUT: *
+INPUT: * 4: 	For SHIFT-FUNC.: Find "mini-sd2" shift (sd2: Sunday's general DELTA2);
+INPUT: * 		Define md2 as the #chars to shift the pattern to the first leftward
+TBM-SHIFT:
+->attern to the first leftward
+P2);
+
+[342:1]	* 		Define md2 as the #chars to shift the pattern to the first leftward
+INPUT: * 		reoccurrence of the skip-loop char (here: the LAST char in pattern), -
+TBM-SHIFT:
+->-loop char (here: the LAST char in pattern), -
+P
+
+TBM-SHIFT:
+-> char (here: the LAST char in pattern), -
+P
+
+TBM-SHIFT:
+->attern), -
+P
+
+[343:3]	* 		reoccurrence of the skip-loop char (here: the LAST char in pattern), -
+INPUT: * 		if the last char doesn't reoccur in the pattern, md2 = patternlength.
+TBM-SHIFT:
+->attern, md2 = patternlength.
+P
+TBM-SHIFT:
+->atternlength.
+P
+[344:2]	* 		if the last char doesn't reoccur in the pattern, md2 = patternlength.
+INPUT: * 		This shift-value is applied to the "endpointer", whenever a mismatch
+TBM-SHIFT:
+->plied to the "endpointer", whenever a mismatch
+P
+TBM-SHIFT:
+->lied to the "endpointer", whenever a mismatch
+P
+TBM-SHIFT:
+->ointer", whenever a mismatch
+P
+[345:3]	* 		This shift-value is applied to the "endpointer", whenever a mismatch
+INPUT: * 		occurs (cf. the exec function).
+INPUT: *
+INPUT: * RETURN
+INPUT: * 		Func.return value: None (void); - Resources are statically allocated
+INPUT: * 		for struct pat, so dynamic error conditions can not occur.
+TBM-SHIFT:
+->at, so dynamic error conditions can not occur.
+Pllocated
+
+[350:1]	* 		for struct pat, so dynamic error conditions can not occur.
+INPUT: *-2*/
+INPUT: 
+INPUT: 	/* 1.1: Setup shorthand register var's for struct "pat" fields */
+TBM-SHIFT:
+-> shorthand register var's for struct "pat" fields */
+Pated
+
+TBM-SHIFT:
+->at" fields */
+Pated
+
+[353:2]		/* 1.1: Setup shorthand register var's for struct "pat" fields */
+INPUT: 	register BYTE 	*pe;	/* Ptr to pattern end */
+TBM-SHIFT:
+->e;	/* Ptr to pattern end */
+Puct "pat" fields */
+
+TBM-SHIFT:
+->tr to pattern end */
+Puct "pat" fields */
+
+TBM-SHIFT:
+->attern end */
+Puct "pat" fields */
+
+[354:3]		register BYTE 	*pe;	/* Ptr to pattern end */
+INPUT: 	register BYTE 	*p; 	/* Ptr for reverse scan of pattern */
+TBM-SHIFT:
+->; 	/* Ptr for reverse scan of pattern */
+Plds */
+
+TBM-SHIFT:
+->tr for reverse scan of pattern */
+Plds */
+
+TBM-SHIFT:
+->attern */
+Plds */
+
+[355:3]		register BYTE 	*p; 	/* Ptr for reverse scan of pattern */
+INPUT: 	register int 	j; 		/* Index into delta array */
+INPUT: 	register int 	r; 		/* Offset in pattern of "rare" character */
+TBM-SHIFT:
+->attern of "rare" character */
+P/
+
+[357:1]		register int 	r; 		/* Offset in pattern of "rare" character */
+INPUT: 	register int 	*d; 	/* Alias for delta array */
+INPUT: 	BYTE			*bp;	/* Scan ptr. for pattern */
+TBM-SHIFT:
+->;	/* Scan ptr. for pattern */
+Pay */
+
+TBM-SHIFT:
+->tr. for pattern */
+Pay */
+
+TBM-SHIFT:
+->attern */
+Pay */
+
+[359:3]		BYTE			*bp;	/* Scan ptr. for pattern */
+INPUT: 	int				c;		/* Scratch count variable *)
+INPUT: 	
+INPUT: 	/* Initialize structure "pat" from the function arguments */
+TBM-SHIFT:
+->at" from the function arguments */
+P
+
+[362:1]		/* Initialize structure "pat" from the function arguments */
+INPUT: 	pat.patlen = len; 						/* #chars in pat (EXCL \0) */
+TBM-SHIFT:
+->at.patlen = len; 						/* #chars in pat (EXCL \0) */
+Pts */
+
+TBM-SHIFT:
+->atlen = len; 						/* #chars in pat (EXCL \0) */
+Pts */
+
+TBM-SHIFT:
+->at (EXCL \0) */
+Pts */
+
+[363:3]		pat.patlen = len; 						/* #chars in pat (EXCL \0) */
+INPUT: 	assert(pat.patlen < sizeof(pat.pat)); 	/* must fit into buffer */
+TBM-SHIFT:
+->at.patlen < sizeof(pat.pat)); 	/* must fit into buffer */
+Pated
+
+TBM-SHIFT:
+->atlen < sizeof(pat.pat)); 	/* must fit into buffer */
+Pated
+
+TBM-SHIFT:
+->at.pat)); 	/* must fit into buffer */
+Pated
+
+TBM-SHIFT:
+->at)); 	/* must fit into buffer */
+Pated
+
+[364:4]		assert(pat.patlen < sizeof(pat.pat)); 	/* must fit into buffer */
+INPUT: 	memcpy(pat.pat, pb, pat.patlen);
+TBM-SHIFT:
+->y(pat.pat, pb, pat.patlen);
+P)); 	/* must fit into buffer */
+
+TBM-SHIFT:
+->at.pat, pb, pat.patlen);
+P)); 	/* must fit into buffer */
+
+TBM-SHIFT:
+->at, pb, pat.patlen);
+P)); 	/* must fit into buffer */
+
+TBM-SHIFT:
+->b, pat.patlen);
+P)); 	/* must fit into buffer */
+
+TBM-SHIFT:
+->at.patlen);
+P)); 	/* must fit into buffer */
+
+TBM-SHIFT:
+->atlen);
+P)); 	/* must fit into buffer */
+
+[365:6]		memcpy(pat.pat, pb, pat.patlen);
+INPUT: 
+INPUT: 	for (bp = pat.pat; bp < pat.pat+pat.patlen; bp++)
+TBM-SHIFT:
+-> = pat.pat; bp < pat.pat+pat.patlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+->at.pat; bp < pat.pat+pat.patlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+->at; bp < pat.pat+pat.patlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+-> < pat.pat+pat.patlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+->at.pat+pat.patlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+->at+pat.patlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+->at.patlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+->atlen; bp++)
+Pinto buffer */
+
+TBM-SHIFT:
+->++)
+Pinto buffer */
+
+[367:9]		for (bp = pat.pat; bp < pat.pat+pat.patlen; bp++)
+INPUT: 		*bp = UCASE(*bp); 					/* Possibly conv. to uppercase */
+TBM-SHIFT:
+-> = UCASE(*bp); 					/* Possibly conv. to uppercase */
+Pfer */
+
+TBM-SHIFT:
+->); 					/* Possibly conv. to uppercase */
+Pfer */
+
+TBM-SHIFT:
+->ossibly conv. to uppercase */
+Pfer */
+
+TBM-SHIFT:
+->percase */
+Pfer */
+
+TBM-SHIFT:
+->ercase */
+Pfer */
+
+[368:5]			*bp = UCASE(*bp); 					/* Possibly conv. to uppercase */
+INPUT: 	D(fprintf(stdout, "Pattern[%s], Length[%d]\n", pat.pat, pat.patlen);)
+TBM-SHIFT:
+->rintf(stdout, "Pattern[%s], Length[%d]\n", pat.pat, pat.patlen);)
+P
+
+TBM-SHIFT:
+->attern[%s], Length[%d]\n", pat.pat, pat.patlen);)
+P
+
+TBM-SHIFT:
+->at.pat, pat.patlen);)
+P
+
+TBM-SHIFT:
+->at, pat.patlen);)
+P
+
+TBM-SHIFT:
+->at.patlen);)
+P
+
+TBM-SHIFT:
+->atlen);)
+P
+
+[369:6]		D(fprintf(stdout, "Pattern[%s], Length[%d]\n", pat.pat, pat.patlen);)
+INPUT: 
+INPUT: 
+INPUT: 	/* 2: For SKIP-LOOP: define the BM skip delta table d[] */
+TBM-SHIFT:
+->-LOOP: define the BM skip delta table d[] */
+Ppatlen);)
+
+TBM-SHIFT:
+->: define the BM skip delta table d[] */
+Ppatlen);)
+
+TBM-SHIFT:
+-> delta table d[] */
+Ppatlen);)
+
+[372:3]		/* 2: For SKIP-LOOP: define the BM skip delta table d[] */
+INPUT: 	for (j = 0, d = pat.delta; j < ASIZE; j++)
+TBM-SHIFT:
+->at.delta; j < ASIZE; j++)
+Pa table d[] */
+
+[373:1]		for (j = 0, d = pat.delta; j < ASIZE; j++)
+INPUT: 		d[j] = pat.patlen; 		/* Init all = pat.patlen */
+TBM-SHIFT:
+->at.patlen; 		/* Init all = pat.patlen */
+P d[] */
+
+TBM-SHIFT:
+->atlen; 		/* Init all = pat.patlen */
+P d[] */
+
+TBM-SHIFT:
+->at.patlen */
+P d[] */
+
+TBM-SHIFT:
+->atlen */
+P d[] */
+
+[374:4]			d[j] = pat.patlen; 		/* Init all = pat.patlen */
+INPUT: 
+INPUT: 	for (pb = pat.pat, pe = pb+pat.patlen-1; pb <= pe; pb++) {
+TBM-SHIFT:
+->b = pat.pat, pe = pb+pat.patlen-1; pb <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->at.pat, pe = pb+pat.patlen-1; pb <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->at, pe = pb+pat.patlen-1; pb <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->e = pb+pat.patlen-1; pb <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->b+pat.patlen-1; pb <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->at.patlen-1; pb <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->atlen-1; pb <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->b <= pe; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->e; pb++) {
+Ppatlen);)
+
+TBM-SHIFT:
+->b++) {
+Ppatlen);)
+
+[376:10]		for (pb = pat.pat, pe = pb+pat.patlen-1; pb <= pe; pb++) {
+INPUT: 		d[*pb] = pe - pb; 		/* Reset for pat.chars */
+TBM-SHIFT:
+->b] = pe - pb; 		/* Reset for pat.chars */
+Pe; pb++) {
+
+TBM-SHIFT:
+->e - pb; 		/* Reset for pat.chars */
+Pe; pb++) {
+
+TBM-SHIFT:
+->b; 		/* Reset for pat.chars */
+Pe; pb++) {
+
+TBM-SHIFT:
+->at.chars */
+Pe; pb++) {
+
+[377:4]			d[*pb] = pe - pb; 		/* Reset for pat.chars */
+INPUT: 		D(fprintf(stdout, "\tSkip :\t[%c]=%d\n", *pb, pe - pb);)
+TBM-SHIFT:
+->rintf(stdout, "\tSkip :\t[%c]=%d\n", *pb, pe - pb);)
+P
+TBM-SHIFT:
+-> :\t[%c]=%d\n", *pb, pe - pb);)
+P
+TBM-SHIFT:
+->b, pe - pb);)
+P
+TBM-SHIFT:
+->e - pb);)
+P
+TBM-SHIFT:
+->b);)
+P
+[378:5]			D(fprintf(stdout, "\tSkip :\t[%c]=%d\n", *pb, pe - pb);)
+INPUT: 	}
+INPUT: 
+INPUT: #ifdef TBM_FQ
+INPUT: 	/* 3: For MATCH-LOOP: define guard as rarest char of pattern (cf. freq[]) */
+TBM-SHIFT:
+->: define guard as rarest char of pattern (cf. freq[]) */
+P
+TBM-SHIFT:
+->attern (cf. freq[]) */
+P
+[382:2]		/* 3: For MATCH-LOOP: define guard as rarest char of pattern (cf. freq[]) */
+INPUT: 	r = 0;	/* rare pos. (#chr from pat.start) */
+TBM-SHIFT:
+->os. (#chr from pat.start) */
+Phar of pattern (cf. freq[]) */
+
+TBM-SHIFT:
+->at.start) */
+Phar of pattern (cf. freq[]) */
+
+[383:2]		r = 0;	/* rare pos. (#chr from pat.start) */
+INPUT: 	for (pb = pat.pat, pe = pb+pat.patlen-1; pb < pe; pb++)
+TBM-SHIFT:
+->b = pat.pat, pe = pb+pat.patlen-1; pb < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->at.pat, pe = pb+pat.patlen-1; pb < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->at, pe = pb+pat.patlen-1; pb < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->e = pb+pat.patlen-1; pb < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->b+pat.patlen-1; pb < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->at.patlen-1; pb < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->atlen-1; pb < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->b < pe; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->e; pb++)
+Pern (cf. freq[]) */
+
+TBM-SHIFT:
+->b++)
+Pern (cf. freq[]) */
+
+[384:10]		for (pb = pat.pat, pe = pb+pat.patlen-1; pb < pe; pb++)
+INPUT: 		if (freq[*pb] < freq[pat.pat[r]])
+TBM-SHIFT:
+->b] < freq[pat.pat[r]])
+Pn-1; pb < pe; pb++)
+
+TBM-SHIFT:
+->at.pat[r]])
+Pn-1; pb < pe; pb++)
+
+TBM-SHIFT:
+->at[r]])
+Pn-1; pb < pe; pb++)
+
+[385:3]			if (freq[*pb] < freq[pat.pat[r]])
+INPUT: 			r = pb - pat.pat;
+TBM-SHIFT:
+->b - pat.pat;
+P[pat.pat[r]])
+
+TBM-SHIFT:
+->at.pat;
+P[pat.pat[r]])
+
+TBM-SHIFT:
+->at;
+P[pat.pat[r]])
+
+[386:3]				r = pb - pat.pat;
+INPUT: 
+INPUT: 	pat.rarec = pat.pat[r]; /* guard char */
+TBM-SHIFT:
+->at.rarec = pat.pat[r]; /* guard char */
+Pb < pe; pb++)
+
+TBM-SHIFT:
+->at.pat[r]; /* guard char */
+Pb < pe; pb++)
+
+TBM-SHIFT:
+->at[r]; /* guard char */
+Pb < pe; pb++)
+
+[388:3]		pat.rarec = pat.pat[r]; /* guard char */
+INPUT: 	pat.rareoff = r - (pat.patlen - 1); /* negative guard pos (from end) */
+TBM-SHIFT:
+->at.rareoff = r - (pat.patlen - 1); /* negative guard pos (from end) */
+P */
+
+TBM-SHIFT:
+->at.patlen - 1); /* negative guard pos (from end) */
+P */
+
+TBM-SHIFT:
+->atlen - 1); /* negative guard pos (from end) */
+P */
+
+TBM-SHIFT:
+->os (from end) */
+P */
+
+[389:4]		pat.rareoff = r - (pat.patlen - 1); /* negative guard pos (from end) */
+INPUT: 	D(fprintf(stdout, "\tMatch:\tGuard[%c], Offset[%d]\n", pat.rarec, pat.rareoff);)
+TBM-SHIFT:
+->rintf(stdout, "\tMatch:\tGuard[%c], Offset[%d]\n", pat.rarec, pat.rareoff);)
+P{b
+TBM-SHIFT:
+->at.rarec, pat.rareoff);)
+P{b
+TBM-SHIFT:
+->at.rareoff);)
+P{b
+[390:3]		D(fprintf(stdout, "\tMatch:\tGuard[%c], Offset[%d]\n", pat.rarec, pat.rareoff);)
+INPUT: #endif /*TBM_FQ*/
+INPUT: 
+INPUT: 	/* 4: For SHIFT-FUNC.: define md2 = shift to left reoccur. of term. char */
+INPUT: 	for (pe = pat.pat+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+TBM-SHIFT:
+->e = pat.pat+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->at.pat+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->at+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->at.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->atlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+-> = pe-1, c=1; p < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->e-1, c=1; p < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+-> < pat.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->at.patlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->atlen; p--, c++)
+P/
+
+TBM-SHIFT:
+->--, c++)
+P/
+
+[394:11]		for (pe = pat.pat+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+INPUT: 		if (*p == *pe)
+TBM-SHIFT:
+-> == *pe)
+P+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+
+TBM-SHIFT:
+->e)
+P+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+
+[395:2]			if (*p == *pe)
+INPUT: 			break;
+INPUT: 	
+INPUT: 	/* Now c=pe-p is the distance (max pat.patlen) to the first leftward
+TBM-SHIFT:
+->e-p is the distance (max pat.patlen) to the first leftward
+P+)
+
+TBM-SHIFT:
+-> is the distance (max pat.patlen) to the first leftward
+P+)
+
+TBM-SHIFT:
+->at.patlen) to the first leftward
+P+)
+
+TBM-SHIFT:
+->atlen) to the first leftward
+P+)
+
+[398:4]		/* Now c=pe-p is the distance (max pat.patlen) to the first leftward
+INPUT: 	 * reoccurence in the pattern of the terminal char: *pe; OBS: (pe-p) is not
+TBM-SHIFT:
+->attern of the terminal char: *pe; OBS: (pe-p) is not
+P);)
+
+TBM-SHIFT:
+->e; OBS: (pe-p) is not
+P);)
+
+TBM-SHIFT:
+->e-p) is not
+P);)
+
+TBM-SHIFT:
+->) is not
+P);)
+
+[399:4]		 * reoccurence in the pattern of the terminal char: *pe; OBS: (pe-p) is not
+INPUT: 	 * a valid (ANSI) statement, since p may be 1 char left of pat.pat! */
+TBM-SHIFT:
+-> may be 1 char left of pat.pat! */
+Pnot
+
+TBM-SHIFT:
+->at.pat! */
+Pnot
+
+TBM-SHIFT:
+->at! */
+Pnot
+
+[400:3]		 * a valid (ANSI) statement, since p may be 1 char left of pat.pat! */
+INPUT: 	pat.md2 = c;
+TBM-SHIFT:
+->at.md2 = c;
+PSI) statement, since p may be 1 char left of pat.pat! */
+
+[401:1]		pat.md2 = c;
+INPUT: 	D(fprintf(stdout, "\tShift:\tMD2[%d]\n", pat.md2);)
+TBM-SHIFT:
+->rintf(stdout, "\tShift:\tMD2[%d]\n", pat.md2);)
+Pft of pat.pat! */
+
+TBM-SHIFT:
+->at.md2);)
+Pft of pat.pat! */
+
+[402:2]		D(fprintf(stdout, "\tShift:\tMD2[%d]\n", pat.md2);)
+INPUT: 	
+INPUT: } /* END function vBuildTBM() */
+INPUT: 
+INPUT: 
+INPUT: /*+2 MODULE TBM.C ==========================================================*/
+INPUT: /*	 NAME 02						iRunTBM									*/
+INPUT: /*== SYNOPSIS ==============================================================*/
+TBM-SHIFT:
+->SIS ==============================================================*/
+P)
+
+[409:1]	/*== SYNOPSIS ==============================================================*/
+INPUT: PUBLIC int
+TBM-SHIFT:
+->UBLIC int
+PS ==============================================================*/
+
+[410:1]	PUBLIC int
+INPUT: iRunTBM(base, n)
+INPUT: 	BYTE *base; 	/* Ptr to base of textblock for TBM search */
+TBM-SHIFT:
+->tr to base of textblock for TBM search */
+P===============*/
+
+[412:1]		BYTE *base; 	/* Ptr to base of textblock for TBM search */
+INPUT: 	int n; 		/* Length of textblock base[] */
+INPUT: {
+INPUT: /* DESCRIPTION
+TBM-SHIFT:
+->TION
+Pgth of textblock base[] */
+
+[415:1]	/* DESCRIPTION
+INPUT: * Perform a TBM search, applying pattern in struct pat to textbuffer base.
+TBM-SHIFT:
+->erform a TBM search, applying pattern in struct pat to textbuffer base.
+P*/
+
+TBM-SHIFT:
+->plying pattern in struct pat to textbuffer base.
+P*/
+
+TBM-SHIFT:
+->lying pattern in struct pat to textbuffer base.
+P*/
+
+TBM-SHIFT:
+->attern in struct pat to textbuffer base.
+P*/
+
+TBM-SHIFT:
+->at to textbuffer base.
+P*/
+
+[416:5]	* Perform a TBM search, applying pattern in struct pat to textbuffer base.
+INPUT: * Requires basic info. on search pattern previously set up by iBuildTBM();
+TBM-SHIFT:
+->attern previously set up by iBuildTBM();
+P*/
+
+TBM-SHIFT:
+->reviously set up by iBuildTBM();
+P*/
+
+TBM-SHIFT:
+-> by iBuildTBM();
+P*/
+
+[417:3]	* Requires basic info. on search pattern previously set up by iBuildTBM();
+INPUT: * Now iRunTBM() may be called repeatedly to search text-buffers for pat.:
+TBM-SHIFT:
+->eatedly to search text-buffers for pat.:
+P
+TBM-SHIFT:
+->at.:
+P
+[418:2]	* Now iRunTBM() may be called repeatedly to search text-buffers for pat.:
+INPUT: *
+INPUT: *    1: vBuildTBM  
+INPUT: * 		1.1: Set up shorthand register var's for struct. "pat" fields.
+TBM-SHIFT:
+-> shorthand register var's for struct. "pat" fields.
+Ppat.:
+
+TBM-SHIFT:
+->at" fields.
+Ppat.:
+
+[421:2]	* 		1.1: Set up shorthand register var's for struct. "pat" fields.
+INPUT: * 		1.2: Initialize pointers to text and pattern
+TBM-SHIFT:
+->ointers to text and pattern
+Pt. "pat" fields.
+
+TBM-SHIFT:
+->attern
+Pt. "pat" fields.
+
+[422:2]	* 		1.2: Initialize pointers to text and pattern
+INPUT: * 		1.3: Initialize scratch variables
+INPUT: * 		1.4: Catch boundary condition (Immediate ret on empty pattern/text)
+TBM-SHIFT:
+->ty pattern/text)
+P
+
+TBM-SHIFT:
+->attern/text)
+P
+
+[424:2]	* 		1.4: Catch boundary condition (Immediate ret on empty pattern/text)
+INPUT: *
+INPUT: *    2: Insert sentinel string after the text block : put patlen copies of
+TBM-SHIFT:
+->ut patlen copies of
+P*/
+
+TBM-SHIFT:
+->atlen copies of
+P*/
+
+TBM-SHIFT:
+->ies of
+P*/
+
+[426:3]	*    2: Insert sentinel string after the text block : put patlen copies of
+INPUT: * 		the terminal pattern char pat[patlen-1] after text[textlen]; -
+TBM-SHIFT:
+->attern char pat[patlen-1] after text[textlen]; -
+Pies of
+
+TBM-SHIFT:
+->at[patlen-1] after text[textlen]; -
+Pies of
+
+TBM-SHIFT:
+->atlen-1] after text[textlen]; -
+Pies of
+
+[427:3]	* 		the terminal pattern char pat[patlen-1] after text[textlen]; -
+INPUT: * 		This trick removes a test of End-Of-Text (s < e) from the skip loop.
+TBM-SHIFT:
+-> loop.
+P
+
+TBM-SHIFT:
+->.
+P
+
+[428:2]	* 		This trick removes a test of End-Of-Text (s < e) from the skip loop.
+INPUT: *
+INPUT: *    3: SEARCH LOOP ... :
+TBM-SHIFT:
+-> ... :
+Pst of End-Of-Text (s < e) from the skip loop.
+
+[430:1]	*    3: SEARCH LOOP ... :
+INPUT: * 	   3.1 SKIP LOOP
+TBM-SHIFT:
+-> LOOP
+P.. :
+
+TBM-SHIFT:
+->
+P.. :
+
+[431:2]	* 	   3.1 SKIP LOOP
+INPUT: * 	   d0[] is the "delta array" index'ed by the current text-char T at
+INPUT: * 	   the position of the last pattern-char P to give the #chars for
+TBM-SHIFT:
+->osition of the last pattern-char P to give the #chars for
+P
+
+TBM-SHIFT:
+->attern-char P to give the #chars for
+P
+
+TBM-SHIFT:
+-> to give the #chars for
+P
+
+[433:3]	* 	   the position of the last pattern-char P to give the #chars for
+INPUT: * 	   shifting the pattern right in case of T/P-mismatch, thus aligning
+TBM-SHIFT:
+->attern right in case of T/P-mismatch, thus aligning
+P
+TBM-SHIFT:
+->-mismatch, thus aligning
+P
+[434:2]	* 	   shifting the pattern right in case of T/P-mismatch, thus aligning
+INPUT: * 	   the last occurrence of T-in-the-pattern with T-in-the-text.
+TBM-SHIFT:
+->attern with T-in-the-text.
+Pning
+
+[435:1]	* 	   the last occurrence of T-in-the-pattern with T-in-the-text.
+INPUT: * 	   A shift value of 0 indicates T/P-match, thus acting as a sentinel
+TBM-SHIFT:
+->-match, thus acting as a sentinel
+P
+[436:1]	* 	   A shift value of 0 indicates T/P-match, thus acting as a sentinel
+INPUT: * 	   breaking the skip loop.
+TBM-SHIFT:
+-> loop.
+Ptes T/P-match, thus acting as a sentinel
+
+TBM-SHIFT:
+->.
+Ptes T/P-match, thus acting as a sentinel
+
+[437:2]	* 	   breaking the skip loop.
+INPUT: *
+INPUT: *    3.2 MATCH LOOP
+TBM-SHIFT:
+->
+Pip loop.
+
+[439:1]	*    3.2 MATCH LOOP
+INPUT: * 	   First test Guard (rarest char in pattern) against text
+TBM-SHIFT:
+->attern) against text
+P sentinel
+
+[440:1]	* 	   First test Guard (rarest char in pattern) against text
+INPUT: * 	   If guard match : do a complete frwd scan of pattern against text
+TBM-SHIFT:
+->lete frwd scan of pattern against text
+P
+TBM-SHIFT:
+->attern against text
+P
+[441:2]	* 	   If guard match : do a complete frwd scan of pattern against text
+INPUT: * 	   If total match : increment match-count & continue with shift
+INPUT: * 	   or break and just return [T]
+INPUT: *
+INPUT: *    3.3 SHIFT FUNCTION
+INPUT: * 	   Shift the endpointer "s" by md2 chars to the right : s always
+TBM-SHIFT:
+->ointer "s" by md2 chars to the right : s always
+Pt
+
+[446:1]	* 	   Shift the endpointer "s" by md2 chars to the right : s always
+INPUT: * 	   points to the position in the text for matching the LAST char
+TBM-SHIFT:
+->oints to the position in the text for matching the LAST char
+Pt
+
+TBM-SHIFT:
+->osition in the text for matching the LAST char
+Pt
+
+[447:2]	* 	   points to the position in the text for matching the LAST char
+INPUT: * 	   of the pattern; - thus by shifting s to the right, we "drag"
+TBM-SHIFT:
+->attern; - thus by shifting s to the right, we "drag"
+P
+[448:1]	* 	   of the pattern; - thus by shifting s to the right, we "drag"
+INPUT: * 	   along the pattern to the new position for the next match attempt.
+TBM-SHIFT:
+->attern to the new position for the next match attempt.
+P
+TBM-SHIFT:
+->osition for the next match attempt.
+P
+TBM-SHIFT:
+->t.
+P
+[449:3]	* 	   along the pattern to the new position for the next match attempt.
+INPUT: *
+INPUT: *    4: RETURN
+INPUT: *		Return the verdict : #match (or [1|0] if just [T|F] requested)
+INPUT: *
+INPUT: * RETURN
+INPUT: * 	   Side effects .....: 	Textbuffer partly thrashed by terminal sentinel.
+TBM-SHIFT:
+->artly thrashed by terminal sentinel.
+P/
+
+[455:1]	* 	   Side effects .....: 	Textbuffer partly thrashed by terminal sentinel.
+INPUT: * 	   		NB: buffer must have room for MAXPATTERN after text.
+TBM-SHIFT:
+->ATTERN after text.
+Pnal sentinel.
+
+[456:1]	* 	   		NB: buffer must have room for MAXPATTERN after text.
+INPUT: *
+INPUT: * 	   Func.return value : 	0 if no match of pattern in text,
+TBM-SHIFT:
+->attern in text,
+Pnal sentinel.
+
+[458:1]	* 	   Func.return value : 	0 if no match of pattern in text,
+INPUT: * 	   		>0 if match, - value depending on #define TBM_TF :
+TBM-SHIFT:
+->ending on #define TBM_TF :
+P
+
+[459:1]	* 	   		>0 if match, - value depending on #define TBM_TF :
+INPUT: * 	   		 1 if TBM_TB defined (ie. return [True|False] )
+INPUT: * 	   		 c if TBM_TB undefined (where c=count of matches)
+INPUT: *-2*/
+INPUT: 	/* 1: Initialize variables  */
+INPUT: 	
+INPUT: 	/* 1.1: Set up shorthand register var's for struct. "pat" fields */
+TBM-SHIFT:
+-> shorthand register var's for struct. "pat" fields */
+Pinel.
+
+TBM-SHIFT:
+->at" fields */
+Pinel.
+
+[465:2]		/* 1.1: Set up shorthand register var's for struct. "pat" fields */
+INPUT: 	register int n1 = pat.patlen - 1;/* #chars in pattern (excl. \0) */
+TBM-SHIFT:
+->at.patlen - 1;/* #chars in pattern (excl. \0) */
+Pinel.
+
+TBM-SHIFT:
+->atlen - 1;/* #chars in pattern (excl. \0) */
+Pinel.
+
+TBM-SHIFT:
+->attern (excl. \0) */
+Pinel.
+
+[466:3]		register int n1 = pat.patlen - 1;/* #chars in pattern (excl. \0) */
+INPUT: 	register int *d0 = pat.delta;	/* addr. of delta shift array */
+TBM-SHIFT:
+->at.delta;	/* addr. of delta shift array */
+P */
+
+[467:1]		register int *d0 = pat.delta;	/* addr. of delta shift array */
+INPUT: 	register int md2 = pat.md2; 	/* value of mini-sd2 shift */
+TBM-SHIFT:
+->at.md2; 	/* value of mini-sd2 shift */
+P*/
+
+[468:1]		register int md2 = pat.md2; 	/* value of mini-sd2 shift */
+INPUT: 	register BYTE rc = pat.rarec; 	/* rarest char of pattern */
+TBM-SHIFT:
+->at.rarec; 	/* rarest char of pattern */
+P/
+
+TBM-SHIFT:
+->attern */
+P/
+
+[469:2]		register BYTE rc = pat.rarec; 	/* rarest char of pattern */
+INPUT: 	register int ro = pat.rareoff; 	/* pos. from end-of-pat of rc */
+TBM-SHIFT:
+->at.rareoff; 	/* pos. from end-of-pat of rc */
+P/
+
+TBM-SHIFT:
+->os. from end-of-pat of rc */
+P/
+
+TBM-SHIFT:
+->at of rc */
+P/
+
+[470:3]		register int ro = pat.rareoff; 	/* pos. from end-of-pat of rc */
+INPUT: 	
+INPUT: 	/* 1.2: Initialize pointers to text and pattern */
+TBM-SHIFT:
+->ointers to text and pattern */
+Ppat of rc */
+
+TBM-SHIFT:
+->attern */
+Ppat of rc */
+
+[472:2]		/* 1.2: Initialize pointers to text and pattern */
+INPUT: 	register BYTE *s = base + n1; 	/* startchar in text for match */
+INPUT: 	register BYTE *e = base + n; 	/* endchar of text for match */
+INPUT: 	register BYTE *ep = pat.pat + n1; /* startchar in pat for match */
+TBM-SHIFT:
+-> = pat.pat + n1; /* startchar in pat for match */
+P
+TBM-SHIFT:
+->at.pat + n1; /* startchar in pat for match */
+P
+TBM-SHIFT:
+->at + n1; /* startchar in pat for match */
+P
+TBM-SHIFT:
+->at for match */
+P
+[475:4]		register BYTE *ep = pat.pat + n1; /* startchar in pat for match */
+INPUT: 	
+INPUT: 	/* 1.3: Initialize scratch variables */
+INPUT: 	register BYTE *p, *q;
+TBM-SHIFT:
+->, *q;
+Ptch variables */
+
+[478:1]		register BYTE *p, *q;
+INPUT: 	register int   k;
+INPUT: 	register int   nmatch = 0;
+INPUT: 	
+INPUT: 	/* 1.4: Return "no match" on boundary condition (empty pattern/text) */
+TBM-SHIFT:
+->ty pattern/text) */
+P.
+
+TBM-SHIFT:
+->attern/text) */
+P.
+
+[482:2]		/* 1.4: Return "no match" on boundary condition (empty pattern/text) */
+INPUT: 	if (pat.patlen <= 0 || n <= 0) {
+TBM-SHIFT:
+->at.patlen <= 0 || n <= 0) {
+Pary condition (empty pattern/text) */
+
+TBM-SHIFT:
+->atlen <= 0 || n <= 0) {
+Pary condition (empty pattern/text) */
+
+[483:2]		if (pat.patlen <= 0 || n <= 0) {
+INPUT: 		printf("Empty %s\a\n\n", (pat.patlen == 0 ? "pattern" : "text"));
+TBM-SHIFT:
+->rintf("Empty %s\a\n\n", (pat.patlen == 0 ? "pattern" : "text"));
+P */
+
+TBM-SHIFT:
+->ty %s\a\n\n", (pat.patlen == 0 ? "pattern" : "text"));
+P */
+
+TBM-SHIFT:
+->at.patlen == 0 ? "pattern" : "text"));
+P */
+
+TBM-SHIFT:
+->atlen == 0 ? "pattern" : "text"));
+P */
+
+TBM-SHIFT:
+->attern" : "text"));
+P */
+
+[484:5]			printf("Empty %s\a\n\n", (pat.patlen == 0 ? "pattern" : "text"));
+INPUT: 		return(0);
+INPUT: 	}
+INPUT: 
+INPUT: 	/* 2: Set up sentinel for skip loop (thus removing test for End-Of-Text) */
+TBM-SHIFT:
+-> sentinel for skip loop (thus removing test for End-Of-Text) */
+P
+
+TBM-SHIFT:
+-> loop (thus removing test for End-Of-Text) */
+P
+
+TBM-SHIFT:
+-> (thus removing test for End-Of-Text) */
+P
+
+[488:3]		/* 2: Set up sentinel for skip loop (thus removing test for End-Of-Text) */
+INPUT: 	memset(e, pat.pat[pat.patlen - 1], pat.patlen);
+TBM-SHIFT:
+->at.pat[pat.patlen - 1], pat.patlen);
+Pg test for End-Of-Text) */
+
+TBM-SHIFT:
+->at[pat.patlen - 1], pat.patlen);
+Pg test for End-Of-Text) */
+
+TBM-SHIFT:
+->at.patlen - 1], pat.patlen);
+Pg test for End-Of-Text) */
+
+TBM-SHIFT:
+->atlen - 1], pat.patlen);
+Pg test for End-Of-Text) */
+
+TBM-SHIFT:
+->at.patlen);
+Pg test for End-Of-Text) */
+
+TBM-SHIFT:
+->atlen);
+Pg test for End-Of-Text) */
+
+[489:6]		memset(e, pat.pat[pat.patlen - 1], pat.patlen);
+INPUT: 	
+INPUT: 	/* 3: Enter SEARCH LOOP ... */
+TBM-SHIFT:
+-> ... */
+P], pat.patlen);
+
+[491:1]		/* 3: Enter SEARCH LOOP ... */
+INPUT: 	while (s < e) {
+INPUT: 	
+INPUT: 	   /* ----------------------------------------------------------------- */
+INPUT: 	   /* 3.1: SKIP LOOP : ufast */
+TBM-SHIFT:
+-> LOOP : ufast */
+P-------------------------------------- */
+
+TBM-SHIFT:
+-> : ufast */
+P-------------------------------------- */
+
+[495:2]		   /* 3.1: SKIP LOOP : ufast */
+INPUT: 	   /* Skip on the last character in pattern, using delta shift table d0 */
+TBM-SHIFT:
+-> on the last character in pattern, using delta shift table d0 */
+P
+TBM-SHIFT:
+->attern, using delta shift table d0 */
+P
+[496:2]		   /* Skip on the last character in pattern, using delta shift table d0 */
+INPUT: 	
+INPUT: 	   k = d0[UCASE(*s)];			/* Get shift to rightmost *s in pattern */
+TBM-SHIFT:
+->attern */
+P d0 */
+
+[498:1]		   k = d0[UCASE(*s)];			/* Get shift to rightmost *s in pattern */
+INPUT: 	   while (k) { 					/* While k > 0, ie no match (pos. shift) */
+TBM-SHIFT:
+->os. shift) */
+P/
+
+[499:1]		   while (k) { 					/* While k > 0, ie no match (pos. shift) */
+INPUT: 		k = d0[UCASE(*(s += k))];	/* Use 3-fold loop unrolling for max. speed */
+TBM-SHIFT:
+-> unrolling for max. speed */
+P
+TBM-SHIFT:
+->eed */
+P
+[500:2]			k = d0[UCASE(*(s += k))];	/* Use 3-fold loop unrolling for max. speed */
+INPUT: 		k = d0[UCASE(*(s += k))];	/* If match, k=0 (so unrolling is harmless) */
+INPUT: 		k = d0[UCASE(*(s += k))];
+INPUT: 	   }
+INPUT: 	   if (s >= e)					/* Sentinel assures match at End-Of-Text */
+INPUT: 			break;
+INPUT: 	
+INPUT: 	   /* ----------------------------------------------------------------- */
+INPUT: 	   /* 3.2: MATCH LOOP : guard test & fwd scan */
+TBM-SHIFT:
+-> : guard test & fwd scan */
+P--------------------- */
+
+[508:1]		   /* 3.2: MATCH LOOP : guard test & fwd scan */
+INPUT: 	   #ifdef TBM_FQ
+INPUT: 	   	/* First test Guard (rarest char in pattern) against text */
+TBM-SHIFT:
+->attern) against text */
+P----- */
+
+[510:1]		   	/* First test Guard (rarest char in pattern) against text */
+INPUT: 	   	if (UCASE(s[ro]) != rc) /* obs: ro is a negative offset */
+INPUT: 	 		goto L_mismatch;
+INPUT: 	   #endif /*TBM_FQ*/
+INPUT: 	
+INPUT: 	   /* Guard-match : do a complete forward scan of pattern against text */
+TBM-SHIFT:
+->lete forward scan of pattern against text */
+P
+TBM-SHIFT:
+->attern against text */
+P
+[515:2]		   /* Guard-match : do a complete forward scan of pattern against text */
+INPUT: 	   for (p = pat.pat, q = s - n1; p < ep;) {
+TBM-SHIFT:
+-> = pat.pat, q = s - n1; p < ep;) {
+Pn of pattern against text */
+
+TBM-SHIFT:
+->at.pat, q = s - n1; p < ep;) {
+Pn of pattern against text */
+
+TBM-SHIFT:
+->at, q = s - n1; p < ep;) {
+Pn of pattern against text */
+
+TBM-SHIFT:
+-> < ep;) {
+Pn of pattern against text */
+
+TBM-SHIFT:
+->;) {
+Pn of pattern against text */
+
+[516:5]		   for (p = pat.pat, q = s - n1; p < ep;) {
+INPUT: 			if (UCASE(*q++) != *p++)
+TBM-SHIFT:
+->++)
+P n1; p < ep;) {
+
+[517:1]				if (UCASE(*q++) != *p++)
+INPUT: 				goto L_mismatch;
+INPUT: 	   		D( fprintf(stdout, "TBM-MATCH:\n->%s\n", q); )
+TBM-SHIFT:
+->rintf(stdout, "TBM-MATCH:\n->%s\n", q); )
+Ptern against text */
+
+[519:1]		   		D( fprintf(stdout, "TBM-MATCH:\n->%s\n", q); )
+INPUT: 	   }
+INPUT: 
+INPUT: 	   /* Total-match : increment match-count or break w. answer [T|F] */
+INPUT: 	   nmatch++;
+INPUT: 	   #ifdef TBM_TF
+INPUT: 			break;	/* break at first match */
+INPUT: 	   #endif /*TBM_TF*/
+INPUT: 
+INPUT: 		L_mismatch:
+INPUT: 	   /* ----------------------------------------------------------------- */
+INPUT: 	   /* 3.3: SHIFT : md2 */
+INPUT: 	   /* Mismatch (or complete match); - shift "endptr" & continue search */
+TBM-SHIFT:
+->lete match); - shift "endptr" & continue search */
+P
+TBM-SHIFT:
+->tr" & continue search */
+P
+[531:2]		   /* Mismatch (or complete match); - shift "endptr" & continue search */
+INPUT: 	   s += md2;
+INPUT: 	   D( fprintf(stdout, "TBM-SHIFT:\n->%s\n", s); )
+TBM-SHIFT:
+->rintf(stdout, "TBM-SHIFT:\n->%s\n", s); )
+P" & continue search */
+
+[533:1]		   D( fprintf(stdout, "TBM-SHIFT:\n->%s\n", s); )
+INPUT: 
+INPUT:    	} /* End search-loop : while (s<e) */
+TBM-SHIFT:
+-> : while (s<e) */
+P, s); )
+
+[535:1]	   	} /* End search-loop : while (s<e) */
+INPUT:    	
+INPUT:    	
+INPUT: 	/* 4: Return the verdict : #match (or [1|0] if just [T|F] requested) */
+INPUT: 	*e = '\0'; /* Restore string termination after skip sentinel */
+TBM-SHIFT:
+-> sentinel */
+Ped) */
+
+[539:1]		*e = '\0'; /* Restore string termination after skip sentinel */
+INPUT: 	return (nmatch);
+INPUT: 	
+INPUT: } /* END function iRunTBM() */
+INPUT: 
+INPUT: 
+INPUT: /*+3 MODULE TBM.C ----------------------------------------------------------*/
+INPUT: /*	 NAME 03                     bDKupper                                   */
+TBM-SHIFT:
+->per                                   */
+P
+TBM-SHIFT:
+->er                                   */
+P
+[546:2]	/*	 NAME 03                     bDKupper                                   */
+INPUT: /*-- SYNOPSIS --------------------------------------------------------------*/
+TBM-SHIFT:
+->SIS --------------------------------------------------------------*/
+P)
+
+[547:1]	/*-- SYNOPSIS --------------------------------------------------------------*/
+INPUT: PRIVATE BYTE
+TBM-SHIFT:
+->RIVATE BYTE
+P--------------------------------------------------------------*/
+
+[548:1]	PRIVATE BYTE
+INPUT: 	bDKupper(ii) 	/* Input char to convert to uppercase */
+TBM-SHIFT:
+->per(ii) 	/* Input char to convert to uppercase */
+P-------------------*/
+
+TBM-SHIFT:
+->er(ii) 	/* Input char to convert to uppercase */
+P-------------------*/
+
+TBM-SHIFT:
+->ut char to convert to uppercase */
+P-------------------*/
+
+TBM-SHIFT:
+->percase */
+P-------------------*/
+
+TBM-SHIFT:
+->ercase */
+P-------------------*/
+
+[549:5]		bDKupper(ii) 	/* Input char to convert to uppercase */
+INPUT: 	int ii; 		/* NB: char as param. promotes to int */
+TBM-SHIFT:
+->aram. promotes to int */
+P*/
+
+TBM-SHIFT:
+->romotes to int */
+P*/
+
+[550:2]		int ii; 		/* NB: char as param. promotes to int */
+INPUT: {
+INPUT: /* DESCRIPTION
+TBM-SHIFT:
+->TION
+P: char as param. promotes to int */
+
+[552:1]	/* DESCRIPTION
+INPUT: * 	Convert character <(BYTE)ii> from lower- to uppercase, INCL DANISH CHARS.
+TBM-SHIFT:
+->percase, INCL DANISH CHARS.
+P
+
+TBM-SHIFT:
+->ercase, INCL DANISH CHARS.
+P
+
+[553:2]	* 	Convert character <(BYTE)ii> from lower- to uppercase, INCL DANISH CHARS.
+INPUT: * RETURN
+INPUT: * 	IF (std. routine toupper(c) DOES return a converted char)
+TBM-SHIFT:
+->per(c) DOES return a converted char)
+P DANISH CHARS.
+
+TBM-SHIFT:
+->er(c) DOES return a converted char)
+P DANISH CHARS.
+
+[555:2]	* 	IF (std. routine toupper(c) DOES return a converted char)
+INPUT: * 		return(std. converted char)
+INPUT: * 	ELSE IF (DKconvert DOES return a converted char)
+INPUT: * 		return(DK. converted char)
+INPUT: * 	ELSE
+INPUT: * 		return(unconverted char)
+INPUT: *-3*/
+INPUT: 	static const BYTE bDKlow[] = {(BYTE)'ï¿½',(BYTE)'ï¿½',(BYTE)'ï¿½'};
+INPUT: 	static const BYTE bDKupp[] = {(BYTE)'ï¿½',(BYTE)'ï¿½',(BYTE)'ï¿½'};
+TBM-SHIFT:
+->p[] = {(BYTE)'ï¿½',(BYTE)'ï¿½',(BYTE)'ï¿½'};
+PCHARS.
+
+TBM-SHIFT:
+->[] = {(BYTE)'ï¿½',(BYTE)'ï¿½',(BYTE)'ï¿½'};
+PCHARS.
+
+[563:2]		static const BYTE bDKupp[] = {(BYTE)'ï¿½',(BYTE)'ï¿½',(BYTE)'ï¿½'};
+INPUT: 	
+INPUT: 	register BYTE bi = (BYTE) ii; /* Input char from int param */
+TBM-SHIFT:
+->ut char from int param */
+P½'};
+
+TBM-SHIFT:
+->aram */
+P½'};
+
+[565:2]		register BYTE bi = (BYTE) ii; /* Input char from int param */
+INPUT: 	BYTE bo; /* Output char from conversion */
+TBM-SHIFT:
+->ut char from conversion */
+Pfrom int param */
+
+[566:1]		BYTE bo; /* Output char from conversion */
+INPUT: 	BYTE *bp; /* Character pointer into cDKx */
+TBM-SHIFT:
+->; /* Character pointer into cDKx */
+Prom int param */
+
+TBM-SHIFT:
+->ointer into cDKx */
+Prom int param */
+
+[567:2]		BYTE *bp; /* Character pointer into cDKx */
+INPUT: 	
+INPUT: 	/* Perform conversion and return char */
+TBM-SHIFT:
+->erform conversion and return char */
+P/
+
+[569:1]		/* Perform conversion and return char */
+INPUT: 	return( ((bo = (BYTE) toupper(ii)) != bi) ? bo :
+TBM-SHIFT:
+->per(ii)) != bi) ? bo :
+Pnt param */
+
+TBM-SHIFT:
+->er(ii)) != bi) ? bo :
+Pnt param */
+
+[570:2]		return( ((bo = (BYTE) toupper(ii)) != bi) ? bo :
+INPUT: 		((bp = (BYTE*) strchr((char*)bDKlow, bi)) != NULL) ? bDKupp[bp - bDKlow] :
+TBM-SHIFT:
+-> = (BYTE*) strchr((char*)bDKlow, bi)) != NULL) ? bDKupp[bp - bDKlow] :
+P
+
+TBM-SHIFT:
+->p[bp - bDKlow] :
+P
+
+TBM-SHIFT:
+->[bp - bDKlow] :
+P
+
+TBM-SHIFT:
+-> - bDKlow] :
+P
+
+[571:4]			((bp = (BYTE*) strchr((char*)bDKlow, bi)) != NULL) ? bDKupp[bp - bDKlow] :
+INPUT: 		bi );
+INPUT: 				
+INPUT: } /* END function bDKupper */
+TBM-SHIFT:
+->per */
+PbDKlow, bi)) != NULL) ? bDKupp[bp - bDKlow] :
+
+TBM-SHIFT:
+->er */
+PbDKlow, bi)) != NULL) ? bDKupp[bp - bDKlow] :
+
+[574:2]	} /* END function bDKupper */
+INPUT: 
+INPUT: 
+INPUT: /* End of module TBM.C */
+
+Total match of [p] in input stream [./tbm.c]: [510]

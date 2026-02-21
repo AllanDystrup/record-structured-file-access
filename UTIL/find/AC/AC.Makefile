@@ -133,5 +133,13 @@ doc:
 	ls -al 
 	more $(TARGET).doc
 
+xref:
+	  ------- make -f STACK.Makefile xref -------
+	rm -f $(TARGET).xrf
+	../../xrf/XRF $(TARGET).c -o $(TARGET).xrf
+	ls -al
+	more $(TARGET).xrf
+
+	
 # END makefile
 #=============================================================================

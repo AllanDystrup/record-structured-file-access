@@ -2,58 +2,58 @@
 /*                                MODULE TBM.H                              */
 /*==========================================================================*/
 /* FUNCTION      Headerfile for module TBM.C (and user modules);
-*                #include this file to access the PUBLIC functions in TBM.C
-*				 for performing a "Tuned Boyer-Moore" single string search.
-*
-* SYSTEM         Standard (ANSI/ISO) C
-*                Tested on PC/MS DOS v.3.3 & UNIX SYS V.3, 1992
-*                Tested on Windows 10 and WSL UBUNTU Linux, 2025.
-*
-* SEE ALSO       Module TBM.C
-*
-* PROGRAMMER     Allan Dystrup
-*
-* COPYRIGHT (c)  Allan Dystrup, Mar. 1992
-
-* VERSION        $Header: d:/cwork/index/RCS/key.h 1.5 92/03/03 11:25:04
-*                Allan_Dystrup Exp Locker: Allan_Dystrup $
-*                -----------------------------------------
-*                $Log: tbm.h $
-*                Revision 1.2 92/03/11 14:53:51 Allan_Dystrup
-*                hack'ed UCASE
-*                Revision 1.3 92/03/13 11:15:46 Allan_Dystrup
-*                integrated UCASE
-*                Revision 1.4 92/03/13 13:34:23 Allan_Dystrup
-*                linted DOS/UX
-*                ------------------------------------------
-*                Revision 1.2 2025/12/09 11:00:00	Allan_Dystrup
-*                Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
-/*				 Port to Win. 10 native/terminal, Using CLion for Windows
-*
-*==========================================================================*/
+ *               #include this file to access the PUBLIC functions in TBM.C
+ *		 for performing a "Tuned Boyer-Moore" single string search.
+ *
+ * SYSTEM         Standard (ANSI/ISO) C
+ *                Tested on PC/MS DOS v.3.3 & UNIX SYS V.3, 1992
+ *                Tested on Windows 10 and WSL UBUNTU Linux, 2025.
+ *
+ * SEE ALSO       Module TBM.C
+ *
+ * PROGRAMMER     Allan Dystrup
+ *
+ * COPYRIGHT (c)  Allan Dystrup, Mar. 1992
+ *
+ * VERSION        $Header: d:/cwork/index/RCS/key.h 1.5 92/03/03 11:25:04
+ *                Allan_Dystrup Exp Locker: Allan_Dystrup $
+ *                -----------------------------------------
+ *                $Log: tbm.h $
+ *                Revision 1.2 92/03/11 14:53:51 Allan_Dystrup
+ *                hack'ed UCASE
+ *                Revision 1.3 92/03/13 11:15:46 Allan_Dystrup
+ *                integrated UCASE
+ *                Revision 1.4 92/03/13 13:34:23 Allan_Dystrup
+ *                linted DOS/UX
+ *                ------------------------------------------
+ *                Revision 1.2 2025/12/09 11:00:00	Allan_Dystrup
+ *                Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
+ *		 Port to Win. 10 native/terminal, Using CLion for Windows
+ *
+ *-1==========================================================================*/
 
 #ifndef _TBM_H        /* Make sure tbm.h is included once  */
      #define _TBM_H   /* Matching #endif is at end-of-file */
 
 
-	/*==========================================================================*/
-	/*                        Setup for DEBUG [ON|OFF]                          */
-	/*==========================================================================*/
+    /*==========================================================================*/
+    /*                        Setup for DEBUG [ON|OFF]                          */
+    /*==========================================================================*/
     #ifdef DEBUG
-		#define PRIVATE
+        #define PRIVATE
         #define D(x) x
         #include <assert.h>
     #else
-		#define PRIVATE static
-		#define D(x)      /* ignore */
-		#define assert(x) /* ignore */
+        #define PRIVATE static
+	#define D(x)      /* ignore */
+	#define assert(x) /* ignore */
     #endif /* DEBUG */
 
 
-	/*==========================================================================*/
-	/*                        Setup for portable data types                     */
-	/*==========================================================================*/
-	#define PUBLIC /* ignore */
+    /*==========================================================================*/
+    /*                        Setup for portable data types                     */
+    /*==========================================================================*/
+    #define PUBLIC /* ignore */
     #define BYTE   unsigned char
     #define WORD   unsigned int
     #define DWORD  unsigned long
@@ -61,17 +61,17 @@
 
     
     /*==========================================================================*/
-	/*							CONFIGURATION									*/
-    /*			 DEFAULT COMPILE TIME  options for TBM							*/
+    /*							CONFIGURATION		*/
+    /*			 DEFAULT COMPILE TIME  options for TBM			*/
     /*==========================================================================*/
-	#define TBM_FQ			/* define to include guard-test based on char freq. */
+    #define TBM_FQ		/* define to include guard-test based on char freq. */
 
-	#define _TBM_ALLOC		/* allocate character frequency table arrays   */
-		//#define DANISH	/* - define to choose DANISH char.freq. table  */
-		#define ENGLISH		/* - define to chose ENGLISH char.freq. table  */
+    #define _TBM_ALLOC		/* allocate character frequency table arrays   */
+    //#define DANISH		/* - define to choose DANISH char.freq. table  */
+    #define ENGLISH		/* - define to chose ENGLISH char.freq. table  */
 
     //#define TBM_TF		/* define to force boolean return over match count */
-    #define TBM_UC			/* define to force uppercase (case insensitive) match */
+    #define TBM_UC		/* define to force uppercase (case insensitive) match */
     
     
     #ifdef TBM_FQ

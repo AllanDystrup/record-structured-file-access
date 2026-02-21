@@ -1,0 +1,993 @@
+XC ... 'C' Concordance Utility   bm.c                       Page 1
+
+1       1: /*+1========================================================================*/
+2       2: /* 		 		MODULE BM.C 				    */
+3       3: /*==========================================================================*/
+4       4: /*
+5       5:  * 	FUNCTION 	This module implements the Boyer-Moore algorithm
+6       6:  * 			for single substring search.
+7       7:  *
+8       8:  * 	SYSTEM 		Standard C (ANSI/ISO).
+9       9:  * 				Tested on PC/MS DOS V.5.0.
+10     10:  *
+11     11:  * 	SEE ALSO 	general.h error.c/.h bool.c/.h
+12     12:  *
+13     13:  * 	PROGRAMMER 	Allan Dystrup
+14     14:  *
+15     15:  * 	COPYRIGHT(c) Allan Dystrup
+16     16:  *
+17     17:  * 	VERSION 	$Header: d:/cwk/kf/bm/RCS/bm.c 1.1 92/10/25 17:02:46
+18     18:  * 			Allan_Dystrup Exp Locker: Allan_Dystrup $
+19     19:  * 			---------------------------------------------------------
+20     20:  * 			$Log: bm.c $
+21     21:  * 			Revision 1.1 92/10/25 17:02:46 Allan_Dystrup
+22     22:  * 			Initial revision
+23     23:  *			--------------------
+24     24:  *			Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup
+25     25:  *			Port to UBUNTU Linux on Windows10/WSL, Using CLion
+26     26:  *			Port to Windows 10 native, Using CLion for Windows
+27     27:  *
+28     28:  * 	REFERENCES
+29     29:  * 		[1] 	Donald E. Knuth, James H. Morris, Jr. and Vaughan R. Pratt :
+30     30:  * 			"Fast pattern matching in strings",
+31     31:  * 			SIAM J. COMPUT. Vol. 6, No. 2, June 1977. 
+32     32:  *
+33     33:  * 		[2] 	Robert S. Boyer andj. Strother Moore :
+34     34:  * 			"A fast string searching algorithm",
+35     35:  * 			Communications of the ACM, October 1977, Vol. 20, No. 10.  
+36     36:  *
+37     37:  * 		[3] 	Donald M. Sunday :
+38     38:  * 			A very fast substring search algorithm",
+39     39:  * 			Communications of the ACM, August 1990, Vol. 33, No. 8.
+40     40:  *
+41     41:  * 	USAGE	bm [scanOrder] <searchTerm> <inputStream>
+42     42:  * 		where:
+43     43:  * 		scanOrder:	[-O]	use Optimal Mismatch search
+44     44:  * 				[-M]	use Maximal Shift search
+45     45:  * 				[-Q]	use Quick Search (default)
+46     46:  *
+47     47:  * 		searchTerm:		is a simple text string to be found
+48     48:  * 					(the search is case sensitive)
+49     49:  *
+50     50:  * 		inputStream:		is the path to a file to be searched
+51     51:  * 					(if empty: stdin is used) 
+52     52:  *
+53     53:  *========================== SUBSTRING SEARCH ===============================
+54     54:  *
+55     55:  * An elementary problem in information retrieval is searching for a specific
+56     56:  * substring or "pattern" (length p) in a larger string of text (length t),
+
+XC ... 'C' Concordance Utility   bm.c                       Page 2
+
+57     57:  * where pattern and text are composed of characters from a fixed alphabet
+58     58:  * (length a).
+59     59:  *
+60     60:  * 			SF, Straight Forward
+61     61:  *
+62     62:  * The SF (or "brute force") method consists of first aligning the start of
+63     63:  * the pattern with the start of the text, and then performing a left-right
+64     64:  * scan of the pattern and a char. by char. comparison with the text.
+65     65:  * In case of a mismatch the pattern is shifted right one step, and the text-
+66     66:  * pointer is "backed up" to the new position of the pattern start.
+67     67:  * The time complexity of SF is :
+68     68:  * 	setup time : 	zero
+69     69:  * 	worst-case : 	quadratic in O(p*t)
+70     70:  * 			ex. find "aaaab" in "aaaaa....aaaaab",
+71     71:  * 			ie. match whole pattern FOR EACH char. in the text)
+72     72:  * 	average : 	linear in O(t), with const. factor [1...p] near 1.
+73     73:  * 			(mismatch usually expected at first char. comparison,
+74     74:  * 			in which case there is NO backtracking in the text)
+75     75:  *
+76     76:  *
+77     77:  * 			KMP, Knuth-Morris-Pratt - ref. [1]
+78     78:  *
+79     79:  * The KMP method performs a left-right pattern scan like SF, but eliminates
+80     80:  * "backing up" the text-pointer at character mismatch by first setting up a
+81     81:  * transition graph including each character in the pattern string.
+82     82:  * The graph is represented by a "next[] array" with an index for each pattern
+83     83:  * character giving the new position IN THE PATTERN STRING for backing up THE
+84     84:  * PATTERN POINTER in case of character mismatch, thereby shifting the pattern
+85     85:  * forward by "delta" characters to align the already MATCHED textstring
+86     86:  * (=pattern suffix) with the first leftmost matching pattern prefix/infix.
+87     87:  * The KMP delta shift precalculation thus utilizes any reoccuring substrings
+88     88:  * in the pattern string, and also eliminates backtracking the textpointer
+89     89:  * (if mismatch and no delta shift : start new scan from next textchar)
+90     90:  * KMP time complexity :
+91     91:  * 	setup time : 	linear in O(p)
+92     92:  * 	worst-case : 	linear in O(t), with const. factor = 1
+93     93:  * 			(ex. find "abcde" in "fffff....fffabcde")
+94     94:  * 	average : 	linear in O(t), with const. factor [1/p...1] near 1.
+95     95:  * 			(mismatch usually expected at first char. comparison,
+96     96:  * 			in which case KMP delta shift IS NOT utilized at all).
+97     97:  *
+98     98:  *
+99     99:  * 			BM, Boyer-Moore - ref. [2]
+100   100:  *
+101   101:  * The original BM method performs a "REVERSE" pattern scan (ie. right-left,
+102   102:  * unlike SF and KMP), using two predefined shift functions :
+103   103:  *   - delta1 :	For each char 'c' in the alphabet, find the rightmost position
+104   104:  * 		(i) of c in the pattern (i=0 if c not in pat). Delta1(c) = p-i.
+105   105:  *   - delta2 : 	Analogous to the KMP delta function for reoccuring substrings
+106   106:  * 		in the pattern : for each pattern suffix find first leftward
+107   107:  * 		reoccurence of it (infix or prefix) in the pattern.
+108   108:  * 		
+109   109:  * In case of mismatch BM uses the larger value of delta1 and delta2 to shift
+110   110:  * the pattern forward :
+111   111:  *    - either delta1(c) : to the rightmost matching char. 'c' in the pattern,
+112   112:  *    however if delta1(c) is to the right of the mismatch-position, then
+
+XC ... 'C' Concordance Utility   bm.c                       Page 3
+
+113   113:  *    the pattern is shifted right by 1,
+114   114:  *    - or delta2(c) : to the first leftward pattern prefix/infix matching the
+115   115:  *    already matched textstring, cf. KMP algorithm.
+116   116:  *    and restarting the scan from the pattern end,
+117   117:  * BM time complexity :
+118   118:  * 	setup time : 	linear in O(a+p)
+119   119:  * 	worst-case : 	- using delta1 alone... : quadratic in O(p*t)
+120   120:  * 			- using delta1 & delta2 : linear in O(t)
+121   121:  * 	average : 	sub-linear in O(t/p), w. const. factor [1/p...1] near 1/p.
+122   122:  * 			(mismatch usually expected at first char. comparison,
+123   123:  * 			in which case BM delta shifts ARE fully utilized).
+124   124:  *
+125   125:  *========================== CHOICE OF ALGORITHM ============================
+126   126:  *
+127   127:  * The only advantage of SF is that it doesn't require any setup time. For
+128   128:  * very simple search situations (small and heterogenous pattern and text)
+129   129:  * SF may be worth considering, but as a general basis for bibliographic
+130   130:  * search SF is totally inadequate.
+131   131:  *
+132   132:  * KMP has an advantage when "backing up" the textpointer is inconvenient, or
+133   133:  * when searching for a highly self-repetitive pattern in a self-repetitive
+134   134:  * text. Under these circumstances the linear worst-case search time makes it
+135   135:  * more attractive than SF, but in most actual applications (as for instance
+136   136:  * bibliographic search for a single word) KMP is not likely to be signifi-
+137   137:  * cantly faster than SF.
+138   138:  *
+139   139:  * BM is our candidate for a bibliographic one-word search algortihm. The
+140   140:  * "sublinear" search time of delta1 makes BM more than three times as fast
+141   141:  * as SF or KMP in most practical situations, and with the addition of delta2
+142   142:  * we get an algorithm with the same desirable worst-case performance as KMP.
+143   143:  * With a small modification of the original BM algorithm it is even possible
+144   144:  * to get a simpler and faster implementation that does not depend on a
+145   145:  * specific pattern scan order and thus may be coded to avoid backtracking!
+146   146:  * The advantage of BM increases with the length of the search pattern (p) and
+147   147:  * of the alphabet (a). A bibliographic search for a long keyword or phrase
+148   148:  * in a text over the full (255 char) alphabet is an ideal application for BM.
+149   149:  *
+150   150:  * BM however has one drawback : it can not easily be extended to search for
+151   151:  * multiple patterns in a text. For this type of application it is better to
+152   152:  * use the technique applied by KMP : building a transition graph (also
+153   153:  * called a "Finite State Automaton") to perform the search. This is precisely
+154   154:  * the scope of the Aho-Corasic algorithm for multiple string search (see
+155   155:  * module ac.c).
+156   156:  *
+157   157:  *===================== AN IMPROVED BM IMPLEMENTATION =======================
+158   158:  *
+159   159:  * An improved implementation of the BM algorithm, - cf. ref. [3]
+160   160:  *
+161   161:  * Delta1.
+162   162:  * First note that the pattern string always shifts right by at least one
+163   163:  * char. Hence the char. in the text string IMMEDIATELY PAST THE END of the
+164   164:  * pattern string must be involved for testing at the next pattern position.
+165   165:  * Thus delta1 can be computed for the whole alphabet to be the index of the
+166   166:  * first leftward occurence of each char. FROM THE END of the pattern string.
+167   167:  * This slightly modified delta1 has the following big advantage :
+168   168:  * the shift defined by the new delta1(c) is an ABSOLUTE SHIFT relating to
+
+XC ... 'C' Concordance Utility   bm.c                       Page 4
+
+169   169:  * the text character immediately after the pattern (always >= 1), hence
+170   170:  *   (1) delta1 MAY BE USED "STAND ALONE" to code a "quick and clean" BM
+171   171:  * 	search (as opposed to using the original BM delta1 SHIFT, which was
+172   172:  * 	relative to the mismatch position, requiring a test and shift by
+173   173:  * 	max(1, delta2) when the pos. of mismatch was to the left of delta1.
+174   174:  *   (2) delta1 does NOT DEPEND ON A SPECIFIC PATTERN SCAN ORDER (as opposed
+175   175:  * 	to the original BM, which required a strict right-left "backtracking"
+176   176:  * 	textpointer)
+177   177:  *
+178   178:  * Delta2
+179   179:  * For any specific order of scanning the pattern string, one can define a
+180   180:  * delta2 shift similar to the KMP delta (left-right scan) or the BM delta2
+181   181:  * (right-left scan), thus avoiding the undesirable "quadratic worst case
+182   182:  * behaviour" of a BM delta1 stand-alone solution (but at the expense of a
+183   183:  * substantially larger setup time).
+184   184:  *
+185   185:  * Delta1 vs. Delta2.
+186   186:  * Empirical evidence indicates a "break even" between delta1 standalone and
+187   187:  * delta1+delta2 at a pattern length of about 10-15 characters (in biblio-
+188   188:  * graphic search), - ie. a search for a short keyword is best performed by
+189   189:  * a delta1 standalone algortihm, while searching for a longer word or phrase
+190   190:  * often justifies the initial setup time for delta2.
+191   191:   *
+192   192:  *-1========================================================================*/
+193   193: 
+194   194: 
+195   195: /*==========================================================================*/
+196   196: /* 				Includes 				    */
+197   197: /*==========================================================================*/
+198   198: /* Standard ANSI/ISO header files */
+199   199: #include <stdio.h>
+200   200: #include <limits.h>
+201   201: #include <string.h>
+202   202: #include <stdlib.h>
+203   203: #include <ctype.h>
+204   204: 
+205   205: 
+206   206: 
+207   207: // Chose Build configuration (normal or debug)
+208   208: //#define DEBUG	//******** DEBUG  ********/
+209   209: //#undef DEBUG	//******** NORMAL ********/
+210   210: #define MAIN
+211   211: 
+212   212: /* Module header file */
+213   213: #define _BM_ALLOC /* bm.c (Boyer-Moore) header file */
+214   214: #include "bm.h"
+215   215: 
+216   216: 
+217   217: 
+218   218: 
+219   219: /*==========================================================================*/
+220   220: /* 				Typedefs 			    	    */
+221   221: /*==========================================================================*/
+222   222: typedef struct patScanElem { /* Struct. of element in scan ordered pattern */
+223   223: 	int loc;				/* Location of the character c in the pattern  */
+224   224: 	BYTE c;					/* Value of character in pattern at location   */
+
+XC ... 'C' Concordance Utility   bm.c                       Page 5
+
+225   225: } sPAT;
+226   226: 
+227   227: 
+228   228: /*==========================================================================*/
+229   229: /* 			Global data objects 				    */
+230   230: /*==========================================================================*/
+231   231: PRIVATE BYTE *pzPat; 		/* Ptr. to pattern string */
+232   232: PRIVATE int iPatLen; 		/* Length of pattern string */
+233   233: PRIVATE int *piDelta1; 		/* Ptr. to Delta1 shift array for all chars */
+234   234: PRIVATE float *pfScanOrd; 	/* Ptr. to scan priorrity array for chars */
+235   235: PRIVATE sPAT *psOrdPat; 	/* Ptr. to scan orederd elements of pattern */
+236   236: PRIVATE int *piDelta2; 		/* Ptr. to Delta2 shift array for pat. chars */
+237   237: PRIVATE enum scanType eScanOrder = eScanUD; /* Initially undefined */
+238   238: 
+239   239: /*==========================================================================*/
+240   240: /* 			Function Prototypes 				    */
+241   241: /*==========================================================================*/
+242   242: PRIVATE int iShCompMS(sPAT * psPat1, sPAT * psPat2);
+243   243: PRIVATE int iShCompOM(sPAT * psPat1, sPAT * psPat2);
+244   244: PRIVATE int iShFind(int iPatLoc, int iLShift);
+245   245: 
+246   246: /*==========================================================================*/
+247   247: /* 				Trace macros 				    */
+248   248: /*==========================================================================*/
+249   249: /* The option of using an arbitrary scan order in the improved BM algorithm
+250   250: * requires a rather convoluted procedure for setting up the piDelta2-shifts.
+251   251: * I have defined the following macros to allow tracing and verification of
+252   252: * the BM table-setup. The notation of the macro parameters uses the following 
+253   253: * "shorthand":
+254   254: * 	_P   : 	pointer to start of zero-terminated pattern string
+255   255: * 	_p   : 	pointer for scanning the pattern string
+256   256: *	_s     	pointer to array of scan order priority for characters
+257   257: * 	_OP  : 	pointer to start of list of ordered structures 'patScanElem'
+258   258: * 	_o   : 	pointer for scanning the _OP list
+259   259: * 	_arr : 	array
+260   260: * 	_len : 	length of array or string
+261   261: * 	_i   : 	scratch index variable
+262   262: */
+263   263: int _i;
+264   264: #define DUMPD1(_arr,_len) 					\
+265   265: D( 	printf("\n\nDUMP of BM table "#_arr"[] ...\n"); 	\
+266   266: 	for (_i=0; _i < _len; _i++) 				\
+267   267: 		printf(" %x[%c]:%04.1f%c", 			\
+268   268: 		_i, _i, (float) _arr[_i], !(_i%6) ? '\n' : ' '); );
+269   269: 		
+270   270: #define DUMPMS(_typ,_o,_p,_s,_len) \
+271   271: D(	printf("\n\nDUMP of "#_typ" scan ordered string "#_o" ...\n"); \
+272   272: 	for(_i=0; _i < _len; _i++) 				\
+273   273: 		printf("\t"#_o"[%02d]="#_p"[%02d]=%c "#_s"[%02d]=%04.1f\n", \
+274   274: 		_i, _o[_i].loc, _o[_i].c, _i, _s[_o[_i].loc] ); );
+275   275: 		
+276   276: #define DUMPOM(_typ,_o,_p,_s,_len) \
+277   277: D( 	printf("\n\nDUMP of "#_typ" scan ordered string "#_o" ...\n"); 	\
+278   278: 	for(_i=0; _i < _len; _i++) 					\
+279   279: 		printf("\t"#_o"[%02d]="#_p"[%02d]=%c "#_s"[%c]=%04.1f\n", \
+280   280: 		_i, _o[_i].loc, _o[_i].c, _o[_i].c, _s[_o[_i].c] ); );
+
+XC ... 'C' Concordance Utility   bm.c                       Page 6
+
+281   281: 		
+282   282: #define DUMPD2(_typ,_arr,_len) \
+283   283: D( 	printf("\nDUMP of "#_typ" BM table "#_arr"[] ...\n"); 	\
+284   284: 	for(_i=0; _i < _len; _i++) 				\
+285   285: 		printf("\t"#_arr"[%02d]=%02d\n", _i, _arr[_i]); );
+286   286: 		
+287   287: #define DUMPSH(_typ,_len,_OP,_o,_P,_j) \
+288   288: D( 	printf("\t iLShift=%d OP[%02ld]=P[%02d]=%c P[%02d]=%c\t"#_typ"\n", \
+289   289: 	_len, _o-_OP, _o->loc, _o->c, _j, (_j>=0 ? _P[_j] : '*') ); );
+290   290: 		
+291   291: #ifdef MAIN
+292   292: 
+293   293: /*+2=======================================================================*/
+294   294: /* 			Main (Module Testdriver) 			   */
+295   295: /*=========================================================================*/
+296   296: #define MAX_LINE 256
+297   297: int
+298   298: main(int iArgc, BYTE ** ppzArgv)
+299   299: /* Input is a Boolean search expression "str" provided on the command line.
+300   300:  * The Boolean expression is parsed by function pzParse (in bool.c) to :
+301   301:  *    - a suffix representation of the Boolean logic tree (pzPostfix).
+302   302:  *    - a set of keywords K = {k1, k2, ... ,kn} to search for (symtable[]).
+303   303:  * In module bm.c we perform a simple search for a keyword or phrase using
+304   304:  * the improved Boyer-Moore algorithm. The use of pzParse to scan/parse the
+305   305:  * single keyword or phrase is thus somewhat "overkill" (we don't actually
+306   306:  * use pzPostfix in this context), but the driver may easily be extended to
+307   307:  * run other more advanced search algorithms as for instance the Aho-Corasic
+308   308:  * search for multiple substrings in a text.
+309   309:  *-2*/
+310   310: {
+311   311: 	BYTE *pbArg; 			/* Char in argument string */
+312   312: 	int eScanOrder = eScanUD;  /* Type of pattern scan order */
+313   313: 	FILE *fileInpFd; 		/* File descriptor for input file */
+314   314: 	BYTE pzInpBuffer[MAX_LINE];  /* String buffer for input file */
+315   315: 	BYTE *pzPostfix; 		/* Ptr. to postfix boolean logic */
+316   316: 	BYTE *pbNL; 			/* Prt. to newline character */
+317   317: 	FLAG fMatch; 			/* Flag for match Pattern/Text */
+318   318: 	int i; 					/* Scratch index variable */
+319   319: 	
+320   320: 	/* 1: Parse command line option */
+321   321: 	while (--iArgc && (*++ppzArgv)[0] == '-')
+322   322: 		for (pbArg = ppzArgv[0] + 1; *pbArg != '\0'; pbArg++)
+323   323: 			switch (toupper(*pbArg)) {
+324   324: 			
+325   325: 				case 'M': /* Force a Maximal Shift search */
+326   326: 					eScanOrder = eScanMS;
+327   327: 					break;
+328   328: 					
+329   329: 				case 'O': /* Force an Optimal Mismatch search */
+330   330: 					eScanOrder = eScanOM;
+331   331: 					break;
+332   332: 					
+333   333: 				case 'Q': /* Force a Quick Search */
+334   334: 					eScanOrder = eScanQS;
+335   335: 					break;
+336   336: 					
+
+XC ... 'C' Concordance Utility   bm.c                       Page 7
+
+337   337: 				default: /* Switch must be M, O, or Q; Default to Q */
+338   338: 					eScanOrder = eScanQS;
+339   339: 					break;
+340   340: 					//printf("\n\n--- allowed switches : [MOQ] ! ---\n\n");
+341   341: 					//exit(EXIT_FAILURE);
+342   342: }
+343   343: 	/* 2: Parse Bool search expression to postfix string and keyword list */
+344   344: 	/* -- (Use only first entry in keyword list : symtable[1] for search) */
+345   345: 	D(printf("\n\n=============== BUILDING NEW BM =================\n\n"));
+346   346: 	
+347   347: 	D(puts("PARSE INPUT STRING ..."));
+348   348: 	D(printf("\t%s\n", *ppzArgv));
+349   349: 	pzPostfix = pzParse(*ppzArgv++);
+350   350: 	iArgc--;
+351   351: 	
+352   352: 	for (i = 1; symtable[i].pzLexptr; i++)
+353   353: 		/* count symbol table entries */;
+354   354: 		
+355   355: 	if (--i > 1 || !symtable[i].pzLexptr) {
+356   356: 		printf("\n\n--- exactly one search phrase, please! ---\n\n");
+357   357: 		exit(EXIT_FAILURE);
+358   358: 	}
+359   359: 
+360   360: 	/* 3: Initialize BM-search */
+361   361: 	if (eScanOrder == eScanUD)
+362   362: 	eScanOrder = (strlen(symtable[1].pzLexptr) <= 15 ? eScanQS : eScanMS);
+363   363: 	vBuildBM(eScanOrder, symtable);
+364   364: 	
+365   365: 	/* 3: Run BM-search */
+366   366: 	fileInpFd = (iArgc ? fopen(*ppzArgv, "r") : stdin);
+367   367: 
+368   368: 	int iLineNum = 0;
+369   369: 	while (fgets(pzInpBuffer, MAX_LINE, fileInpFd)) {
+370   370: 
+371   371: 		D(printf("Line %d:%s", ++iLineNum, (const char*) pzInpBuffer);)
+372   372: 		if (pbNL = strchr(pzInpBuffer, '\n'))
+373   373: 			*pbNL = '\0';	/* Replace newline w. string term. */
+374   374: 			
+375   375: 		if (fMatch = fRunBM(pzInpBuffer)) {
+376   376: 			puts((const char*) pzInpBuffer);
+377   377: 		}
+378   378: 	}
+379   379: 
+380   380: 	/* 3: Terminate BM search */
+381   381: 	/* Return status to the parent process: 1 if match, 0 if none */
+382   382: 	vDelBM();
+383   383: 	return (fMatch ? 1 : 0);
+384   384: }
+385   385: #endif /* #ifdef MAIN */
+386   386: 
+387   387: 
+388   388: /*+2========================================================================*/
+389   389: /* 				vBuildBM 				    */
+390   390: /*==========================================================================*/
+391   391: void
+392   392: vBuildBM(enum scanType type, struct entry * symtab)
+
+XC ... 'C' Concordance Utility   bm.c                       Page 8
+
+393   393: {
+394   394: /* Construct the BM delta shift table(s) from pattern string pzPat.
+395   395:  *
+396   396:  * 				1 Delta1 table : piDelta1[]
+397   397:  * The delta1 table-setup requires two steps :
+398   398:  *
+399   399:  * 1.1 	First initialize the table to (iPatLen+1) for all characters in the
+400   400:  * 		alphabet.
+401   401:  *
+402   402:  * 1.2 	Then reset the table entries for each char in the pattern to the
+403   403:  * 		rightmost position in the pattern of that char.
+404   404:  *
+405   405:  * 				2 Delta2 table : piDelta2[]
+406   406:  * The delta2 shift table piDelta2[] is built in two steps :
+407   407:  *
+408   408:  * 2.1 	First build the ordered pattern psOrdPat from any ordering spe-
+409   409:  * 	cification; The chosen scan-order (set up in array pfScanOrd) may be :
+410   410:  * 	   - forward, giving a piDelta2[] = KMP delta
+411   411:  * 	   - reverse, giving a piDelta2[] = original BM delta2
+412   412:  * 	   - maximal shift (MS), using the max. left shift to sort psOrdPat
+413   413:  * 	   - optimal mismatch (OM), using char-frequency to sort psOrdPat
+414   414:  * 	   - any other order suitable for the actual implementation
+415   415:  * 	For bibliographic search we choose to implement the MS scan order.
+416   416:  *
+417   417:  * 2.2 	Then construct piDelta2[] in two steps, using the following procedure:
+418   418:  * 	If mismatch at scan order position i, ie psOrdPat[i].c !=
+419   419:  *  	text[ScanStart+psOrdPat[i].loc], then shift ('overlay') the pattern
+420   420:  * 	left to position 'iLShift', so
+421   421:  * 	2.2.1	psOrdPat[0].c ... psOrdPat[i-1].c ALL MATCH aligned characters
+422   422:  * 		in the shifted pat; - iLShift is the max. value in the range
+423   423:  * 		0...psOrdPat[0].loc (= the minimal leftshift to match i chars)
+424   424:  * 	2.2.2   psOrdPat[i].c DOES NOT match the aligned character
+425   425:  * 		pzPat[ psOrdPat[i].loc - iLShift ]; - this may require
+426   426:  * 		repeated left shifting of the pattern.
+427   427:  * 	Then delta2 table piDelta2[i] = (psOrdPat[0].loc - iLShift),
+428   428:  * 	ie. the required right shift to align reoccuring characters in the
+429   429:  * 	pattern (cf. 2.2.1) excluding the mismatched character (cf. 2.2.2)
+430   430:  * 	with already matched characters in the text.
+431   431:  *-2*/
+432   432: 	BYTE *p;	/* Ptr. to scan through pattern string */
+433   433: 	sPAT *o;	/* Ptr. to scan through ordered pattern */
+434   434: 	int iLShift;/* Left shift for matching reoccuring chars */
+435   435: 	int i, j;	/* Scratch index variables */
+436   436: 	
+437   437: 	/* Define global data objects of module */
+438   438: 	pzPat = symtab[1].pzLexptr;/* Pattern, -scanned by module bool.c */
+439   439: 	iPatLen = strlen((char *) pzPat); /* Pattern length */
+440   440: 	eScanOrder = type; /* Requested type of pattern scan order */
+441   441: 	pfScanOrd = NULL; /* Defined in comp. functions below */
+442   442: 	
+443   443: 	/* -------------------- Build delta1 table ---------------------------- */
+444   444: 	/* Allocate the Delta1 shift table piDelta1[] */
+445   445: 	if (!(piDelta1 = (int *) malloc(sizeof(int) * (UCHAR_MAX + 1))))
+446   446: 	vError(EMEM005, "vBuildBM");
+447   447: 
+448   448: 	/* 1.1 Initialize the piDelta1[] table for all characters in the alphabet */
+
+XC ... 'C' Concordance Utility   bm.c                       Page 9
+
+449   449: 	for (i = 0; i <= UCHAR_MAX; i++) /* mismatch -> 1. char after pattern */
+450   450: 	piDelta1[i] = iPatLen + 1;
+451   451: 	
+452   452: 	/* 1.2 Reset piDelta1[] entries for each of the pattern characters */
+453   453: 	for (p = pzPat; *p; p++) /* match -> last position in pattern */
+454   454: 	piDelta1[*p] = iPatLen - (p - pzPat);
+455   455: 	DUMPD1(piDelta1, UCHAR_MAX);
+456   456: 	
+457   457: 	/* -------------------- Build delta2 table ---------------------------- */
+458   458: 	if (eScanOrder != eScanQS) {
+459   459: 	
+460   460: 		/* Alloc. structures for psOrdPat and Delta2 shift table piDelta2[] */
+461   461: 		if (!(psOrdPat = (sPAT *) malloc(sizeof(sPAT) * (iPatLen + 1)))
+462   462: 		|| !(piDelta2 = (int *) malloc(sizeof(int) * (iPatLen + 1))))
+463   463: 			vError(EMEM006, "vBuildBM");
+464   464: 			
+465   465: 		/* 2.1 */
+466   466: 		/* Build the scan-ordered pattern from the pfScanOrd array */
+467   467: 		/* using qsort to sort the pattern chars after max left shift */
+468   468: 		for (i = 0, p = pzPat, o = psOrdPat; i <= iPatLen; ++i, ++p, ++o) {
+469   469: 			o->loc = i;
+470   470: 			o->c = *p; /* \0 for i == iPatLen */
+471   471: 		}
+472   472: 	
+473   473: 		switch (eScanOrder) {
+474   474: 			case eScanMS: /* Maximal Shift search */
+475   475: 			qsort(psOrdPat, iPatLen, sizeof(sPAT), iShCompMS);
+476   476: 			DUMPMS(MS - sorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+477   477: 			break;
+478   478: 		case eScanOM: /* Optimal Msimatch search */
+479   479: 			qsort(psOrdPat, iPatLen, sizeof(sPAT), iShCompOM);
+480   480: 			DUMPOM(OM - sorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+481   481: 			break;
+482   482: 		/* case tNEW : insert call to new scan order sorting here & */
+483   483: 		/* ----------- place code of the scan order comp.func below */
+484   484: 		default:
+485   485: 			/* Must be a defined type of search ! */
+486   486: 			vError(EARG002, "vBuildBM");
+487   487: 		}
+488   488: 	
+489   489: 		/* 2.2.1 */
+490   490: 		/* First init piDelta2[] with the minimum matching left shift */
+491   491: 		/* so psOrdPat[0].c ... psOrdPat[i-1].c match aligned characters */
+492   492: 		for (piDelta2[0] = iLShift = i = 1; i < iPatLen; ++i) {
+493   493: 			iLShift = iShFind(i, iLShift);
+494   494: 			piDelta2[i] = iLShift;
+495   495: 		}
+496   496: 		DUMPD2(initialized, piDelta2, iPatLen);
+497   497: 		
+498   498: 		/* 2.2.2 */
+499   499: 		/* Then for each piDelta2[i] check that : psOrdPat[i].c != */
+500   500: 		/* pzPat[psOrdPat[i].loc-iLShift]; - if not, repeat search for a */
+501   501: 		/* matching left shift until this condition. */
+502   502: 		for (i = 0; i < iPatLen; ++i) {
+503   503: 		
+504   504: 			iLShift = piDelta2[i]; /* get initial matching shift */
+
+XC ... 'C' Concordance Utility   bm.c                       Page 10
+
+505   505: 			o = psOrdPat + i;
+506   506: 			D(printf("\n piDelta2[%02d],INITIAL LSHIFT : %d\n", i, iLShift));
+507   507: 			
+508   508: 			while (iLShift < iPatLen) {
+509   509: 			
+510   510: 			/* Require left shift INSIDE pattern! */
+511   511: 				if ((j = (psOrdPat[i].loc - iLShift)) < 0) {
+512   512: 				DUMPSH(Ignore, iLShift, psOrdPat, o, pzPat, j);
+513   513: 				break;
+514   514: 			}
+515   515: 		
+516   516: 			/* Require current char NOT MATCH after shift! */
+517   517: 			if (psOrdPat[i].c != pzPat[j]) {
+518   518: 				DUMPSH(OK, iLShift, psOrdPat, o, pzPat, j);
+519   519: 				break;
+520   520: 			}
+521   521: 
+522   522: 			/* If match, scan iteratively for next matching shift */
+523   523: 			DUMPSH(RESET, iLShift, psOrdPat, o, pzPat, j);
+524   524: 			++iLShift;
+525   525: 			iLShift = iShFind(i, iLShift);
+526   526: 		}
+527   527: 		piDelta2[i] = iLShift; /* set final shift */
+528   528: 		
+529   529: 	}
+530   530: 	DUMPD2(corrected, piDelta2, iPatLen);
+531   531: 	} /* end if eScanOrder != eScanQS */
+532   532: }
+533   533: 
+534   534: 
+535   535: /*--------------------------------------------------------------------------*/
+536   536: /* 				iShCompMS 				    */
+537   537: /*--------------------------------------------------------------------------*/
+538   538: int
+539   539: iShCompMS(sPAT * psPat1, sPAT * psPat2)
+540   540: {
+541   541: 
+542   542: /* Compare 2 elements of the scan ordered pattern according to a precalcula-
+543   543: * ted table 'pfScanOrd' of each element-character's maximal left shift.
+544   544: */
+545   545: 	int dsh; /* Delta shift value */
+546   546: 	int i, j; /* Scratch index variables */
+547   547: 	
+548   548: 	/* First call: Build the pfScanOrd array for each char in pattern pzPat */
+549   549: 	/* of the minimal left shift to the last position of the char in pzPat */
+550   550: 	/* (or to the 1. character of pzPat if no match). */
+551   551: 	if (pfScanOrd == NULL) {
+552   552: 	
+553   553: 		if (!(pfScanOrd = (float *) malloc(sizeof(float) * (iPatLen + 1))))
+554   554: 			vError(EMEM007, "iShCompMS");
+555   555: 			
+556   556: 		for (i = 0; i < iPatLen; ++i) {
+557   557: 			for (j = i - 1; j >= 0 && pzPat[j] != pzPat[i]; --j);
+558   558: 			pfScanOrd[i] = (float) (i - j);
+559   559: 		}
+560   560: 		DUMPMS(unsorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+
+XC ... 'C' Concordance Utility   bm.c                       Page 11
+
+561   561: }
+562   562: 	/* ascending order */
+563   563: 	dsh = (int) (pfScanOrd[psPat2->loc] - pfScanOrd[psPat1->loc]);
+564   564: 	return (dsh ? dsh : psPat2->loc - psPat1->loc);
+565   565: }
+566   566: 
+567   567: 
+568   568: /*--------------------------------------------------------------------------*/
+569   569: /* 				iShCompOM 				    */
+570   570: /*--------------------------------------------------------------------------*/
+571   571: int
+572   572: iShCompOM(sPAT * psPat1, sPAT * psPat2)
+573   573: {
+574   574: 
+575   575: /* Compare 2 elements of the scan ordered pattern according to a precalculated
+576   576: * table 'pfScanOrd' of each element-character's frequency in the alphabet. */
+577   577: 
+578   578: 	int i;
+579   579: 	float fq;
+580   580: 	
+581   581: 	/* First call: Build the pfScanOrd array for each char in the alphabet */
+582   582: 	/* of freq. of the chars in the targetlanguage based on the alphabet. */
+583   583: 	if (pfScanOrd == NULL) {
+584   584: 		if (!(pfScanOrd = (float *) malloc(sizeof(float) * (UCHAR_MAX + 1))))
+585   585: 			vError(EMEM008, "iShCompOM");
+586   586: 			
+587   587: 	for (i = 0; i <= UCHAR_MAX; ++i)
+588   588: 		pfScanOrd[i] = 0.1f;
+589   589: 	
+590   590: 		/* English text alphabet frequency */
+591   591: 		pfScanOrd['e'] = 11.1f;
+592   592: 		pfScanOrd['a'] = 8.9f;
+593   593: 		pfScanOrd['i'] = 7.8f;
+594   594: 		pfScanOrd['r'] = 7.4f;
+595   595: 		pfScanOrd['t'] = 7.1f;
+596   596: 		pfScanOrd['o'] = 6.9f;
+597   597: 		pfScanOrd['n'] = 6.8f;
+598   598: 		pfScanOrd['s'] = 5.6f;
+599   599: 		pfScanOrd['l'] = 5.5f;
+600   600: 		pfScanOrd['c'] = 4.5f;
+601   601: 		pfScanOrd['u'] = 3.6f;
+602   602: 		pfScanOrd['m'] = 3.2f;
+603   603: 		pfScanOrd['d'] = 3.2f;
+604   604: 		pfScanOrd['p'] = 3.1f;
+605   605: 		pfScanOrd['h'] = 2.9f;
+606   606: 		pfScanOrd['g'] = 2.4f;
+607   607: 		pfScanOrd['b'] = 2.3f;
+608   608: 		pfScanOrd['y'] = 2.0f;
+609   609: 		pfScanOrd['f'] = 1.5f;
+610   610: 		pfScanOrd['w'] = 1.1f;
+611   611: 		pfScanOrd['k'] = 1.1f;
+612   612: 		pfScanOrd['v'] = 1.0f;
+613   613: 		pfScanOrd['x'] = 0.3f;
+614   614: 		pfScanOrd['j'] = 0.2f;
+615   615: 		pfScanOrd['z'] = 0.2f;
+616   616: 		pfScanOrd['q'] = 0.2f;
+
+XC ... 'C' Concordance Utility   bm.c                       Page 12
+
+617   617: 	
+618   618: 		/* Danish text alphabet frequency */
+619   619: 		/* - to be defined - 		  */
+620   620: 		DUMPD1(pfScanOrd, UCHAR_MAX);
+621   621: 		DUMPOM(unsorted, psOrdPat, pzPat, pfScanOrd, iPatLen);
+622   622: 	}
+623   623: 
+624   624: 	/* descending order */
+625   625: 	fq = pfScanOrd[psPat1->c] - pfScanOrd[psPat2->c];
+626   626: 	return (int) (fq ? (fq > 0 ? 1 : -1) : psPat2->loc - psPat1->loc);
+627   627: }
+628   628: 
+629   629: 
+630   630: /*--------------------------------------------------------------------------*/
+631   631: /* 				iShFind 				    */
+632   632: /*--------------------------------------------------------------------------*/
+633   633: int
+634   634: iShFind(int i, int iLShift)
+635   635: {
+636   636: /* Return value of the next valid leftward shift 'iLShift' of the first 'i'
+637   637: * chars in psOrdPat, such that all chars from psOrdPat[i-1].c to
+638   638: * psOrdPat[0].c in the scan ordered pattern matches the chars in the pattern
+639   639: * pzPat after a left shift of 'iLShift' (ie. we match reoccuring chars in the
+640   640: * pattern at a distance of iLShift positions).
+641   641: */
+642   642: 
+643   643: 	sPAT *o; 	/* Ptr. to scan ordered pattern */
+644   644: 	int j; 		/* Scratch index variable */
+645   645: 	
+646   646: 	D(printf("\n\t MATCHSHIFT psOrdPat[%02d...00] :\n", i - 1));
+647   647: 	for (; iLShift < iPatLen; ++iLShift) {
+648   648: 	
+649   649: 		for (o = psOrdPat + i - 1; o >= psOrdPat; o--) {
+650   650: 			/* in range 0...psOrdPat[j].loc */
+651   651: 			if ((j = (o->loc - iLShift)) < 0) {
+652   652: 				DUMPSH(Ignore, iLShift, psOrdPat, o, pzPat, j);
+653   653: 				continue;
+654   654: 			}
+655   655: 		
+656   656: 			if (o->c != pzPat[j]) { /* mismatch at position j */
+657   657: 				DUMPSH(Mismatch, iLShift, psOrdPat, o, pzPat, j);
+658   658: 				break;
+659   659: 			}
+660   660: 			DUMPSH(MATCH, iLShift, psOrdPat, o, pzPat, j); /* matched one more */
+661   661: 		}
+662   662: 
+663   663: 		if (o < psOrdPat) /* matched all psOrdPat[0]...psOrdPat[i] */
+664   664: 		break;
+665   665: 	}
+666   666: 	D(printf("\t LSHIFT : %d\n", iLShift));
+667   667: 	return iLShift;
+668   668: }
+669   669: /*==========================================================================*/
+670   670: /* 				vRunBM 					    */
+671   671: /*==========================================================================*/
+672   672: FLAG
+
+XC ... 'C' Concordance Utility   bm.c                       Page 13
+
+673   673: fRunBM(BYTE * T)
+674   674: {
+675   675: /* 			psOrdPat<----o---->psOrdPat+iPatLen
+676   676: * Scan ordered pattern: [xxxxxxxxxxx]
+677   677: *
+678   678: * 			pzPat<-----p--->pzPat+iPatLen
+679   679: * Pattern :				[xxxxxxxxxxx]
+680   680: *
+681   681: * Text : 		[yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy]
+682   682: *                               T S<-----t--->S+iPatLen T+Tlen
+683   683: */
+684   684: 
+685   685: 	BYTE 	*p; 	/* Ptr. to scan through pattern */
+686   686: 	sPAT 	*o; 	/* Ptr. to scan ordered pattern */
+687   687: 	BYTE 	*S = T; /* Ptr to shift the pattern through text */
+688   688: 	BYTE 	*t; 	/* Ptr. to scan through text */
+689   689: 	int 	Tlen = strlen((char *) T); /* Length of text */
+690   690: 	int 	iD1; 	/* Delta1 table shift value. */
+691   691: 	int 	iD2; 	/* Delta2 table shift value. */
+692   692: 	
+693   693: 	switch (eScanOrder) {
+694   694: 	
+695   695: 		case eScanQS:
+696   696: 			/* --------- Perform left-right Quick Search ---------- */
+697   697: 			
+698   698: 			D(puts("\nTRACE of BM Quick Search ...\n"));
+699   699: 			
+700   700: 			/* while enough text is still left ... */
+701   701: 			while (S + iPatLen <= T + Tlen) {
+702   702: 				D(printf("Pat:\t%s\n", pzPat));
+703   703: 				D(printf("Txt:\t%s\n", S));
+704   704: 				
+705   705: 				/* scan through pattern string while match in text */
+706   706: 				D(printf("\tMATCH:["));
+707   707: 				for (p = pzPat, t = S; *p && *p == *t; p++, t++)
+708   708: 					D(printf("%c", *t));
+709   709: 					
+710   710: 				/* test for end-of-string */
+711   711: 				if (*p) { /* no : MISMATCH */
+712   712: 					D(printf("]\n\tFAIL.:[%c<>%c]", *p, *t));
+713   713: 					iD1 = piDelta1[*(S + iPatLen)]; /* get delta1 */
+714   714: 					D(printf("\n\tSHIFT:piDelta1[%c]=%03d\n", *(S + iPatLen),
+715   715: 					iD1));
+716   716: 					S += iD1; /* shift pattern */
+717   717: 				}
+718   718: 				else { /* yes : MATCH */
+719   719: 					D(puts("]\n\tCOMPLETE!\n"));
+720   720: 					return (TRUE); /* might return position (1+S-T) */
+721   721: 				}
+722   722: 			}
+723   723: 			return (FALSE); /* no match in total text, return FALSE(0) */
+724   724: 			break; /* unreachable,- defensive programming */
+725   725: 			
+726   726: 		case eScanMS:
+727   727: 		case eScanOM:
+728   728: 			/* ------- Perform arbitrary scan order search -------------- */
+
+XC ... 'C' Concordance Utility   bm.c                       Page 14
+
+729   729: 			D(puts("\nTRACE of BM ScanOrder Search ...\n"));
+730   730: 			
+731   731: 			/* while enough text is still left ... */
+732   732: 			while (S + iPatLen <= T + Tlen) {
+733   733: 				D(printf("Pat:\t%s\n", pzPat));
+734   734: 				D(printf("Txt:\t%s\n", S));
+735   735: 
+736   736: 				/* scan through ordered pattern while match in text */
+737   737: 				D(printf("\tMATCH:["));
+738   738: 				for (o = psOrdPat; o->c && o->c == *(S + o->loc); o++)
+739   739: 					D(printf("%c", *(S + o->loc)));
+740   740: 					
+741   741: 				/* test for end-of-string */
+742   742: 				if (o->c != 0) { /* no : MISMATCH */
+743   743: 					D(printf("]\n\tFAIL.:pos.%03d [%c<>%c]\n",
+744   744: 					o->loc, o->c, *(S + o->loc)));
+745   745: 					iD1 = piDelta1[*(S + iPatLen)]; /* get delta1 */
+746   746: 					iD2 = piDelta2[o - psOrdPat]; /* get delta2 */
+747   747: 					D(printf("\tSHIFT:piDelta1[%c] =%03d\n", *(S + iPatLen),iD1));
+748   748: 					D(printf("\t piDelta2[%03ld]=%03d\n", o - psOrdPat, iD2));
+749   749: 					D(printf("\t MAX =%03d\n", (iD1 > iD2 ? iD1 : iD2)));
+750   750: 					S += (iD1 > iD2 ? iD1 : iD2); /* use max for pattern shift*/
+751   751: 				}
+752   752: 				else { /* yes : MATCH */
+753   753: 					D(puts("]\n\tCOMPLETE!\n"));
+754   754: 					return (TRUE); /* might return position (1+S-T) */
+755   755: 				}
+756   756: 			}
+757   757: 			return (FALSE); /* no match in total text, return FALSE(0) */
+758   758: 			break; /* unreachable,- defensive programming */
+759   759: 			
+760   760: 		default: /* Must be a defined type of search ! */
+761   761: 			vError(EARG003, "vRunBM");
+762   762: 	}
+763   763: }
+764   764: /*==========================================================================*/
+765   765: /* 				vDelBM 					    */
+766   766: /*==========================================================================*/
+767   767: void
+768   768: vDelBM(void)
+769   769: {
+770   770: 	switch (eScanOrder) {
+771   771: 	
+772   772: 		case eScanMS:
+773   773: 		case eScanOM:
+774   774: 			free(piDelta2);
+775   775: 			free(psOrdPat);
+776   776: 			free(pfScanOrd);
+777   777: 			/* !fall through! */
+778   778: 			
+779   779: 		case eScanQS:
+780   780: 			free(piDelta1);
+781   781: 			break;
+782   782: 			
+783   783: 		default: /* Must be a defined type of search ! */
+784   784: 			vError(EARG004, "vDelBM");
+
+XC ... 'C' Concordance Utility   bm.c                       Page 15
+
+785   785: 	}
+786   786: 
+787   787: 	D(puts("\nData structures deallocated ..."));
+788   788: }
+789   789: 
+790   790: /* END of module BM.C */
+791   791: /*==========================================================================*/
+792   792: 
+XC ... 'C' Concordance Utility                              Page 16
+
+_BM_ALLOC           :  213 
+_OP                 :  287  289 
+_P                  :  287  289 
+_arr                :  264  268  282  283  285 
+_i                  :  263  266  266  266  268  268  268  268  272  272  272  274  274  274  274 
+                       274  278  278  278  280  280  280  280  280  284  284  284  285  285 
+_j                  :  287  289  289  289 
+_len                :  264  266  270  272  276  278  282  284  287  289 
+_o                  :  270  271  274  274  274  276  277  280  280  280  280  287  289  289  289 
+                      
+_p                  :  270  273  276  279 
+_s                  :  270  273  274  276  279  280 
+_typ                :  270  276  282  287 
+BYTE                :  224  231  298  311  314  315  316  432  673  685  687  688 
+Build               :  207 
+Chose               :  207 
+c                   :  224  274  280  280  280  289  470  517  625  625  656  738  738  742  744 
+                      
+configuration       :  207 
+const               :  371  376 
+corrected           :  530 
+D                   :  265  271  277  283  288  345  347  348  371  506  646  666  698  702  703 
+                       706  708  712  714  719  729  733  734  737  739  743  747  748  749  753 
+                       787 
+DEBUG               :  208  209 
+DUMPD1              :  264  455  620 
+DUMPD2              :  282  496  530 
+DUMPMS              :  270  476  560 
+DUMPOM              :  276  480  621 
+DUMPSH              :  287  512  518  523  652  657  660 
+debug               :  207 
+dsh                 :  545  563  564  564 
+EARG002             :  486 
+EARG003             :  761 
+EARG004             :  784 
+EMEM005             :  446 
+EMEM006             :  463 
+EMEM007             :  554 
+EMEM008             :  585 
+EXIT_FAILURE        :  341  357 
+eScanMS             :  326  362  474  726  772 
+eScanOM             :  330  478  727  773 
+eScanOrder          :  237  312  326  330  334  338  361  362  363  440  458  473  693  770 
+eScanQS             :  334  338  362  458  695  779 
+eScanUD             :  237  312  361 
+enum                :  237  392 
+exit                :  341  357 
+FALSE               :  723  757 
+FILE                :  313 
+FLAG                :  317  673 
+f                   :  588  591  592  593  594  595  596  597  598  599  600  601  602  603  604 
+                       605  606  607  609  610  611  613  614  615  616 
+fMatch              :  317  375  383 
+fRunBM              :  375  673 
+fgets               :  369 
+fileInpFd           :  313  366  369 
+
+XC ... 'C' Concordance Utility                              Page 17
+
+fopen               :  366 
+fq                  :  579  625  626  626 
+free                :  774  775  776  780 
+Ignore              :  512  652 
+i                   :  318  352  352  352  355  355  435  449  449  449  450  468  468  468  469 
+                       492  492  492  493  494  502  502  502  504  505  506  511  517  525  527 
+                       546  556  556  556  557  557  558  558  578  587  587  587  588  634  646 
+                       649 
+iArgc               :  298  321  350  366 
+iD1                 :  690  713  715  716  745  747  749  749  750  750 
+iD2                 :  691  746  748  749  749  750  750 
+iLShift             :  244  434  492  493  493  494  504  506  508  511  512  518  523  524  525 
+                       525  527  634  647  647  651  652  657  660  666  667 
+iLineNum            :  368  371 
+iPatLen             :  232  439  450  454  461  462  468  475  476  479  480  492  496  502  508 
+                       530  553  556  560  621  647  701  713  714  732  745  747 
+iPatLoc             :  244 
+iShCompMS           :  242  475  539 
+iShCompOM           :  243  479  572 
+iShFind             :  244  493  525  634 
+initialized         :  496 
+j                   :  435  511  512  517  518  523  546  557  557  557  557  558  644  651  652 
+                       656  657  660 
+loc                 :  223  274  274  280  289  469  511  563  563  564  564  626  626  651  738 
+                       739  744  744 
+MAIN                :  211  292 
+MATCH               :  660 
+MAX_LINE            :  296  314  369 
+MS                  :  476 
+Mismatch            :  657 
+main                :  298 
+malloc              :  445  461  462  553  584 
+NULL                :  441  551  583 
+normal              :  207 
+OK                  :  518 
+OM                  :  480 
+o                   :  433  468  468  469  470  505  512  518  523  643  649  649  649  651  652 
+                       656  657  660  663  686  738  738  738  738  738  739  742  744  744  744 
+                       746  748 
+or                  :  207 
+PRIVATE             :  231  232  233  234  235  236  237  242  243  244 
+p                   :  432  453  453  453  454  454  468  468  470  685  707  707  707  707  711 
+                       712 
+patScanElem         :  222 
+pbArg               :  311  322  322  322  323 
+pbNL                :  316  372  373 
+pfScanOrd           :  234  441  476  480  551  553  558  560  563  563  583  584  588  591  592 
+                       593  594  595  596  597  598  599  600  601  602  603  604  605  606  607 
+                       608  609  610  611  612  613  614  615  616  620  621  625  625  776 
+piDelta1            :  233  445  450  454  455  713  745  780 
+piDelta2            :  236  462  492  494  496  504  527  530  746  774 
+ppzArgv             :  298  321  322  348  349  366 
+printf              :  265  267  271  273  277  279  283  285  288  340  345  348  356  371  506 
+                       646  666  702  703  706  708  712  714  733  734  737  739  743  747  748 
+                       749 
+psOrdPat            :  235  461  468  475  476  479  480  505  511  512  517  518  523  560  621 
+
+XC ... 'C' Concordance Utility                              Page 18
+
+                       649  649  652  657  660  663  738  746  748  775 
+psPat1              :  242  243  539  563  564  572  625  626 
+psPat2              :  242  243  539  563  564  572  625  626 
+puts                :  347  376  698  719  729  753  787 
+pzInpBuffer         :  314  369  371  372  375  376 
+pzLexptr            :  352  355  362  438 
+pzParse             :  349 
+pzPat               :  231  438  439  453  454  468  476  480  512  517  518  523  557  557  560 
+                       621  652  656  657  660  702  707  733 
+pzPostfix           :  315  349 
+qsort               :  475  479 
+RESET               :  523 
+S                   :  687  701  703  707  713  714  716  732  734  738  739  744  745  747  750 
+                      
+sPAT                :  225  235  242  242  243  243  433  461  461  475  479  539  539  572  572 
+                       643  686 
+scanType            :  237  392 
+sorted              :  476  480 
+stdin               :  366 
+strchr              :  372 
+strlen              :  362  439  689 
+symtab              :  392  438 
+symtable            :  352  355  362  363 
+T                   :  673  687  689  701  732 
+TRUE                :  720  754 
+Tlen                :  689  701  732 
+t                   :  688  707  707  707  708  712 
+toupper             :  323 
+type                :  392  440 
+UCHAR_MAX           :  445  449  455  584  587  620 
+unsorted            :  560  621 
+vBuildBM            :  363  392 
+vDelBM              :  382  768 
+vError              :  446  463  486  554  585  761  784 
+void                :  392  768  768 
+
+

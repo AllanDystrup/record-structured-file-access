@@ -1,0 +1,685 @@
+XC ... 'C' Concordance Utility   tbm.c                      Page 1
+
+1       1: /*+1========================================================================*/
+2       2: /* MODULE TBM.C */
+3       3: /*==========================================================================*/
+4       4: /* FUNCTION
+5       5:  *		Tuned Boyer-Moore (BM) algorithm for fast string searching; -
+6       6:  * 		This module implements a compact, portable and fast BM
+7       7:  * 		algorithm (ie. a classic BM including a skip-loop).
+8       8:  *
+9       9:  * 		Search algorithms have a common structure performing a repeated
+10     10:  * 		loop through a sequence of positions in the text being searched
+11     11:  * 		and testing whether the pattern does or does not match the text
+12     12:  * 		at each position :
+13     13:  * 		FOR pos in text DO { 			// SEARCH LOOP:
+14     14:  * 			skiploop                    // 1: skip past immediate mismatch
+15     15:  * 			match(pattern,text[pos])	// 2: compare pattern against text
+16     16:  * 			pos += shift(pos, off)		// 3: text[pos+off] != pattern[off]
+17     17:  * 		}
+18     18:  *
+19     19:  * 		Several choices of algorithm exist for the 3 steps of the
+20     20:  * 		search loop : (1) skip, (2) match and (3) shift.
+21     21:  * 		In the Tuned BM (TBM) we use the following components :
+22     22:  * 			(1) TBM skip : 	portable, unrolled variant of search forward
+23     23:  * 		  	    for last (rightmost) char in pattern; (fast BM)
+24     24:  * 			(2) TBM match : test guard before forward (l->r) linear scan.
+25     25:  * 			(3) TBM shift : "mini Sunday DELTA-2(pattern)".
+26     26:  *
+27     27:  * 			For a further description of these (and alternative) components
+28     28:  * 			cf. the references given below.
+29     29:  *
+30     30:  * SYSTEM
+31     31:  *		Standard C: ANSI/ISO C (1992), ported to ISO/IEC C11 (2011).
+32     32:  * 		1992 -	Tested on PC/MS DOS V.3.3 and UNIX Sys V.3. (ANSI/ISO C)
+33     33:  * 		2025 -	Tested on Win.10 (Terminal) and on Win.10 WSL UBUNTU.
+34     34:  * 			Using JetBrains CLion IDE (ISO/IEC C11)
+35     35:  *
+36     36:  * SEE ALSO
+37     37:  *		Modules : TBM.H, MAKEFILE
+38     38:  *
+39     39:  * PROGRAMMER
+40     40:  *		Allan Dystrup (AD) COPYRIGHT(c)
+41     41:  *		Allan Dystrup, March 1992, December 2025.
+42     42:  *
+43     43:  * VERSION 	$Header: d:/cwork/index/tbm/RCS/tbm.c 1.3 92/02/27 15:11:30
+44     44:  * 		Allan_Dystrup Exp Locker: Allan_Dystrup $
+45     45:  *		$Log: tbm.c $
+46     46:  * 		Revision 1.0 92/03202 13:40:40 Allan_Dystrup
+47     47:  * 		Initial revision*
+48     48:  *		Revision 1.1 92/02/27 15:11:30 Allan_Dystrup
+49     49:  * 		*** empty log message ***
+50     50:  * 		Revision 1.2 92/02/28 10:55:34 Allan_Dystrup
+51     51:  * 		fbuf & ucase (hack)
+52     52:  * 		Revision 1.3 92/02/28 11:54:16 Allan_Dystrup
+53     53:  * 		S-L-O-W UCASE
+54     54:  * 		Revision 1.4 92/03/11 14:54:40 Allan_Dystrup
+55     55:  * 		hack'ed UCASE
+56     56:  * 		Revision 1.5 92/03/13 08:40:32 Allan_Dystrup
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 2
+
+57     57:  * 		main ucase
+58     58:  * 		Revision 1.6 92/03/13 11:15:25 Allan_Dystrup
+59     59:  * 		integrated UCASE
+60     60:  * 		Revision 1.7 92/03/13 13:34:44 Allan_Dystrup
+61     61:  * 		linted DOS/UX
+62     62:  *          	------------------------------------------
+63     63:  *	    	Revision 1.8 2025/12/09 11:00:00 Allan_Dystrup
+64     64:  *          	Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
+65     65:  *	    	Port to Win. 10 native/terminal, Using CLion for Windows
+66     66:  *
+67     67:  * REFERENCES
+68     68:  *		The references concentrate on the Boyer-Moore family of string
+69     69:  * 		search algorithms, which is superior for single string matching;
+70     70:  * 		Other strategies for string search (eg. KMP for single string
+71     71:  * 		match, Aho-Corasic for parallel string match and general NFA/DFA
+72     72:  * 		for regular expressions) are NOT considered.
+73     73:  *		Please consult an algorithm textbook for a broad introduction
+74     74:  *		to these techniques, (for instance Sedgewick, R. [1983] :
+75     75:  *		"Algorithms", Addison-Wesley, August 1984).
+76     76:  *
+77     77:  * 		Boyer, R.S and J.S. Moore [1977] : "A Fast String Searching
+78     78:  * 		Algorithm", CACM, Vol.20, No.10, October 1977.
+79     79:  *
+80     80:  * 		Schaback, R. [1988] : "On the Expected Sublinearity of the BM
+81     81:  * 		Algorithm", SIAM J. COMPUT, Vol.17, No.4, August 1988.
+82     82:  *
+83     83:  * 		Rivest, R. [1979] : "On Improving the Worst Case Running Time of
+84     84:  * 		the BM String Matching Algorithm", CACM, Vol.22, No.9,Sept.1979
+85     85:  *
+86     86:  * 		Sunday, D.M. [1990] : "A Very Fast Substring Search Algorithm",
+87     87:  * 		Communications of the ACM, Vol.33, No.8, August 1990.
+88     88:  *
+89     89:  * 		Smith, P.D. [1991] : "Experiments with a Very Fast Substring
+90     90:  * 		Search Algorithm", Software-Practice and Experience,
+91     91:  * 		Vol.21(10), 1065-1074, October 1991
+92     92:  *
+93     93:  * 		Hume, A and D. Sunday [1991] : "Fast String Searching",
+94     94:  * 		Algorithm", Software-Practice and Experience,
+95     95:  *  		Vol.21(11), 1221-1248, November 1991.
+96     96:  *
+97     97:  * USAGE
+98     98:  *		Module tbm.c features the following public routines for
+99     99:  * 		performing fast string search in text :
+100   100:  * 			vBuildTBM() // prepare pattern for search function
+101   101:  * 			iRunTBM()   // perform search for pattern in text
+102   102:  * 		See headerfile tbm.h and the documentation in this file for
+103   103:  * 		a detailed description of the user accessible compile switches,
+104   104:  * 		datastructures and functions.
+105   105:  *
+106   106:  * DOC
+107   107:  *		Documentation is incorporated into the module and may be
+108   108:  * 		selectively extracted (using a utility such as ex.awk) :
+109   109:  * 			Level 1: Module documentation (history, design, testdriver)
+110   110:  * 			Level 2: PUBLIC functions (module program interface, "API")
+111   111:  * 			Level 3: major PRIVATE functions (design)
+112   112:  * 			Level 4: minor PRIVATE functions (support)
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 3
+
+113   113:  *
+114   114:  * BUGS
+115   115:  *		The module contains highly optimized code for maximum speed;
+116   116:  * 		As a consequence the algorithms may not be immediately compre-
+117   117:  * 		hensible. I have tried to counter this effect by an extensive
+118   118:  * 		documentation of the program, but if in doubt, please consult
+119   119:  * 		the references.
+120   120:  *
+121   121:  *-1========================================================================*/
+122   122: 
+123   123: 
+124   124: /*=========================================================================*/
+125   125: /*                            Includes			                   */
+126   126: /*=========================================================================*/
+127   127: /* Standard C (ANSI/ISO( headerfiles */
+128   128: #include <stdio.h>
+129   129: #include <stdlib.h>
+130   130: #include <string.h>
+131   131: #include <ctype.h>
+132   132: 
+133   133: /* Project headerfile */
+134   134: //#define DEBUG
+135   135: #define _TBM_ALLOC
+136   136: #include "tbm.h"
+137   137: 
+138   138: /* Project main() */
+139   139: //#define MAIN
+140   140: //#define DUMMY
+141   141: 
+142   142: 
+143   143: /*=========================================================================*/
+144   144: /*                            Function Prototypes                          */
+145   145: /*=========================================================================*/
+146   146: 
+147   147: PRIVATE BYTE
+148   148: 	bDKupper(int ii);
+149   149: 	
+150   150: 	
+151   151: 	
+152   152: 	
+153   153: #ifdef MAIN
+154   154: /****************************************************************************/
+155   155: /******************************** MAIN **************************************/
+156   156: /****************************************************************************/
+157   157: 
+158   158: /* Define "signon message" for module tbm.c */
+159   159: PRIVATE char SIGNON[] =
+160   160: 	"\TBM Search Functions (Testdriver), Version 1.8\n"
+161   161: 	"MOD[tbm.c] VER[1.8] DAT[2025/12/08] DEV[ad]\n"
+162   162: 	"Copyright (c) Allan Dystrup 1992, 2025\n\n";
+163   163: 
+164   164: /* Define "usage message" for module tbm.c */
+165   165: PRIVATE char USAGE[] =
+166   166: 	"\n\aUSAGE: \ttbm <pattern> <file>\n"
+167   167: 	"where       <pattern>  is string to find\n"
+168   168: 	"            <file>     is file to search\n"
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 4
+
+169   169: 	"example: tbm  fee  foo.bar\n\n";
+170   170: 
+171   171: 
+172   172: #define MAXLIN 512 /* Max. #chars in one line of text */
+173   173: #define MAXPAT 256 /* Max. #chars in search pattern */
+174   174: 
+175   175: 
+176   176: /*+4 MODULE TBM.C ----------------------------------------------------------*/
+177   177: /*   NAME			CHKERR                                      */
+178   178: /*-- SYNOPSIS --------------------------------------------------------------*/
+179   179: /* DESCRIPTION
+180   180:  * Simple macro for main() testdriver providing error test & diagnostic.
+181   181:  *-4*/
+182   182: 
+183   183: #define CHKERR(expr, msg) { 					\
+184   184: 	if (expr) 						\
+185   185: 	{ 							\
+186   186: 		fprintf(stderr,					\
+187   187: 		"\n\aERROR: File[%s]-Line[%d] Date[%s]-Time[%s]\nCAUSE: %s\n", \
+188   188: 		__FILE__, __LINE__, __DATE__, __TIME__, msg);	\
+189   189: 		exit(EXIT_FAILURE);				\
+190   190: 	} 							\
+191   191:     }  /* End define CHKERR */
+192   192: 	
+193   193: 
+194   194: 
+195   195: /*+1 MODULE TBM.C ==========================================================*/
+196   196: /*	 NAME 00		main					    */
+197   197: /*== SYNOPSIS ==============================================================*/
+198   198: int main(argc, argv)
+199   199: 	int argc; 		/* Argument count : should be 3, cf. argv[] */
+200   200: 	char *argv[]; 	/* Argument vector: <tbm>, <pattern>, <file> */
+201   201: {
+202   202: /* DESCRIPTION
+203   203:  * Testdriver for module tbm.c ; -
+204   204:  *
+205   205:  * I: 	The testdriver exercises the functions in the module, and validates
+206   206:  * 	the functionality through trace-statements (compiled with -DDEBUG).
+207   207:  * 	   1: Test reaction to boundary conditions : Empty pattern/textbuffer.
+208   208:  *
+209   209:  * II:	The testdriver may be used as a stand alone utility with a simple
+210   210:  * 	commandline interface for searching a file for a textstring :
+211   211:  * 	tbm <pattern> <file>, - (cf. the "USAGE" description above).
+212   212:  * 	   1: Signon & check args
+213   213:  * 	   2: Open textfile to search
+214   214:  *	   3: Prepare pattern for TBM search
+215   215:  * 	   4: Perform TBM search on textfile, one line at a time, until EOF
+216   216:  * 	   5: Clean up & Terminate
+217   217:  *-1*/
+218   218: 
+219   219: 	FILE  *fdTxt; 				/* File handle for textfile */
+220   220: 	BYTE  cBuf[MAXLIN+MAXPAT]; 	/* Linebuffer for textfile */
+221   221: 	DWORD dwCount = 0L; 		/* Linecount for textlines */
+222   222: 	int   iMatch; 				/* Integer return code (line matches) */
+223   223: 	DWORD dwMatchTotal = 0L;	/* Total number matches (input stream)*/
+224   224: 
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 5
+
+225   225: #ifdef DUMMY
+226   226: 	/*-----------------------------------------------------------------------*/
+227   227: 	/* I: INTERNAL TEST PART OF MAIN() TESTDRIVER */
+228   228: 	/* 1: Test reaction to boundary conditions : Empty pattern/textbuffer. */
+229   229: 	strcpy((char *)cBuf, ""); /* 1.1: Empty pattern */
+230   230: 	vBuildTBM(cBuf, strlen(cBuf));
+231   231: 
+232   232: 	strcpy((char *)cBuf, "Dummy\n");
+233   233: 	if ( iRunTBM(cBuf, strlen((char*)cBuf)) )
+234   234: 		printf("[%05lu]\t%s", dwCount, cBuf);
+235   235: 
+236   236: 	strcpy((char *)cBuf, "Dummy"); /* 1.2: Empty textbuffer */
+237   237: 	vBuildTBM(cBuf, strlen(cBuf));
+238   238: 
+239   239: 	strcpy((char *)cBuf, "");
+240   240: 	if ( iRunTBM(cBuf, strlen((char*)cBuf)) )
+241   241: 		printf("[%05lu]\t%s", dwCount, cBuf);
+242   242: #endif /* DUMMY */
+243   243: 
+244   244: 
+245   245: 	/*-----------------------------------------------------------------------*/
+246   246: 	/* II: APPLICATION PART OF MAIN() TESTDRIVER */
+247   247: 
+248   248: 	/* 1: Signon & check args */
+249   249: 	fputs(SIGNON, stdout);
+250   250: 
+251   251: 	if (argc != 3) {
+252   252: 		fputs(USAGE, stdout);
+253   253: 		exit(EXIT_FAILURE);
+254   254: 	}
+255   255: 
+256   256: 	/* 2: Open textfile to search */
+257   257: 	D( printf("Input File: %s\n", argv[2]); )
+258   258: 	fdTxt = fopen(argv[2], "r");
+259   259: 	CHKERR(fdTxt == NULL, "Function fopen()")
+260   260: 	int iRet = setvbuf(fdTxt, NULL, _IOFBF, 4*1024);
+261   261: 	CHKERR(iRet != 0, "Function setvbuf()")
+262   262: 
+263   263: 
+264   264: 	/* 3: Prepare pattern for TBM search */
+265   265: 	vBuildTBM( (BYTE*) argv[1], strlen(argv[1])); /* len. of pattern (EXCL \0) */
+266   266: 
+267   267: 
+268   268: 	/* 4: Perform TBM search on textfile, one line at a time, until EOF */
+269   269: 	while (1) {
+270   270: 		/*CONSTEXPR*/
+271   271: 
+272   272: 		/* Read next input line from file to buffer; - Break at EOF */
+273   273: 		if ( fgets((char*)cBuf, MAXLIN, fdTxt) == NULL || feof(fdTxt) )
+274   274: 			break;
+275   275: 		D( printf( "INPUT: %s", cBuf); )
+276   276: 		dwCount++;
+277   277: 
+278   278: 		/* Run TBM search on text in buffer; - echo text if match */
+279   279: 		if ( iMatch = iRunTBM(cBuf, strlen((char*)cBuf)) ) {
+280   280: 			printf("[%ld:%d]\t%s", dwCount, iMatch, cBuf);
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 6
+
+281   281: 			dwMatchTotal += iMatch;
+282   282: 		}
+283   283: 	}
+284   284: 	printf("\nTotal match of [%s] in input stream [%s]: [%ld]",	\
+285   285: 		argv[1], argv[2], dwMatchTotal);
+286   286: 
+287   287: 	/* 5: Cleanup & Terminate */
+288   288: 	free(fdTxt);
+289   289: 	return(EXIT_SUCCESS);	
+290   290: }
+291   291: #endif /* MAIN */
+292   292: 
+293   293: 
+294   294: /****************************************************************************/
+295   295: /******************************** TBM ***************************************/
+296   296: /****************************************************************************/
+297   297: 
+298   298: /* Structure defining search pattern and TBM parameters */
+299   299: PRIVATE struct {
+300   300: 	BYTE 	pat[1024]; 		/* PATTERN Buffer holding pattern to match   */
+301   301: 	int 	patlen; 		/* ------- Sizeof(pattern) pat[] (incl. \0)  */
+302   302: 	int 	delta[ASIZE];	/* SKIP..: BM skip table for pattern endchar */
+303   303: 	BYTE 	rarec; 			/* MATCH.: Guard, "rarest" char in pattern   */
+304   304: 	int 	rareoff; 		/* ------- Position in pattern of guard-char */
+305   305: 	int 	md2; 			/* SHIFT.: Mini-sd2 shift value 	     */
+306   306: } pat;
+307   307: 
+308   308: 
+309   309: /*+2 MODULE TBM.C ==========================================================*/
+310   310: /*	 NAME 01		vBuildTBM				    */
+311   311: /*== SYNOPSIS ==============================================================*/
+312   312: PUBLIC void
+313   313: vBuildTBM(pb, len)
+314   314: 	BYTE *pb; /* Ptr begin of (\0-terminated) pattern string */
+315   315: 	int  len; /* Length of pattern-string (#byte, EXCL \0) */
+316   316: {
+317   317: /* DESCRIPTION
+318   318:  * Init. datastructures necessary for running a Tuned Boyer-Moore search :
+319   319:  * fill in delta table for skip-loop, find rarest pattern-char (guard) for
+320   320:  * match-loop, and get "endcharacter reoccurrence" (md2) for shift-function.
+321   321:  *
+322   322:  * 1:	Initialize fields of struct "pat" from function arguments.
+323   323:  *
+324   324:  * 2: 	For SKIP-LOOP: Define the BM (Boyer-Moore) delta skip-table d[];
+325   325:  * 		d[] is the "delta" array precomputed for each char A in the alphabet
+326   326:  * 		to hold the #chars from the last char in the pattern to the rightmost
+327   327:  *		occurrence of A in the pattern (0 for the last char, patlen for all
+328   328:  * 		chars not in the pattern); -
+329   329:  * 		d[] is used in the skip loop to match the last pattern-char P with
+330   330:  * 		the corresponding text-char T : If ((k = d[T]) > 0), k holds the
+331   331:  * 		"delta-value" to shift the pattern right for aligning the last T
+332   332:  *		in the pattern with T in the text (or for shifting the pattern past
+333   333:  * 		T in the text, when k = patlen).
+334   334:  *
+335   335:  * 3: 	For MATCH-LOOP: Define guard as the rarest character of the pattern;
+336   336:  * 		In the match-loop we will test the guard against the text before
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 7
+
+337   337:  * 		doing a full match test.
+338   338:  *
+339   339:  * 4: 	For SHIFT-FUNC.: Find "mini-sd2" shift (sd2: Sunday's general DELTA2);
+340   340:  * 		Define md2 as the #chars to shift the pattern to the first leftward
+341   341:  * 		reoccurrence of the skip-loop char (here: the LAST char in pattern), -
+342   342:  * 		if the last char doesn't reoccur in the pattern, md2 = patternlength.
+343   343:  * 		This shift-value is applied to the "endpointer", whenever a mismatch
+344   344:  * 		occurs (cf. the exec function).
+345   345:  *
+346   346:  * RETURN
+347   347:  * 		Func.return value: None (void); - Resources are statically allocated
+348   348:  * 		for struct pat, so dynamic error conditions can not occur.
+349   349:  *-2*/
+350   350: 
+351   351: 	/* 1.1: Setup shorthand register var's for struct "pat" fields */
+352   352: 	register BYTE 	*pe;	/* Ptr to pattern end */
+353   353: 	register BYTE 	*p; 	/* Ptr for reverse scan of pattern */
+354   354: 	register int 	j; 		/* Index into delta array */
+355   355: 	register int 	r; 		/* Offset in pattern of "rare" character */
+356   356: 	register int 	*d; 	/* Alias for delta array */
+357   357: 	BYTE			*bp;	/* Scan ptr. for pattern */
+358   358: 	int				c;		/* Scratch count variable *)
+359   359: 	
+360   360: 	/* Initialize structure "pat" from the function arguments */
+361   361: 	pat.patlen = len; 						/* #chars in pat (EXCL \0) */
+362   362: 	assert(pat.patlen < sizeof(pat.pat)); 	/* must fit into buffer */
+363   363: 	memcpy(pat.pat, pb, pat.patlen);
+364   364: 
+365   365: 	for (bp = pat.pat; bp < pat.pat+pat.patlen; bp++)
+366   366: 		*bp = UCASE(*bp); 					/* Possibly conv. to uppercase */
+367   367: 	D(fprintf(stdout, "Pattern[%s], Length[%d]\n", pat.pat, pat.patlen);)
+368   368: 
+369   369: 
+370   370: 	/* 2: For SKIP-LOOP: define the BM skip delta table d[] */
+371   371: 	for (j = 0, d = pat.delta; j < ASIZE; j++)
+372   372: 		d[j] = pat.patlen; 		/* Init all = pat.patlen */
+373   373: 
+374   374: 	for (pb = pat.pat, pe = pb+pat.patlen-1; pb <= pe; pb++) {
+375   375: 		d[*pb] = pe - pb; 		/* Reset for pat.chars */
+376   376: 		D(fprintf(stdout, "\tSkip :\t[%c]=%d\n", *pb, pe - pb);)
+377   377: 	}
+378   378: 
+379   379: #ifdef TBM_FQ
+380   380: 	/* 3: For MATCH-LOOP: define guard as rarest char of pattern (cf. freq[]) */
+381   381: 	r = 0;	/* rare pos. (#chr from pat.start) */
+382   382: 	for (pb = pat.pat, pe = pb+pat.patlen-1; pb < pe; pb++)
+383   383: 		if (freq[*pb] < freq[pat.pat[r]])
+384   384: 			r = pb - pat.pat;
+385   385: 
+386   386: 	pat.rarec = pat.pat[r]; /* guard char */
+387   387: 	pat.rareoff = r - (pat.patlen - 1); /* negative guard pos (from end) */
+388   388: 	D(fprintf(stdout, "\tMatch:\tGuard[%c], Offset[%d]\n", pat.rarec, pat.rareoff);)
+389   389: #endif /*TBM_FQ*/
+390   390: 
+391   391: 	/* 4: For SHIFT-FUNC.: define md2 = shift to left reoccur. of term. char */
+392   392: 	for (pe = pat.pat+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 8
+
+393   393: 		if (*p == *pe)
+394   394: 			break;
+395   395: 	
+396   396: 	/* Now c=pe-p is the distance (max pat.patlen) to the first leftward
+397   397: 	 * reoccurence in the pattern of the terminal char: *pe; OBS: (pe-p) is not
+398   398: 	 * a valid (ANSI) statement, since p may be 1 char left of pat.pat! */
+399   399: 	pat.md2 = c;
+400   400: 	D(fprintf(stdout, "\tShift:\tMD2[%d]\n", pat.md2);)
+401   401: 	
+402   402: } /* END function vBuildTBM() */
+403   403: 
+404   404: 
+405   405: /*+2 MODULE TBM.C ==========================================================*/
+406   406: /*	 NAME 02		iRunTBM					    */
+407   407: /*== SYNOPSIS ==============================================================*/
+408   408: PUBLIC int
+409   409: iRunTBM(base, n)
+410   410: 	BYTE *base; 	/* Ptr to base of textblock for TBM search */
+411   411: 	int n; 		/* Length of textblock base[] */
+412   412: {
+413   413: /* DESCRIPTION
+414   414:  * Perform a TBM search, applying pattern in struct pat to textbuffer base.
+415   415:  * Requires basic info. on search pattern previously set up by iBuildTBM();
+416   416:  * Now iRunTBM() may be called repeatedly to search text-buffers for pat.:
+417   417:  *
+418   418:  *    1: vBuildTBM  
+419   419:  * 		1.1: Set up shorthand register var's for struct. "pat" fields.
+420   420:  * 		1.2: Initialize pointers to text and pattern
+421   421:  * 		1.3: Initialize scratch variables
+422   422:  * 		1.4: Catch boundary condition (Immediate ret on empty pattern/text)
+423   423:  *
+424   424:  *    2: Insert sentinel string after the text block : put patlen copies of
+425   425:  * 		the terminal pattern char pat[patlen-1] after text[textlen]; -
+426   426:  * 		This trick removes a test of End-Of-Text (s < e) from the skip loop.
+427   427:  *
+428   428:  *    3: SEARCH LOOP ... :
+429   429:  * 	   3.1 SKIP LOOP
+430   430:  * 	   d0[] is the "delta array" index'ed by the current text-char T at
+431   431:  * 	   the position of the last pattern-char P to give the #chars for
+432   432:  * 	   shifting the pattern right in case of T/P-mismatch, thus aligning
+433   433:  * 	   the last occurrence of T-in-the-pattern with T-in-the-text.
+434   434:  * 	   A shift value of 0 indicates T/P-match, thus acting as a sentinel
+435   435:  * 	   breaking the skip loop.
+436   436:  *
+437   437:  *    3.2 MATCH LOOP
+438   438:  * 	   First test Guard (rarest char in pattern) against text
+439   439:  * 	   If guard match : do a complete frwd scan of pattern against text
+440   440:  * 	   If total match : increment match-count & continue with shift
+441   441:  * 	   or break and just return [T]
+442   442:  *
+443   443:  *    3.3 SHIFT FUNCTION
+444   444:  * 	   Shift the endpointer "s" by md2 chars to the right : s always
+445   445:  * 	   points to the position in the text for matching the LAST char
+446   446:  * 	   of the pattern; - thus by shifting s to the right, we "drag"
+447   447:  * 	   along the pattern to the new position for the next match attempt.
+448   448:  *
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 9
+
+449   449:  *    4: RETURN
+450   450:  *	   Return the verdict : #match (or [1|0] if just [T|F] requested)
+451   451:  *
+452   452:  * RETURN
+453   453:  * 	   Side effects .....: 	Textbuffer partly thrashed by terminal sentinel.
+454   454:  * 	   	NB: buffer must have room for MAXPATTERN after text.
+455   455:  *
+456   456:  * 	   Func.return value : 	
+457   457:  * 		 0 if no match of pattern in text,
+458   458:  * 	   	>0 if match, - value depending on #define TBM_TF :
+459   459:  * 	   	 1 if TBM_TB defined (ie. return [True|False] )
+460   460:  * 	   	 c if TBM_TB undefined (where c=count of matches)
+461   461:  *-2*/
+462   462: 	/* 1: Initialize variables  */
+463   463: 	
+464   464: 	/* 1.1: Set up shorthand register var's for struct. "pat" fields */
+465   465: 	register int n1 = pat.patlen - 1;/* #chars in pattern (excl. \0) */
+466   466: 	register int *d0 = pat.delta;	/* addr. of delta shift array */
+467   467: 	register int md2 = pat.md2; 	/* value of mini-sd2 shift */
+468   468: 	register BYTE rc = pat.rarec; 	/* rarest char of pattern */
+469   469: 	register int ro = pat.rareoff; 	/* pos. from end-of-pat of rc */
+470   470: 	
+471   471: 	/* 1.2: Initialize pointers to text and pattern */
+472   472: 	register BYTE *s = base + n1; 	/* startchar in text for match */
+473   473: 	register BYTE *e = base + n; 	/* endchar of text for match */
+474   474: 	register BYTE *ep = pat.pat + n1; /* startchar in pat for match */
+475   475: 	
+476   476: 	/* 1.3: Initialize scratch variables */
+477   477: 	register BYTE *p, *q;
+478   478: 	register int   k;
+479   479: 	register int   nmatch = 0;
+480   480: 	
+481   481: 	/* 1.4: Return "no match" on boundary condition (empty pattern/text) */
+482   482: 	if (pat.patlen <= 0 || n <= 0) {
+483   483: 		printf("Empty %s\a\n\n", (pat.patlen == 0 ? "pattern" : "text"));
+484   484: 		return(0);
+485   485: 	}
+486   486: 
+487   487: 	/* 2: Set up sentinel for skip loop (thus removing test for End-Of-Text) */
+488   488: 	memset(e, pat.pat[pat.patlen - 1], pat.patlen);
+489   489: 	
+490   490: 	/* 3: Enter SEARCH LOOP ... */
+491   491: 	while (s < e) {
+492   492: 	
+493   493: 	   /* ----------------------------------------------------------------- */
+494   494: 	   /* 3.1: SKIP LOOP : ufast */
+495   495: 	   /* Skip on the last character in pattern, using delta shift table d0 */
+496   496: 	
+497   497: 	   k = d0[UCASE(*s)];			/* Get shift to rightmost *s in pattern */
+498   498: 	   while (k) { 					/* While k > 0, ie no match (pos. shift) */
+499   499: 		k = d0[UCASE(*(s += k))];	/* Use 3-fold loop unrolling for max. speed */
+500   500: 		k = d0[UCASE(*(s += k))];	/* If match, k=0 (so unrolling is harmless) */
+501   501: 		k = d0[UCASE(*(s += k))];
+502   502: 	   }
+503   503: 	   if (s >= e)					/* Sentinel assures match at End-Of-Text */
+504   504: 			break;
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 10
+
+505   505: 	
+506   506: 	   /* ----------------------------------------------------------------- */
+507   507: 	   /* 3.2: MATCH LOOP : guard test & fwd scan */
+508   508: 	   #ifdef TBM_FQ
+509   509: 	   	/* First test Guard (rarest char in pattern) against text */
+510   510: 	   	if (UCASE(s[ro]) != rc) /* obs: ro is a negative offset */
+511   511: 	 		goto L_mismatch;
+512   512: 	   #endif /*TBM_FQ*/
+513   513: 	
+514   514: 	   /* Guard-match : do a complete forward scan of pattern against text */
+515   515: 	   for (p = pat.pat, q = s - n1; p < ep;) {
+516   516: 			if (UCASE(*q++) != *p++)
+517   517: 				goto L_mismatch;
+518   518: 	   		D( fprintf(stdout, "TBM-MATCH:\n->%s\n", q); )
+519   519: 	   }
+520   520: 
+521   521: 	   /* Total-match : increment match-count or break w. answer [T|F] */
+522   522: 	   nmatch++;
+523   523: 	   #ifdef TBM_TF
+524   524: 			break;	/* break at first match */
+525   525: 	   #endif /*TBM_TF*/
+526   526: 
+527   527: 		L_mismatch:
+528   528: 	   /* ----------------------------------------------------------------- */
+529   529: 	   /* 3.3: SHIFT : md2 */
+530   530: 	   /* Mismatch (or complete match); - shift "endptr" & continue search */
+531   531: 	   s += md2;
+532   532: 	   D( fprintf(stdout, "TBM-SHIFT:\n->%s\n", s); )
+533   533: 
+534   534:    	} /* End search-loop : while (s<e) */
+535   535:    	
+536   536:    	
+537   537: 	/* 4: Return the verdict : #match (or [1|0] if just [T|F] requested) */
+538   538: 	*e = '\0'; /* Restore string termination after skip sentinel */
+539   539: 	return (nmatch);
+540   540: 	
+541   541: } /* END function iRunTBM() */
+542   542: 
+543   543: 
+544   544: /*+3 MODULE TBM.C ----------------------------------------------------------*/
+545   545: /*	 NAME 03                     bDKupper                                   */
+546   546: /*-- SYNOPSIS --------------------------------------------------------------*/
+547   547: PRIVATE BYTE
+548   548: 	bDKupper(ii) 	/* Input char to convert to uppercase */
+549   549: 	int ii; 		/* NB: char as param. promotes to int */
+550   550: {
+551   551: /* DESCRIPTION
+552   552:  * 	Convert character <(BYTE)ii> from lower- to uppercase, INCL DANISH CHARS.
+553   553:  * RETURN
+554   554:  * 	IF (std. routine toupper(c) DOES return a converted char)
+555   555:  * 		return(std. converted char)
+556   556:  * 	ELSE IF (DKconvert DOES return a converted char)
+557   557:  * 		return(DK. converted char)
+558   558:  * 	ELSE
+559   559:  * 		return(unconverted char)
+560   560:  *-3*/
+
+XC ... 'C' Concordance Utility   tbm.c                      Page 11
+
+561   561: 	static const BYTE bDKlow[] = {(BYTE)'�',(BYTE)'�',(BYTE)'�'};
+562   562: 	static const BYTE bDKupp[] = {(BYTE)'�',(BYTE)'�',(BYTE)'�'};
+563   563: 	
+564   564: 	register BYTE bi = (BYTE) ii; /* Input char from int param */
+565   565: 	BYTE bo; /* Output char from conversion */
+566   566: 	BYTE *bp; /* Character pointer into cDKx */
+567   567: 	
+568   568: 	/* Perform conversion and return char */
+569   569: 	return( ((bo = (BYTE) toupper(ii)) != bi) ? bo :
+570   570: 		((bp = (BYTE*) strchr((char*)bDKlow, bi)) != NULL) ? bDKupp[bp - bDKlow] :
+571   571: 		bi );
+572   572: 				
+573   573: } /* END function bDKupper */
+574   574: 
+575   575: 
+576   576: /* End of module TBM.C */
+577   577: /*==========================================================================*/
+XC ... 'C' Concordance Utility                              Page 12
+
+_IOFBF              :  260 
+_TBM_ALLOC          :  136 
+__DATE__            :  188 
+__FILE__            :  188 
+__LINE__            :  188 
+__TIME__            :  188 
+ASIZE               :  302 
+argc                :  198  199  251 
+argv                :  198  200  257  258  265  265  285  285 
+BYTE                :  148  220  265  300  303  314  352  353  357 
+bDKupper            :  148 
+bp                  :  357 
+CHKERR              :  183  259  261 
+c                   :  358 
+cBuf                :  220  229  230  230  232  233  233  234  236  237  237  239  240  240  241 
+                       273  275  279  279  280 
+D                   :  257  275 
+DEBUG               :  135 
+DUMMY               :  141  226 
+DWORD               :  221  223 
+d                   :  356 
+delta               :  302 
+dwCount             :  221  234  241  276  280 
+dwMatchTotal        :  223  281  285 
+EXIT_FAILURE        :  189  253 
+EXIT_SUCCESS        :  289 
+exit                :  189  253 
+expr                :  183  184 
+FILE                :  219 
+fdTxt               :  219  258  259  260  273  273  288 
+feof                :  273 
+fgets               :  273 
+fopen               :  258 
+fprintf             :  186 
+fputs               :  249  252 
+free                :  288 
+iMatch              :  222  279  280  281 
+iRet                :  260  261 
+iRunTBM             :  233  240  279 
+ii                  :  148 
+j                   :  354 
+len                 :  313  315 
+MAIN                :  140  154 
+MAXLIN              :  172  220  273 
+MAXPAT              :  173  220 
+main                :  198 
+md2                 :  305 
+msg                 :  183  188 
+NULL                :  259  260  273 
+PRIVATE             :  147  159  165  299 
+PUBLIC              :  312 
+p                   :  353 
+pat                 :  300  306 
+patlen              :  301 
+pb                  :  313  314 
+pe                  :  352 
+
+XC ... 'C' Concordance Utility                              Page 13
+
+printf              :  234  241  257  275  280  284 
+r                   :  355 
+rarec               :  303 
+rareoff             :  304 
+SIGNON              :  159  249 
+setvbuf             :  260 
+stderr              :  186 
+stdout              :  249  252 
+strcpy              :  229  232  236  239 
+strlen              :  230  233  237  240  265  279 
+USAGE               :  165  252 
+vBuildTBM           :  230  237  265  313 
+void                :  313 
+
+

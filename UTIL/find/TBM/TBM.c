@@ -2,129 +2,127 @@
 /* MODULE TBM.C */
 /*==========================================================================*/
 /* FUNCTION
- *			Tuned Boyer-Moore (BM) algorithm for fast string searching; -
- * 			This module implements a compact, portable and fast BM
- * 			algorithm (ie. a classic BM including a skip-loop).
+ *		Tuned Boyer-Moore (BM) algorithm for fast string searching; -
+ * 		This module implements a compact, portable and fast BM
+ * 		algorithm (ie. a classic BM including a skip-loop).
  *
- * 			Search algorithms have a common structure performing a repeated
- * 			loop through a sequence of positions in the text being searched
- * 			and testing whether the pattern does or does not match the text
- * 			at each position :
- * 			FOR pos in text DO { 			// SEARCH LOOP:
- * 				skiploop                    // 1: skip past immediate mismatch
- * 				match(pattern,text[pos])	// 2: compare pattern against text
- * 				pos += shift(pos, off)		// 3: text[pos+off] != pattern[off]
- * 			}
+ * 		Search algorithms have a common structure performing a repeated
+ * 		loop through a sequence of positions in the text being searched
+ * 		and testing whether the pattern does or does not match the text
+ * 		at each position :
+ * 		FOR pos in text DO { 			// SEARCH LOOP:
+ * 			skiploop                    // 1: skip past immediate mismatch
+ * 			match(pattern,text[pos])	// 2: compare pattern against text
+ * 			pos += shift(pos, off)		// 3: text[pos+off] != pattern[off]
+ * 		}
  *
- * 			Several choices of algorithm exist for the 3 steps of the
- * 			search loop : (1) skip, (2) match and (3) shift.
- * 			In the Tuned BM (TBM) we use the following components :
- * 				(1) TBM skip : 	portable, unrolled variant of search forward
- * 					for last (rightmost) char in pattern; (fast BM)
- * 				(2) TBM match : test guard before forward (l->r) linear scan.
- * 				(3) TBM shift : "mini Sunday DELTA-2(pattern)".
+ * 		Several choices of algorithm exist for the 3 steps of the
+ * 		search loop : (1) skip, (2) match and (3) shift.
+ * 		In the Tuned BM (TBM) we use the following components :
+ * 			(1) TBM skip : 	portable, unrolled variant of search forward
+ * 		  	    for last (rightmost) char in pattern; (fast BM)
+ * 			(2) TBM match : test guard before forward (l->r) linear scan.
+ * 			(3) TBM shift : "mini Sunday DELTA-2(pattern)".
  *
  * 			For a further description of these (and alternative) components
  * 			cf. the references given below.
  *
  * SYSTEM
- *			Standard C: ANSI/ISO C (1992), ported to ISO/IEC C11 (2011).
- * 			1992 -	Tested on PC/MS DOS V.3.3 and UNIX Sys V.3. (ANSI/ISO C)
- * 			2025 -	Tested on Win.10 (Terminal) and on Win.10 WSL UBUNTU.
- * 					Using JetBrains CLion IDE (ISO/IEC C11)
+ *		Standard C: ANSI/ISO C (1992), ported to ISO/IEC C11 (2011).
+ * 		1992 -	Tested on PC/MS DOS V.3.3 and UNIX Sys V.3. (ANSI/ISO C)
+ * 		2025 -	Tested on Win.10 (Terminal) and on Win.10 WSL UBUNTU.
+ * 			Using JetBrains CLion IDE (ISO/IEC C11)
  *
  * SEE ALSO
- *			Modules : TBM.H, MAKEFILE
+ *		Modules : TBM.H, MAKEFILE
  *
  * PROGRAMMER
- *			Allan Dystrup (AD)
- *
- * COPYRIGHT(c)
- *			Allan Dystrup, March 1992, December 2025.
+ *		Allan Dystrup (AD) COPYRIGHT(c)
+ *		Allan Dystrup, March 1992, December 2025.
  *
  * VERSION 	$Header: d:/cwork/index/tbm/RCS/tbm.c 1.3 92/02/27 15:11:30
- * 			Allan_Dystrup Exp Locker: Allan_Dystrup $
- *			$Log: tbm.c $
- * 			Revision 1.0 92/03202 13:40:40 Allan_Dystrup
- * 			Initial revision*
- *			Revision 1.1 92/02/27 15:11:30 Allan_Dystrup
- * 			*** empty log message ***
- * 			Revision 1.2 92/02/28 10:55:34 Allan_Dystrup
- * 			fbuf & ucase (hack)
- * 			Revision 1.3 92/02/28 11:54:16 Allan_Dystrup
- * 			S-L-O-W UCASE
- * 			Revision 1.4 92/03/11 14:54:40 Allan_Dystrup
- * 			hack'ed UCASE
- * 			Revision 1.5 92/03/13 08:40:32 Allan_Dystrup
- * 			main ucase
- * 			Revision 1.6 92/03/13 11:15:25 Allan_Dystrup
- * 			integrated UCASE
- * 			Revision 1.7 92/03/13 13:34:44 Allan_Dystrup
- * 			linted DOS/UX
- *          ------------------------------------------
- *	        Revision 1.8 2025/12/09 11:00:00 Allan_Dystrup
- *          Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
- *			Port to Win. 10 native/terminal, Using CLion for Windows
+ * 		Allan_Dystrup Exp Locker: Allan_Dystrup $
+ *		$Log: tbm.c $
+ * 		Revision 1.0 92/03202 13:40:40 Allan_Dystrup
+ * 		Initial revision*
+ *		Revision 1.1 92/02/27 15:11:30 Allan_Dystrup
+ * 		*** empty log message ***
+ * 		Revision 1.2 92/02/28 10:55:34 Allan_Dystrup
+ * 		fbuf & ucase (hack)
+ * 		Revision 1.3 92/02/28 11:54:16 Allan_Dystrup
+ * 		S-L-O-W UCASE
+ * 		Revision 1.4 92/03/11 14:54:40 Allan_Dystrup
+ * 		hack'ed UCASE
+ * 		Revision 1.5 92/03/13 08:40:32 Allan_Dystrup
+ * 		main ucase
+ * 		Revision 1.6 92/03/13 11:15:25 Allan_Dystrup
+ * 		integrated UCASE
+ * 		Revision 1.7 92/03/13 13:34:44 Allan_Dystrup
+ * 		linted DOS/UX
+ *          	------------------------------------------
+ *	    	Revision 1.8 2025/12/09 11:00:00 Allan_Dystrup
+ *          	Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
+ *	    	Port to Win. 10 native/terminal, Using CLion for Windows
  *
  * REFERENCES
- *			The references concentrate on the Boyer-Moore family of string
- * 			search algorithms, which is superior for single string matching;
- * 			Other strategies for string search (eg. KMP for single string
- * 			match, Aho-Corasic for parallel string match and general NFA/DFA
- * 			for regular expressions) are NOT considered.
- *			Please consult an algorithm textbook for a broad introduction
- *			to these techniques, (for instance Sedgewick, R. [1983] :
- *			"Algorithms", Addison-Wesley, August 1984).
+ *		The references concentrate on the Boyer-Moore family of string
+ * 		search algorithms, which is superior for single string matching;
+ * 		Other strategies for string search (eg. KMP for single string
+ * 		match, Aho-Corasic for parallel string match and general NFA/DFA
+ * 		for regular expressions) are NOT considered.
+ *		Please consult an algorithm textbook for a broad introduction
+ *		to these techniques, (for instance Sedgewick, R. [1983] :
+ *		"Algorithms", Addison-Wesley, August 1984).
  *
- * 			Boyer, R.S and J.S. Moore [1977] : "A Fast String Searching
- * 			Algorithm", CACM, Vol.20, No.10, October 1977.
+ * 		Boyer, R.S and J.S. Moore [1977] : "A Fast String Searching
+ * 		Algorithm", CACM, Vol.20, No.10, October 1977.
  *
- * 			Schaback, R. [1988] : "On the Expected Sublinearity of the BM
- * 			Algorithm", SIAM J. COMPUT, Vol.17, No.4, August 1988.
+ * 		Schaback, R. [1988] : "On the Expected Sublinearity of the BM
+ * 		Algorithm", SIAM J. COMPUT, Vol.17, No.4, August 1988.
  *
- * 			Rivest, R. [1979] : "On Improving the Worst Case Running Time of
- * 			the BM String Matching Algorithm", CACM, Vol.22, No.9,Sept.1979
+ * 		Rivest, R. [1979] : "On Improving the Worst Case Running Time of
+ * 		the BM String Matching Algorithm", CACM, Vol.22, No.9,Sept.1979
  *
- * 			Sunday, D.M. [1990] : "A Very Fast Substring Search Algorithm",
- * 			Communications of the ACM, Vol.33, No.8, August 1990.
+ * 		Sunday, D.M. [1990] : "A Very Fast Substring Search Algorithm",
+ * 		Communications of the ACM, Vol.33, No.8, August 1990.
  *
- * 			Smith, P.D. [1991] : "Experiments with a Very Fast Substring
- * 			Search Algorithm", Software-Practice and Experience,
- * 			Vol.21(10), 1065-1074, October 1991
+ * 		Smith, P.D. [1991] : "Experiments with a Very Fast Substring
+ * 		Search Algorithm", Software-Practice and Experience,
+ * 		Vol.21(10), 1065-1074, October 1991
  *
- * 			Hume, A and D. Sunday [1991] : "Fast String Searching",
- * 			Algorithm", Software-Practice and Experience,
+ * 		Hume, A and D. Sunday [1991] : "Fast String Searching",
+ * 		Algorithm", Software-Practice and Experience,
  *  		Vol.21(11), 1221-1248, November 1991.
  *
  * USAGE
- *			Module tbm.c features the following public routines for
- * 			performing fast string search in text :
- * 				vBuildTBM() // prepare pattern for search function
- * 				iRunTBM()   // perform search for pattern in text
- * 			See headerfile tbm.h and the documentation in this file for
- * 			a detailed description of the user accessible compile switches,
- * 			datastructures and functions.
+ *		Module tbm.c features the following public routines for
+ * 		performing fast string search in text :
+ * 			vBuildTBM() // prepare pattern for search function
+ * 			iRunTBM()   // perform search for pattern in text
+ * 		See headerfile tbm.h and the documentation in this file for
+ * 		a detailed description of the user accessible compile switches,
+ * 		datastructures and functions.
  *
  * DOC
- *			Documentation is incorporated into the module and may be
- * 			selectively extracted (using a utility such as ex.awk) :
- * 				Level 1: Module documentation (history, design, testdriver)
- * 				Level 2: PUBLIC functions (module program interface, "API")
- * 				Level 3: major PRIVATE functions (design)
- * 				Level 4: minor PRIVATE functions (support)
+ *		Documentation is incorporated into the module and may be
+ * 		selectively extracted (using a utility such as ex.awk) :
+ * 			Level 1: Module documentation (history, design, testdriver)
+ * 			Level 2: PUBLIC functions (module program interface, "API")
+ * 			Level 3: major PRIVATE functions (design)
+ * 			Level 4: minor PRIVATE functions (support)
  *
  * BUGS
- *			The module contains highly optimized code for maximum speed;
- * 			As a consequence the algorithms may not be immediately compre-
- * 			hensible. I have tried to counter this effect by an extensive
- * 			documentation of the program, but if in doubt, please consult
- * 			the references.
+ *		The module contains highly optimized code for maximum speed;
+ * 		As a consequence the algorithms may not be immediately compre-
+ * 		hensible. I have tried to counter this effect by an extensive
+ * 		documentation of the program, but if in doubt, please consult
+ * 		the references.
  *
-*-1========================================================================*/
+ *-1========================================================================*/
 
 
 /*=========================================================================*/
-/*                            Includes			                           */
+/*                            Includes			                   */
 /*=========================================================================*/
 /* Standard C (ANSI/ISO( headerfiles */
 #include <stdio.h>
@@ -176,47 +174,47 @@ PRIVATE char USAGE[] =
 
 
 /*+4 MODULE TBM.C ----------------------------------------------------------*/
-/*   NAME							CHKERR                                  */
+/*   NAME			CHKERR                                      */
 /*-- SYNOPSIS --------------------------------------------------------------*/
 /* DESCRIPTION
-* Simple macro for main() testdriver providing error test & diagnostic.
-*-4*/
+ * Simple macro for main() testdriver providing error test & diagnostic.
+ *-4*/
 
-#define CHKERR(expr, msg)	{ 		\
-		if (expr) 					\
-		{ 							\
-			fprintf(stderr,			\
-			"\n\aERROR: File[%s]-Line[%d] Date[%s]-Time[%s]\nCAUSE: %s\n", \
-			__FILE__, __LINE__, __DATE__, __TIME__, msg);				   \
-			exit(EXIT_FAILURE);		\
-		} 							\
+#define CHKERR(expr, msg) { 					\
+	if (expr) 						\
+	{ 							\
+		fprintf(stderr,					\
+		"\n\aERROR: File[%s]-Line[%d] Date[%s]-Time[%s]\nCAUSE: %s\n", \
+		__FILE__, __LINE__, __DATE__, __TIME__, msg);	\
+		exit(EXIT_FAILURE);				\
+	} 							\
     }  /* End define CHKERR */
 	
 
 
 /*+1 MODULE TBM.C ==========================================================*/
-/*	 NAME 00						main									*/
+/*	 NAME 00		main					    */
 /*== SYNOPSIS ==============================================================*/
 int main(argc, argv)
 	int argc; 		/* Argument count : should be 3, cf. argv[] */
 	char *argv[]; 	/* Argument vector: <tbm>, <pattern>, <file> */
 {
-	/* DESCRIPTION
-	* Testdriver for module tbm.c ; -
-	*
-	* I: 	The testdriver exercises the functions in the module, and validates
-	* 		the functionality through trace-statements (compiled with -DDEBUG).
-	* 		1: Test reaction to boundary conditions : Empty pattern/textbuffer.
-	*
-	* II:	The testdriver may be used as a stand alone utility with a simple
-	* 		commandline interface for searching a file for a textstring :
-	* 		tbm <pattern> <file>, - (cf. the "USAGE" description above).
-	* 		1: Signon & check args
-	* 		2: Open textfile to search
-	*		3: Prepare pattern for TBM search
-	* 		4: Perform TBM search on textfile, one line at a time, until EOF
-	* 		5: Clean up & Terminate
-	*-1*/
+/* DESCRIPTION
+ * Testdriver for module tbm.c ; -
+ *
+ * I: 	The testdriver exercises the functions in the module, and validates
+ * 	the functionality through trace-statements (compiled with -DDEBUG).
+ * 	   1: Test reaction to boundary conditions : Empty pattern/textbuffer.
+ *
+ * II:	The testdriver may be used as a stand alone utility with a simple
+ * 	commandline interface for searching a file for a textstring :
+ * 	tbm <pattern> <file>, - (cf. the "USAGE" description above).
+ * 	   1: Signon & check args
+ * 	   2: Open textfile to search
+ *	   3: Prepare pattern for TBM search
+ * 	   4: Perform TBM search on textfile, one line at a time, until EOF
+ * 	   5: Clean up & Terminate
+ *-1*/
 
 	FILE  *fdTxt; 				/* File handle for textfile */
 	BYTE  cBuf[MAXLIN+MAXPAT]; 	/* Linebuffer for textfile */
@@ -309,7 +307,7 @@ PRIVATE struct {
 
 
 /*+2 MODULE TBM.C ==========================================================*/
-/*	 NAME 01							vBuildTBM							*/
+/*	 NAME 01		vBuildTBM				    */
 /*== SYNOPSIS ==============================================================*/
 PUBLIC void
 vBuildTBM(pb, len)
@@ -317,38 +315,38 @@ vBuildTBM(pb, len)
 	int  len; /* Length of pattern-string (#byte, EXCL \0) */
 {
 /* DESCRIPTION
-* Init. datastructures necessary for running a Tuned Boyer-Moore search :
-* fill in delta table for skip-loop, find rarest pattern-char (guard) for
-* match-loop, and get "endcharacter reoccurrence" (md2) for shift-function.
-*
-* 1:	Initialize fields of struct "pat" from function arguments.
-*
-* 2: 	For SKIP-LOOP: Define the BM (Boyer-Moore) delta skip-table d[];
-* 		d[] is the "delta" array precomputed for each char A in the alphabet
-* 		to hold the #chars from the last char in the pattern to the rightmost
-*		occurrence of A in the pattern (0 for the last char, patlen for all
-* 		chars not in the pattern); -
-* 		d[] is used in the skip loop to match the last pattern-char P with
-* 		the corresponding text-char T : If ((k = d[T]) > 0), k holds the
-* 		"delta-value" to shift the pattern right for aligning the last T
-*		in the pattern with T in the text (or for shifting the pattern past
-* 		T in the text, when k = patlen).
-*
-* 3: 	For MATCH-LOOP: Define guard as the rarest character of the pattern;
-* 		In the match-loop we will test the guard against the text before
-* 		doing a full match test.
-*
-* 4: 	For SHIFT-FUNC.: Find "mini-sd2" shift (sd2: Sunday's general DELTA2);
-* 		Define md2 as the #chars to shift the pattern to the first leftward
-* 		reoccurrence of the skip-loop char (here: the LAST char in pattern), -
-* 		if the last char doesn't reoccur in the pattern, md2 = patternlength.
-* 		This shift-value is applied to the "endpointer", whenever a mismatch
-* 		occurs (cf. the exec function).
-*
-* RETURN
-* 		Func.return value: None (void); - Resources are statically allocated
-* 		for struct pat, so dynamic error conditions can not occur.
-*-2*/
+ * Init. datastructures necessary for running a Tuned Boyer-Moore search :
+ * fill in delta table for skip-loop, find rarest pattern-char (guard) for
+ * match-loop, and get "endcharacter reoccurrence" (md2) for shift-function.
+ *
+ * 1:	Initialize fields of struct "pat" from function arguments.
+ *
+ * 2: 	For SKIP-LOOP: Define the BM (Boyer-Moore) delta skip-table d[];
+ * 		d[] is the "delta" array precomputed for each char A in the alphabet
+ * 		to hold the #chars from the last char in the pattern to the rightmost
+ *		occurrence of A in the pattern (0 for the last char, patlen for all
+ * 		chars not in the pattern); -
+ * 		d[] is used in the skip loop to match the last pattern-char P with
+ * 		the corresponding text-char T : If ((k = d[T]) > 0), k holds the
+ * 		"delta-value" to shift the pattern right for aligning the last T
+ *		in the pattern with T in the text (or for shifting the pattern past
+ * 		T in the text, when k = patlen).
+ *
+ * 3: 	For MATCH-LOOP: Define guard as the rarest character of the pattern;
+ * 		In the match-loop we will test the guard against the text before
+ * 		doing a full match test.
+ *
+ * 4: 	For SHIFT-FUNC.: Find "mini-sd2" shift (sd2: Sunday's general DELTA2);
+ * 		Define md2 as the #chars to shift the pattern to the first leftward
+ * 		reoccurrence of the skip-loop char (here: the LAST char in pattern), -
+ * 		if the last char doesn't reoccur in the pattern, md2 = patternlength.
+ * 		This shift-value is applied to the "endpointer", whenever a mismatch
+ * 		occurs (cf. the exec function).
+ *
+ * RETURN
+ * 		Func.return value: None (void); - Resources are statically allocated
+ * 		for struct pat, so dynamic error conditions can not occur.
+ *-2*/
 
 	/* 1.1: Setup shorthand register var's for struct "pat" fields */
 	register BYTE 	*pe;	/* Ptr to pattern end */
@@ -405,7 +403,7 @@ vBuildTBM(pb, len)
 
 
 /*+2 MODULE TBM.C ==========================================================*/
-/*	 NAME 02						iRunTBM									*/
+/*	 NAME 02		iRunTBM					    */
 /*== SYNOPSIS ==============================================================*/
 PUBLIC int
 iRunTBM(base, n)
@@ -413,53 +411,54 @@ iRunTBM(base, n)
 	int n; 		/* Length of textblock base[] */
 {
 /* DESCRIPTION
-* Perform a TBM search, applying pattern in struct pat to textbuffer base.
-* Requires basic info. on search pattern previously set up by iBuildTBM();
-* Now iRunTBM() may be called repeatedly to search text-buffers for pat.:
-*
-*    1: vBuildTBM  
-* 		1.1: Set up shorthand register var's for struct. "pat" fields.
-* 		1.2: Initialize pointers to text and pattern
-* 		1.3: Initialize scratch variables
-* 		1.4: Catch boundary condition (Immediate ret on empty pattern/text)
-*
-*    2: Insert sentinel string after the text block : put patlen copies of
-* 		the terminal pattern char pat[patlen-1] after text[textlen]; -
-* 		This trick removes a test of End-Of-Text (s < e) from the skip loop.
-*
-*    3: SEARCH LOOP ... :
-* 	   3.1 SKIP LOOP
-* 	   d0[] is the "delta array" index'ed by the current text-char T at
-* 	   the position of the last pattern-char P to give the #chars for
-* 	   shifting the pattern right in case of T/P-mismatch, thus aligning
-* 	   the last occurrence of T-in-the-pattern with T-in-the-text.
-* 	   A shift value of 0 indicates T/P-match, thus acting as a sentinel
-* 	   breaking the skip loop.
-*
-*    3.2 MATCH LOOP
-* 	   First test Guard (rarest char in pattern) against text
-* 	   If guard match : do a complete frwd scan of pattern against text
-* 	   If total match : increment match-count & continue with shift
-* 	   or break and just return [T]
-*
-*    3.3 SHIFT FUNCTION
-* 	   Shift the endpointer "s" by md2 chars to the right : s always
-* 	   points to the position in the text for matching the LAST char
-* 	   of the pattern; - thus by shifting s to the right, we "drag"
-* 	   along the pattern to the new position for the next match attempt.
-*
-*    4: RETURN
-*		Return the verdict : #match (or [1|0] if just [T|F] requested)
-*
-* RETURN
-* 	   Side effects .....: 	Textbuffer partly thrashed by terminal sentinel.
-* 	   		NB: buffer must have room for MAXPATTERN after text.
-*
-* 	   Func.return value : 	0 if no match of pattern in text,
-* 	   		>0 if match, - value depending on #define TBM_TF :
-* 	   		 1 if TBM_TB defined (ie. return [True|False] )
-* 	   		 c if TBM_TB undefined (where c=count of matches)
-*-2*/
+ * Perform a TBM search, applying pattern in struct pat to textbuffer base.
+ * Requires basic info. on search pattern previously set up by iBuildTBM();
+ * Now iRunTBM() may be called repeatedly to search text-buffers for pat.:
+ *
+ *    1: vBuildTBM  
+ * 		1.1: Set up shorthand register var's for struct. "pat" fields.
+ * 		1.2: Initialize pointers to text and pattern
+ * 		1.3: Initialize scratch variables
+ * 		1.4: Catch boundary condition (Immediate ret on empty pattern/text)
+ *
+ *    2: Insert sentinel string after the text block : put patlen copies of
+ * 		the terminal pattern char pat[patlen-1] after text[textlen]; -
+ * 		This trick removes a test of End-Of-Text (s < e) from the skip loop.
+ *
+ *    3: SEARCH LOOP ... :
+ * 	   3.1 SKIP LOOP
+ * 	   d0[] is the "delta array" index'ed by the current text-char T at
+ * 	   the position of the last pattern-char P to give the #chars for
+ * 	   shifting the pattern right in case of T/P-mismatch, thus aligning
+ * 	   the last occurrence of T-in-the-pattern with T-in-the-text.
+ * 	   A shift value of 0 indicates T/P-match, thus acting as a sentinel
+ * 	   breaking the skip loop.
+ *
+ *    3.2 MATCH LOOP
+ * 	   First test Guard (rarest char in pattern) against text
+ * 	   If guard match : do a complete frwd scan of pattern against text
+ * 	   If total match : increment match-count & continue with shift
+ * 	   or break and just return [T]
+ *
+ *    3.3 SHIFT FUNCTION
+ * 	   Shift the endpointer "s" by md2 chars to the right : s always
+ * 	   points to the position in the text for matching the LAST char
+ * 	   of the pattern; - thus by shifting s to the right, we "drag"
+ * 	   along the pattern to the new position for the next match attempt.
+ *
+ *    4: RETURN
+ *	   Return the verdict : #match (or [1|0] if just [T|F] requested)
+ *
+ * RETURN
+ * 	   Side effects .....: 	Textbuffer partly thrashed by terminal sentinel.
+ * 	   	NB: buffer must have room for MAXPATTERN after text.
+ *
+ * 	   Func.return value : 	
+ * 		 0 if no match of pattern in text,
+ * 	   	>0 if match, - value depending on #define TBM_TF :
+ * 	   	 1 if TBM_TB defined (ie. return [True|False] )
+ * 	   	 c if TBM_TB undefined (where c=count of matches)
+ *-2*/
 	/* 1: Initialize variables  */
 	
 	/* 1.1: Set up shorthand register var's for struct. "pat" fields */
@@ -550,15 +549,15 @@ PRIVATE BYTE
 	int ii; 		/* NB: char as param. promotes to int */
 {
 /* DESCRIPTION
-* 	Convert character <(BYTE)ii> from lower- to uppercase, INCL DANISH CHARS.
-* RETURN
-* 	IF (std. routine toupper(c) DOES return a converted char)
-* 		return(std. converted char)
-* 	ELSE IF (DKconvert DOES return a converted char)
-* 		return(DK. converted char)
-* 	ELSE
-* 		return(unconverted char)
-*-3*/
+ * 	Convert character <(BYTE)ii> from lower- to uppercase, INCL DANISH CHARS.
+ * RETURN
+ * 	IF (std. routine toupper(c) DOES return a converted char)
+ * 		return(std. converted char)
+ * 	ELSE IF (DKconvert DOES return a converted char)
+ * 		return(DK. converted char)
+ * 	ELSE
+ * 		return(unconverted char)
+ *-3*/
 	static const BYTE bDKlow[] = {(BYTE)'�',(BYTE)'�',(BYTE)'�'};
 	static const BYTE bDKupp[] = {(BYTE)'�',(BYTE)'�',(BYTE)'�'};
 	

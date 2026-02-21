@@ -1,0 +1,1349 @@
+XC ... 'C' Concordance Utility   ac.c                       Page 1
+
+1       1: /*+1=================================FSA====================================*/
+2       2: /* MODULE                            AC.C                                   */
+3       3: /*==========================================================================*/
+4       4: /* FUNCTION   Aho & Corasic algorithm for searching a text for several fixed
+5       5:  *             substrings. This module implements a simple "Finite State
+6       6:  *             Automaton" (FSA) to locate all occurences of any of a number
+7       7:  *             of keywords in a string of text. The algorithm :
+8       8:  *             - constructs a Deterministic Finite State Automaton (DFSA)
+9       9:  *               for pattern matching from the keywords; Construction of the
+10     10:  *               DFSA takes time proportional to the sum of the lengths of
+11     11:  *               the keywords, ie. time complexity O(n).
+12     12:  *             - then uses the DFSA to process the text in one pass;
+13     13:  *               The number of state transitions made by the DFSA in pro-
+14     14:  *               cessing the text is independent of the number of keywords.
+15     15:  *
+16     16:  * SYSTEM      Standard Ansi C.
+17     17:  *             Tested on UNIX V.3 and PC/MS DOS V.3.3.
+18     18:  *
+19     19:  * SEE ALSO    Modules : general.h, bool.h/c, error.h/c
+20     20:  *
+21     21:  * PROGRAMMER  Allan Dystrup
+22     22:  *
+23     23:  * COPYRIGHT   (c) Allan Dystrup, SEP. 1991
+24     24:  *
+25     25:  * VERSION     Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup
+26     26:  *             Port to UBUNTU Linux on Windows10/WSL, Using CLion
+27     27:  *             ac.c runnable in LINUX, but NOT fully lint'ed!
+28     28:  *
+29     29:  * REFERENCES  Algorithm : "Efficient String Matching: An Aid to Bibliographic
+30     30:  *             Search", Aho & Corasick, CACM, Vol. 18 No. 6 (June '75)
+31     31:  *             Implementation : Inspired by the UNIX "fgrep" utility as
+32     32:  *             designed by Ian Ashdown, byHeart Software.
+33     33:  *
+34     34:  * USAGE       ac [<options>] <boolexpr> <file>, where :
+35     35:  *                <options>  -N to force a NFSA search (default DFSA)
+36     36:  *                           -U to force a case-INsensitive search
+37     37:  *                <boolexpr> is a boolean expression of search phrases
+38     38:  *                           example: This&^(That/Those)
+39     39:  *                           (cf. module: bool.c)
+40     40:  *                <file>     is the file to search for boolexpr, line by line.
+41     41:  *
+42     42:  * EXAMPLE     In IDE (CLion) :  -U FSA&^(Dfsa/Nfsa) ./ac.c
+43     43:  *			  In Shell (bash): $ ./ac -U "FSA&^(Dfsa/Nfsa)" ./ac.c
+44     44:  *
+45     45:  *
+46     46:  * BUGS        A simple-minded test-driver :
+47     47:  *             - Text is searched on a line-by-line basis
+48     48:  *             - Lines are limited to 256 characters.
+49     49:  *
+50     50:  *
+51     51:  *
+52     52:  *======================== BIBLIOGRAPHIC SEARCH =============================
+53     53:  *
+54     54:  * Searching for a simple pattern such as a single word or phrase in a
+55     55:  * set of data is adequately solved by algorithms such as "Boyer-Moore" or
+56     56:  * "Knuth-Morris-Pratt" (KMP). These algorithms however are not appropriate
+
+XC ... 'C' Concordance Utility   ac.c                       Page 2
+
+57     57:  * in a search for more than one pattern at a time.
+58     58:  *
+59     59:  * Bibliographic search often requires locating a finite set of keywords
+60     60:  * in an arbitrary string of text. The keywords can be represented by a
+61     61:  * restricted class of regular expressions (excluding character clases,
+62     62:  * closure et. al.). From these simple regular expressions we can construct
+63     63:  * an efficient finite state pattern matching machine, which when applied
+64     64:  * to an input text will signal whenever it finds a match for a keyword.
+65     65:  * The search is performed for all keywords "in parallel" (ie. without back-
+66     66:  * tracking), and the execution speed is thus independent of the number of
+67     67:  * patterns to be matched. The algorithm also identifies overlapping strings.
+68     68:  *  * The pattern matching machine may be combined with a simple stack machine
+69     69:  * to evaluate a search criterion expressed as a Boolean function of keywords
+70     70:  * and phrases. (This extension of the basic search algorithm is implemented
+71     71:  * by the module bool.c, which is called from this module).
+72     72:  *====================== PATTERN MATCHING MACHINE ===========================
+73     73:  * Let K = {k1, k2, ... ,kn} be the finite set of keywords. By a pattern
+74     74:  * matching machine for K we mean a program which given the input text
+75     75:  * string X produces as output the locations in X at which keywords in K
+76     76:  * appear as substrings.
+77     77:  *
+78     78:  * The pattern matching machine is constructed as a set of states represen-
+79     79:  * ting matched characters in K. The machine successively reads the symbols
+80     80:  * in X, making state transitions and emitting output whenever a keyword is
+81     81:  * located.
+82     82:  *
+83     83:  * A pattern matching machine also called a "Finite State Automaton" (FSA)
+84     84:  * may be of type nondeterministic or deterministic.
+85     85:  * A "Nondeterministic FSA" (NFSA) uses intermediate failure transitions
+86     86:  * between keyword states and may thus require more than one state transition
+87     87:  * per input symbol.
+88     88:  * A "Deterministic FSA" (DFSA) encodes all possible combinations of keyword
+89     89:  * characters, but thereby eliminates failure transitions making only one
+90     90:  * transition per input symbol.
+91     91:  * The desicion to use a NFSA or a DFSA is a classic choice of memory usage
+92     92:  * (minimized by NFSA) vs. execution speed (minimized by DFSA). This imple-
+93     93:  * mentation gives you both choices.
+94     94:  *
+95     95:  *=============================== NFSA ======================================
+96     96:  * The behavior of the NFSA is described by 3 functions :
+97     97:  *  - a goto function G, mapping a pair of (state s, inputSymbol x) into
+98     98:  *    a state s' or into the message "fail".
+99     99:  *  - a failure function F, mapping a state s into a state s'.
+100   100:  *    F is consulted whenever G reports "fail".
+101   101:  *  - an output function O, associated with output states, ie. terminal
+102   102:  *    states indicating match of a keyword (for all other states, O is empty).
+103   103:  *
+104   104:  * The operating cycle of the NFSA is defined by :
+105   105:  *  1 if transition G(s,x) == s' then
+106   106:  *       enter state s' and advance input
+107   107:  *       if O(s') != empty then emit O(s')
+108   108:  *  2 if transition G(s,x) == "fail" then
+109   109:  *       s' = F(s)     // repeat cycle with G(s',x), ie. don't advance input
+110   110:  *
+111   111:  * The NFSA algorithm is thus :
+112   112:  *    BEGIN
+
+XC ... 'C' Concordance Utility   ac.c                       Page 3
+
+113   113:  *      s = 0                  // initialize current state to start state
+114   114:  *      FOR i = 1 UNTIL m DO   // proces input text string X = x1x1 ... xm
+115   115:  *      BEGIN                  // next operating cycle (each new input char)
+116   116:  *        WHILE (G(s, xi) == fail)
+117   117:  *           s = F(s)
+118   118:  *        s = G(s, xi)
+119   119:  *        IF O(s) != empty THEN
+120   120:  *          PRINT (i, O(s))    // located keyword O(s) at position i in X
+121   121:  *      END
+122   122:  *    END
+123   123:  *
+124   124:  *=============================== DFSA ======================================
+125   125:  *
+126   126:  * The behavior of the DFSA is described by 2 functions :
+127   127:  *  - a next move function M, mapping a pair of (state s, inputSymbol x) into
+128   128:  *    a state s'. M replaces the two NFSA functions : G and F.
+129   129:  *  - an output function O, identical to the NFSA O-function.
+130   130:  *
+131   131:  * The operating cycle of the DFSA is characterized by exactly one transition
+132   132:  * per input character (ie. failure transitions of the NFSA are eliminated).
+133   133:  *
+134   134:  * The DFSA algorithm is :
+135   135:  *    BEGIN
+136   136:  *      s = 0                  // initialize current state to start state
+137   137:  *      FOR i = 1 UNTIL m DO   // proces input text string X = x1x1 ... xm
+138   138:  *      BEGIN                  // next operating cycle (each new input char)
+139   139:  *        s = M(s, xi)         // failure transitions eliminated!
+140   140:  *        IF O(s) != empty THEN
+141   141:  *          PRINT (i, O(s))    // located keyword O(s) at position i in X
+142   142:  *      END
+143   143:  *    END
+144   144:  *
+145   145:  * DIAGNOSTICS Exit status is 0 if any matches are found, 1 if none, 2 for
+146   146:  *             error condition.
+147   147:  *
+148   148:  *-1========================================================================*/
+149   149: 
+150   150: 
+151   151: /*=========================================================================*/
+152   152: /*                         Includes                                        */
+153   153: /*=========================================================================*/
+154   154: #include <string.h>
+155   155: #include <stdio.h>
+156   156: #include <ctype.h>
+157   157: #include <stdlib.h>
+158   158: #include <limits.h>
+159   159: 
+160   160: #define ANSI
+161   161: #include "../../../general.h"
+162   162: #include "../../bool/bool.h"
+163   163: #include "../../err/error.h"
+164   164: 
+165   165: #define  AC_ALLOC
+166   166: #include "ac.h"
+167   167: 
+168   168: 
+
+XC ... 'C' Concordance Utility   ac.c                       Page 4
+
+169   169: /*=========================================================================*/
+170   170: /*                         Definitions                                     */
+171   171: /*=========================================================================*/
+172   172: #define NFSA        1
+173   173: #define DFSA        2
+174   174: 
+175   175: 
+176   176: /*=========================================================================*/
+177   177: /*                         Typedefs                                        */
+178   178: /*=========================================================================*/
+179   179: typedef struct transition {    	/* FSA transition element -----------  */
+180   180: 	BYTE   cTrans;              /* Transition symbol                   */
+181   181: 	struct state *psState;      /* Ptr to transition state             */
+182   182: 	struct transition *psTrans; /* Ptr to next transition in list      */
+183   183: } sTRANS;
+184   184: 
+185   185: typedef struct state {         	/* FSA state element ----------------- */
+186   186: 	sTRANS   *psGoList;         /* Ptr to head of "go" list for NFSA   */
+187   187: 	sTRANS   *psMvList;         /* Ptr to head of "move" list for DFSA */
+188   188: 	struct state *psFailSt;     /* Ptr to failure state for NFSA       */
+189   189: 	int      *index;            /* Ptr to list of keyword indices      */
+190   190: } sSTATE;
+191   191: 
+192   192: typedef struct QElement {      	    /* Queue element --------------------- */
+193   193: 	struct state *psState;      /* Ptr to state put in queue           */
+194   194: 	struct QElement *psQNext;   /* Ptr to next queue element           */
+195   195: } sQELEM;
+196   196: 
+197   197: 
+198   198: /*=========================================================================*/
+199   199: /*                         Global Variables                                */
+200   200: /*=========================================================================*/
+201   201: /* Define a separate data structure for State 0 of the sSTATE to
+202   202: * speed processing of the input while the sSTATE is in that state.
+203   203: * Since the Aho-Corasick algorithm only defines "go" transitions
+204   204: * for this state (one for each valid input character) and no
+205   205: * "failure" transitions or output messages, only an array of
+206   206: * "go" transition state numbers is needed. The array is accessed
+207   207: * directly, using the input character as the index. */
+208   208: 
+209   209: PRIVATE sSTATE   *aState0[UCHAR_MAX + 1];
+210   210: PRIVATE sSTATE   sFail;                  	  /* Dummy "failure" state */
+211   211: static int       depth;
+212   212: sQELEM           *f = NULL, *l = NULL;
+213   213: 
+214   214: 
+215   215: /*=========================================================================*/
+216   216: /*                         Function Prototypes                             */
+217   217: /*=========================================================================*/
+218   218: 
+219   219: /* Build the state machine */
+220   220: PRIVATE void     vBuildGoGraph(void);
+221   221: PRIVATE void     vBuildKeyword(BYTE* pzWord);
+222   222: PRIVATE void     vBuildFailMoveTrans(int type);
+223   223: 
+224   224: /* Run the state machine */
+
+XC ... 'C' Concordance Utility   ac.c                       Page 5
+
+225   225: PRIVATE sSTATE*  psRunTrans(int type, sSTATE* psState, register BYTE cText);
+226   226: 
+227   227: /* Dynamic memory handling */
+228   228: PRIVATE sSTATE*  psAllocState(void);
+229   229: PRIVATE sTRANS*  psAllocTrans(sSTATE* psState, BYTE cText);
+230   230: PRIVATE void     vDelNode(sSTATE *psS);
+231   231: PRIVATE void     vAllocQElem(sQELEM** head_ptr, sQELEM** tail_ptr, sSTATE* psState);
+232   232: PRIVATE FLAG     fCheckQElem(sQELEM* head_ptr, sSTATE* psState);
+233   233: PRIVATE void     vDelQElem(sQELEM** head_ptr); PRIVATE BYTE*    pzToupperStr(BYTE* str);
+234   234: 
+235   235: /* Debugging */
+236   236: PRIVATE void	vDumpFsa(int type);
+237   237: PRIVATE void	vDumpNode(int type, sSTATE * s);
+238   238: 
+239   239: 
+240   240: #define MAX_LINE   257
+241   241: 
+242   242: 
+243   243: /*+2 MODULE AC.C ===========================================================*/
+244   244: /*   NAME   00            Main (Module Testdriver)                          */
+245   245: /*== SYNOPSIS ==============================================================*/
+246   246: void main(
+247   247: 	int argc,
+248   248: 	BYTE** argv)
+249   249: {
+250   250: /* DESCRIPTION (USAGE)
+251   251:  * ac [<options>] <boolexpr> <file>, where :
+252   252:  *    <options>  -N to force a NFSA search (default DFSA)
+253   253:  *               -U to force a case-INsensitive search
+254   254:  *    <boolexpr> is a boolean expression of search phrases
+255   255:  *               example: This&^(That/Those)
+256   256:  *               The boolexpr is parsed by function pzParse (in bool.c) to :
+257   257:  *               - a postfix representation of the Boolean logic tree (pzPostfix)
+258   258:  *               - a set of keywords K= {k1,k2,...,kn} to search for (symtable[])
+259   259:  *
+260   260:  * Search <file> line-by-line for boolean expression <boolexpr> :
+261   261:  *    1: Parse command line <options>, if any.
+262   262:  *    2: Parse Bool search expression <boolexpr> to postfix string and keyword list
+263   263:  *    3: Perform search on <file> ...
+264   264:  *       3.1: Initialize AC-search
+265   265:  *       3.2: Run AC-search machine (NFSA or DFSA) on each line of input-file <file>
+266   266:  *       3.3: Terminate search & Ret status to parent proces: 0 if match, 1 otherwise
+267   267:  *-2*/
+268   268: 
+269   269: 	BYTE buffer[MAX_LINE], *nl;	/* Buffer for Input string (file line)      */
+270   270: 	BYTE *pzPostfix = NULL;         /* Postfix string for parsed boolean logic  */
+271   271: 	FLAG fMatch = FALSE;            /* TRUE if match of <boolexpr> vs file line */
+272   272: 	FILE *in_fd;                    /* File Handle for inputfile */
+273   273: 	unsigned char *temp;            /* Pointer for walking argv  */
+274   274: 
+275   275: 									/* Optional parameters to AC */
+276   276: 	int  type  = DFSA;              /* Type of FSA, default DFSA */
+277   277: 	FLAG UCASE = FALSE;             /* Case INsensitive search ? */
+278   278: 
+279   279: 	/* 1: Parse command line options */
+280   280:      	while (--argc && (*++argv)[0] == '-')
+
+XC ... 'C' Concordance Utility   ac.c                       Page 6
+
+281   281: 			for (temp = argv[0] + 1; *temp != '\0'; temp++)
+282   282: 				switch (toupper(*temp)) {
+283   283: 					case 'N':
+284   284: 							type  = NFSA;
+285   285: 							break;
+286   286: 
+287   287: 					case 'U':
+288   288: 							UCASE = TRUE;
+289   289: 							break;
+290   290: 					default:
+291   291: 						exit(1);
+292   292: 				}
+293   293: 
+294   294: 	/* 2: Parse Bool search expression to postfix string and keyword list */
+295   295: 	if ( argc <= 0 )
+296   296: 		vError(EARG000, "Error in input arguments");
+297   297: 
+298   298: 	D(printf("\n\n=============== BUILDING NEW FSA =================\n\n"));
+299   299: 	D(puts("PARSE INPUT STRING ...")) ;
+300   300: 	pzPostfix = pzParse(UCASE ? pzToupperStr(*argv++) : *argv++);
+301   301: 	D(printf("\t%s\n", *argv));
+302   302: 	argc--;
+303   303: 
+304   304: 	/* 3.1: Initialize AC-search */
+305   305: 	vBuildFsa(type);
+306   306: 
+307   307: 	/* 3.2: Run AC-search on each line of input-file */
+308   308: 	in_fd = ( argc ? fopen(*argv, "r") : stdin);
+309   309: 
+310   310: 	while (fgets(buffer, MAX_LINE, in_fd)) {
+311   311: 
+312   312: 		if (nl = strchr(buffer, '\n'))
+313   313: 			*nl = '\0'; 			/* Remove newline */
+314   314: 
+315   315: 		/* Run the Bugger! */
+316   316: 		if (fMatch = fRunFsa(type,
+317   317: 				(UCASE ? pzToupperStr(buffer) : buffer),
+318   318: 				pzPostfix))
+319   319: 		{
+320   320: 			D(printf("\nOUTPUT ...\n>\t"));
+321   321: 			puts(buffer);
+322   322: 		}
+323   323: 	}
+324   324: 
+325   325: 	/* 3.3: Terminate search & Ret status to the parent proces */
+326   326: 	/*      0 if match(es), 1 if none                          */
+327   327: 
+328   328: 		vDelFsa();
+329   329: 		exit (fMatch ? 0 : 1);
+330   330: 
+331   331: 
+332   332: } /* END function main() */
+333   333: 
+334   334: 
+335   335: 
+336   336: 
+
+XC ... 'C' Concordance Utility   ac.c                       Page 7
+
+337   337: /******************************** 1 *****************************************/
+338   338: /************************ BUILDING THE STATE MACHINE ************************/
+339   339: /****************************************************************************/
+340   340: 
+341   341: /*+2 MODULE AC.C===========================================================*/
+342   342: /*   NAME   01                 vBuildFsa                                   */
+343   343: /*== SYNOPSIS =============================================================*/
+344   344: void
+345   345: vBuildFsa(int type)
+346   346: {
+347   347: /* DESCRIPTION
+348   348:  * Construct a "Finite State Automaton" (FSA) from the keywords in symtable[]
+349   349:  *    1: Build the "go" graph
+350   350:  *    2: Build the "failure" and optionally "move" transitions
+351   351:  *    3: Dump of FSA for debygging (optional)
+352   352:  *
+353   353:  *-2*/
+354   354: 
+355   355: 	/* 1: Build the "go" graph (G) */
+356   356: 	vBuildGoGraph();
+357   357: 
+358   358: 	/* 2: Build the "failure" (F) and optionally "move" (M) transitions */
+359   359: 	vBuildFailMoveTrans(type);
+360   360: 
+361   361: 	/* 3: Dump FSA for debugging (optional) */
+362   362: 	D(vDumpFsa(NFSA));
+363   363: 	if (type == DFSA)
+364   364: 		D(vDumpFsa(DFSA));
+365   365: }
+366   366: /* END function vBuildFsa() */
+367   367: 
+368   368: 
+369   369: /*+3 MODULE AC.C -----------------------------------------------------------*/
+370   370: /*   NAME   01.01              vBuildGoGraph                                */
+371   371: /*-- SYNOPSIS --------------------------------------------------------------*/
+372   372: void
+373   373: vBuildGoGraph(void)
+374   374: {
+375   375: /* DESCRIPTION
+376   376:  * Construction of goto graph data structure for the goto function G of FSA.
+377   377:  *
+378   378:  * The graph is started by one vertex/node : the array representing state 0.
+379   379:  *
+380   380:  * We now enter each keyword ki into the graph beginning at the start state:
+381   381:  * new vertices (states between chars) and edges (transitions on chars) are
+382   382:  * added to the graph thus building a complete path that spells out ki.
+383   383:  * The output function is defined for the state at which the path terminates.
+384   384:  *
+385   385:  * Up to this point the graph is a rooted tree. To complete the construction
+386   386:  * of the goto function we add a loop from state 0 to state 0 on all input
+387   387:  * chars NOT starting a keyword path.
+388   388:  *
+389   389:  * In summary the algorithm for building the goto graph is  :
+390   390:  *    BEGIN
+391   391:  *      (1) initialize all transitions out of state-0 to FAIL
+392   392:  *      (2) enter all entries in keyword-list symtable[] into the goto graph
+
+XC ... 'C' Concordance Utility   ac.c                       Page 8
+
+393   393:  *      (3) reset all FAIL-transitions out of state-0 to state-0
+394   394:  *    END
+395   395:  *-3*/
+396   396: 
+397   397: 	register BYTE cText;       	/* character in the input alfabet */
+398   398: 	int       i;        		/* integer counter */
+399   399: 
+400   400: 	/* 1: Initialize FSA State 0 go transition array to : G(0,x) = FAIL */
+401   401: 	for (cText = 1; (0 < cText && cText <= UCHAR_MAX); cText++)
+402   402: 		aState0[cText] = &sFail;
+403   403: 
+404   404: 	/* 2: Put all keywords into the goto graph by calling vBuildKeyword */
+405   405: 	for (i = 1; symtable[i].pzLexptr != NULL; i++)
+406   406: 		vBuildKeyword(symtable[i].pzLexptr);
+407   407: 
+408   408: 	/* 3: For all x such that G(0,x) == FAIL, set G(0,x) = 0 */
+409   409: 	for (cText = 1; (0 < cText && cText <= UCHAR_MAX); cText++)
+410   410: 		if (aState0[cText] == &sFail)
+411   411: 			aState0[cText] = NULL;
+412   412: 
+413   413: } /* END function vBuildGoGraph() */
+414   414: 
+415   415: 
+416   416: /*+3 MODULE AC.C -----------------------------------------------------------*/
+417   417: /*   NAME   01.02              vBuildKeyword                                */
+418   418: /*-- SYNOPSIS --------------------------------------------------------------*/
+419   419: void
+420   420: vBuildKeyword(BYTE* pzWord)
+421   421: {
+422   422: /* DESCRIPTION
+423   423:  * Enter a keyword (text string) into the goto graph;  Note that '\0' can
+424   424:  * never be a valid character (Used as C string terminator).
+425   425:  *
+426   426:  * First run each character of the keyword in turn through the current
+427   427:  * partially-built goto graph.
+428   428:  *
+429   429:  * When a failure occurs, add the remainder of the keyword to the graph
+430   430:  * as one new transition and state per char.
+431   431:  *
+432   432:  * Finally define the output function for the keyword's terminal state.
+433   433:  *
+434   434:  * The complete algorithm for entering a keyword K into the goto graph is :
+435   435:  *    BEGIN 
+436   436:  *
+437   437:  *       (1) // Run keyword through partially built goto graph until FAIL
+438   438:  *           FOR (i = 0, S = 0; G(S, K[i]) != FAIL; i++)
+439   439:  *              S = G(S, K[i]) 
+440   440:  *
+441   441:  *       (2) // Enter remainder of keyword into goto graph (build new states)
+442   442:  *           FOR( ; (K[i]; i++)
+443   443:  *              BEGIN
+444   444:  *                 G(S, K[i]) = newS
+445   445:  *                 S = newS
+446   446:  *              END 
+447   447:  *
+448   448:  *       (3) // Define output function for the keyword's terminal state
+
+XC ... 'C' Concordance Utility   ac.c                       Page 9
+
+449   449:  *           O(S) = function(keyword)
+450   450:  *    END
+451   451:  *-3*/
+452   452: register BYTE   *pzIndex;          /* Index into pzWord               */
+453   453: register sSTATE *psState;          /* Current state; start in state 0 */
+454   454: register sSTATE *psNextState;      /* Next state in goto graph        */
+455   455: sSTATE   *s;                       /* Temp variable for state         */
+456   456: sTRANS   *t;                       /* Temp variable for transition    */
+457   457: 
+458   458: 
+459   459: 	/* 1: Run chars in turn through partially-built goto graph until fail */
+460   460: 	for (pzIndex = pzWord, psState = NULL;
+461   461: 		((s = psRunTrans(NFSA, psState, *pzIndex)) != &sFail);
+462   462: 		pzIndex++)  psState = s;
+463   463: 
+464   464: 	/* 2: Enter the remainder of the keyword string into the goto graph */
+465   465: 	while (*pzIndex) {
+466   466: 
+467   467: 		if (!psState)
+468   468: 			/* State 0 : add new state from state 0 */
+469   469: 		   	psNextState = aState0[*pzIndex++] = psAllocState();
+470   470: 		else if (!(t = psState->psGoList))
+471   471: 			{
+472   472: 			/* No goList : add trans and state as first in goList */
+473   473: 			psNextState = psAllocState();
+474   474: 			psState->psGoList = psAllocTrans(psNextState, *pzIndex++);
+475   475: 		}  else
+476   476: 			{
+477   477: 			/* goList exists : add trans and state as last in goList */
+478   478: 			while (t->psTrans)
+479   479: 				t = t->psTrans;
+480   480: 			psNextState = psAllocState();
+481   481: 			t->psTrans = psAllocTrans(psNextState, *pzIndex++);
+482   482: 		}
+483   483: 		psState = psNextState;
+484   484: 	}
+485   485: 
+486   486: 	/* 3: Define keyword's index in symtable as terminal state O-function */
+487   487: 	if (!(psState->index = (int *) malloc(sizeof(int) * (strlen(pzWord) + 1))))
+488   488: 		vError(EMEM000, (char*) pzWord);
+489   489: 
+490   490: 	*(psState->index) = iSymLookup(pzWord, strlen(pzWord));
+491   491: 	*(psState->index + 1) = '\0';
+492   492: 	D(printf("\nENTER ...\n\tTerminalState[%p], Index[%d]-->[%s]\n",
+493   493: 		psState, *(psState->index), pzWord));
+494   494: 
+495   495: } /* END function vBuildKeyword() */
+496   496: 
+497   497: 
+498   498: /*+3 MODULE AC.C -----------------------------------------------------------*/
+499   499: /*   NAME   01.03       vBuildFailMoveTrans                                 */
+500   500: /*-- SYNOPSIS --------------------------------------------------------------*/
+501   501: void
+502   502: vBuildFailMoveTrans(int type)
+503   503: {
+504   504: /* DESCRIPTION
+
+XC ... 'C' Concordance Utility   ac.c                       Page 10
+
+505   505:  * Build the "failure" and optionally "move" transitions from the defined go graph.
+506   506:  *
+507   507:  * ----------------- Build the failure function F for NFSA ------------------
+508   508:  *
+509   509:  *   For all states s1 of depth 1 : F(s1) = 0  // depth = 1, loop to state 0
+510   510:  *   For all states s2 of depth d > 1          // depth > 1
+511   511:  *      For each state s1 of depth d-1 :
+512   512:  *         For each valid inputsymbol x
+513   513:  *            If defined go-trans : s1 -(x)-> s2
+514   514:  *               sf = F(s1)                    // G(0,x) != FAIL
+515   515:  *               Execute sf = F(sf) until G(sf, x ) != FAIL
+516   516:  *               F(s2) = G(sf, x)
+517   517:  *
+518   518:  *   Algorithm using queue Q to hold the states :
+519   519:  *   BEGIN  *   (1) initialize Q to empty
+520   520:  *   (2) FOR each valid inputsymbol x              // depth = 1
+521   521:  *          IF ( (s1 = G(0, x)) != 0 )
+522   522:  *          BEGIN
+523   523:  *             add s1 to Q-tail
+524   524:  *             F(s1) = 0
+525   525:  *          END
+526   526:  *   (3) WHILE ( (s1 = remove from Q-head) != 0 )  // depth > 1
+527   527:  *          FOR each valid inputsymbol x
+528   528:  *            IF ( (s2 = G(s1, x)) != FAIL )
+529   529:  *            BEGIN
+530   530:  *               add s2 to Q-tail
+531   531:  *               FOR (sf = F(s1); G(sf,x) == FAIL; sf = F(sf))
+532   532:  *                  ;
+533   533:  *               F(s2) = G(sf, x)
+534   534:  *               O(s2) = O(sf) + O(F(sf))
+535   535:  *            END
+536   536:  *   END
+537   537:  *
+538   538:  * ------------- Optionally build the move function M for DFSA --------------
+539   539:  *
+540   540:  *   For all states s1 of depth 1 : M(0, x) = G(0, x)  // depth = 1, use G
+541   541:  *   For all states s2 of depth d > 1                  // depth > 1
+542   542:  *      For each state s1 of depth d-1 :
+543   543:  *         For each valid inputsymbol x
+544   544:  *            If defined go-trans : s1 -(x)-> s2
+545   545:  *               use this as move-trans
+546   546:  *            else
+547   547:  *               set move-trans s1 -(x)-> = move-trans(F(s1), x)
+548   548:  *
+549   549:  *   Algorithm using queue Q to hold the states :
+550   550:  *   BEGIN
+551   551:  *   (1) initialize Q to empty
+552   552:  *   (2) FOR each valid inputsymbol x              // depth = 1
+553   553:  *          M(0, x) = G(0, x)
+554   554:  *          IF ( (s1 = G(0, x)) != 0 )
+555   555:  *             add s1 to Q-tail
+556   556:  *   (3) WHILE ( (s1 = remove from Q-head) != 0 )  // depth > 1
+557   557:  *          FOR each valid inputsymbol x
+558   558:  *             IF ( (s2 = G(s1, x)) != FAIL )
+559   559:  *             BEGIN  *                add s2 to Q-tail
+560   560:  *                M(s1, x ) = s2
+
+XC ... 'C' Concordance Utility   ac.c                       Page 11
+
+561   561:  *             END ELSE
+562   562:  *                M(s1, x) = M(F(s1), x)
+563   563:  *   END
+564   564:  *
+565   565:  * -------------- Combined algorithm for fail and move functions ------------
+566   566:  *
+567   567:  *   Merged algorithm using queue Q to hold the states :
+568   568:  *   BEGIN
+569   569:  *   (1) initialize Q to empty
+570   570:  *   (2) FOR each valid inputsymbol x              // depth = 1
+571   571:  *          M(0, x) = G(0, x)
+572   572:  *          IF ( (s1 = G(0, x)) != 0 )
+573   573:  *          BEGIN
+574   574:  *             add s1 to Q-tail
+575   575:  *             F(s1) = 0
+576   576:  *          END
+577   577:  *   (3) WHILE ( (s1 = remove from Q-head) != 0 )  // depth > 1
+578   578:  *          FOR each valid inputsymbol x
+579   579:  *             IF ( (s2 = G(s1, x)) != FAIL )
+580   580:  *             BEGIN
+581   581:  *                add s2 to Q-tail
+582   582:  *                FOR (sf = F(s1); G(sf,x) == FAIL; sf = F(sf))
+583   583:  *                   ;
+584   584:  *                F(s2) = G(sf, x)
+585   585:  *                O(s2) = O(sf) + O(F(sf))
+586   586:  *                M(s1, x ) = s2
+587   587:  *             END ELSE
+588   588:  *                M(s1, x) = M(F(s1), x)
+589   589:  *   END
+590   590:  *-3*/
+591   591: 
+592   592: 	register BYTE cText;
+593   593: 	register sSTATE *s1, *s2, *sf;
+594   594: 	sTRANS   *t;
+595   595: 	sQELEM   *first, *last;            /* Pointer to head & tail of queue */
+596   596:      	int      *i, *j;
+597   597: 
+598   598: 	/* 1: Initialize Q (empty) */     last = first = NULL;
+599   599: 	/* 2: We use a common array for transitions out of state 0 : aState0[] */
+600   600: 	/* In vBuildGoGraph we initialize aState0[] to &sFail for all input */
+601   601: 	/* We also use aState0[] for the DFSA, so for all x M(0,x) = G(0,x) */
+602   602: 	/* Now we only have to fill Q with go-transitions out of state 0.   */
+603   603: 	for (cText = 1; (0 < cText && cText <= UCHAR_MAX); cText++)
+604   604: 		if (s1 = psRunTrans(NFSA, NULL, cText))
+605   605: 			vAllocQElem(&first, &last, s1);
+606   606: 
+607   607: 	/* 3: While Q not empty ... */
+608   608: 	while (first) {
+609   609: 
+610   610: 		/* Get state "s1" at head of Q */
+611   611: 		s1 = first->psState;
+612   612: 		vDelQElem(&first);
+613   613: 
+614   614: 		/* For every character "cText" in the input alfabet : */
+615   615: 		for (cText = 1; (0 < cText && cText <= UCHAR_MAX); cText++) {
+616   616: 
+
+XC ... 'C' Concordance Utility   ac.c                       Page 12
+
+617   617: 			/* If a transition from state s1 to state s2 on cText */
+618   618: 			if ((s2 = psRunTrans(NFSA, s1, cText)) != &sFail) {
+619   619: 
+620   620: 				/* Add s2 to end of Q */
+621   621: 				vAllocQElem(&first, &last, s2);
+622   622: 
+623   623: 				/* Define failure transition for s2 : F(s2) */
+624   624: 				for (sf = s1->psFailSt; psRunTrans(NFSA, sf, cText) == &sFail;)
+625   625: 				      sf = sf->psFailSt;
+626   626: 				s2->psFailSt = psRunTrans(NFSA, sf, cText);
+627   627: 
+628   628: 				/* Define complete output function O for s2 */
+629   629: 				/* by concatenating O(s2) with O(F(s2))     */
+630   630: 				i = s2->index;
+631   631: 				j = (s2->psFailSt != NULL ? (s2->psFailSt)->index: 0);
+632   632: 				if (j) {
+633   633: 					if (!i) {
+634   634: 						if (!(i = s2->index = (int *) malloc(sizeof(int) *
+635   635: 						     (strlen(symtable[*j].pzLexptr) + 1))) )
+636   636: 	  						vError(EMEM001, symtable[*j].pzLexptr);
+637   637: 					}
+638   638: 					else
+639   639: 						for (; *i; i++) /*empty*/ ;
+640   640: 
+641   641: 					for (; *i = *j; i++, j++);
+642   642: 					*i = '\0';
+643   643: 				}   /* if j */
+644   644: 			}  /* if s1 to s2 */
+645   645: 			else
+646   646: 				{
+647   647: 				/* No transition from s1 to s2 on input cText :  */
+648   648: 				/* Set s2 to the precalculated move transition   */
+649   649: 				/* from s1's failure state on input "cText".     */
+650   650: 				if (type == DFSA)
+651   651: 					s2 = psRunTrans(DFSA, s1->psFailSt, cText);
+652   652:      			}
+653   653: 
+654   654: 			/* Add move transition from s1 to s2 on input "cText" */
+655   655: 			if (type == DFSA && s2)
+656   656: 				if (!s1->psMvList) /* First instance of the list? */
+657   657: 					t = s1->psMvList = psAllocTrans(s2, cText);
+658   658: 				else        /* No, just another one ... */
+659   659: 					t = t->psTrans = psAllocTrans(s2, cText);
+660   660: 
+661   661: 		} /* For every char "cText" in the input alfabet */
+662   662: 
+663   663: 	} /* While Q not empty ... */
+664   664: 
+665   665: }  /* END function vBuildFailMoveTrans() */
+666   666: 
+667   667: 
+668   668: /******************************** 2 *****************************************/
+669   669: /************************* RUNNING THE STATE MACHINE ************************/
+670   670: /****************************************************************************/
+671   671: /*+2 MODULE AC.C===========================================================*/
+672   672: /*   NAME   02                fRunFsa                                      */
+
+XC ... 'C' Concordance Utility   ac.c                       Page 13
+
+673   673: /*== SYNOPSIS =============================================================*/
+674   674: FLAG
+675   675: fRunFsa(
+676   676: int            type,                /* Search type : NFSA or DFSA    */
+677   677: register BYTE* str,                 /* String to search for keywords */
+678   678: BYTE*          pzPostfix)           /* Parsed Boolean expression     */
+679   679: {
+680   680: /* DESCRIPTION  * Run the finite state automaton with string "str" as input ...
+681   681:  *    1: Reset state of symbol-table and go-graph
+682   682:  *    2: Run FSA on input-line <str>, and note "hits" on keywords
+683   683:  *    3: Evaluate boolean expression, using keyword "hits" from FSA-run
+684   684:  *       Return TRUE if match, FALSE otherwise.
+685   685:  *-2*/
+686   686: 
+687   687: 	register sSTATE *psState;
+688   688: 	FLAG     fMatch = FALSE;
+689   689: 	int      i, j;
+690   690: 
+691   691: 	/* 1: Reset state of symbol-table and go-graph */     vSymReset();
+692   692: 	/* Initialize symbol table */     psState = NULL;
+693   693: 	/* Initialize go-graph start state */
+694   694: 	/* 2: Run FSA on input-line <str> */
+695   695: 	D(puts("\n-------------------------------------------------------"));
+696   696: 	D(printf("INPUT ...\n<\t[%s]\n\n", str));
+697   697: 	D(puts("RUN FSA ON INPUT ...\n"));
+698   698: 
+699   699: 	if (type == NFSA)
+700   700: 
+701   701: 	/*-2.1---------------------------------------------------------------*/
+702   702: 	/* NFSA : Nondeterministic Finite State Automaton, use go-trans      */
+703   703: 	/*-------------------------------------------------------------------*/
+704   704: 	while (*str) {
+705   705: 
+706   706: 		while (psRunTrans(NFSA, psState, *str) == &sFail) {
+707   707: 			D(printf("\tFAIL  [%p] --(%c)--> ", psState, *str));
+708   708: 			psState = psState->psFailSt;
+709   709: 			D(printf("%p]\n", psState));
+710   710: 		}
+711   711: 
+712   712: 		D(printf("\tMOVE  [%p] --(%c)--> ", psState, *str));
+713   713: 		psState = psRunTrans(NFSA, psState, *str);
+714   714: 		D(printf("[%p]\n", psState));
+715   715: 
+716   716: 		/* Print terminal state message(s) if any */
+717   717: 
+718   718: 
+719   719: 		// for (i = 0; psState && (j = *(psState->index + i)); i++)
+720   720: 		/***UBUNTU***/
+721   721: 		for (i = 0;
+722   722: 			j = ( psState == NULL || psState->index == NULL
+723   723: 						? 0+i
+724   724: 						: *(psState->index + i) );
+725   725: 						i++)
+726   726: 		{
+727   727: 			fMatch = TRUE;
+728   728: 			symtable[j].fValue = TRUE;
+
+XC ... 'C' Concordance Utility   ac.c                       Page 14
+
+729   729: 			D(printf("\t\tHIT lexeme [%s]\n", symtable[j].pzLexptr));
+730   730: 		}
+731   731: 		str++;
+732   732: 	}
+733   733: 
+734   734: 	else /* type == DFSA */
+735   735: 
+736   736: 	/*-2.2---------------------------------------------------------------*/
+737   737: 	/* DFSA : Deterministic Finite State Automaton, use move-trans       */
+738   738: 	/*-------------------------------------------------------------------*/
+739   739: 
+740   740: 	while (*str) {
+741   741: 		D(printf("\tMOVE  [%p] --(%c)--> ", psState, *str));
+742   742: 		psState = psRunTrans(DFSA, psState, *str);
+743   743: 		D(printf("[%p]\n", psState));
+744   744: 
+745   745: 
+746   746: 		/* Print terminal state message(s) if any */
+747   747: 		for (i = 0; psState != NULL
+748   748: 					&& psState->index != NULL
+749   749: 					&& (j = *(psState->index + i));
+750   750: 					i++)
+751   751: 		{
+752   752: 			fMatch = TRUE;
+753   753: 			symtable[j].fValue = TRUE;
+754   754: 			D(printf("\t\tHIT lexeme [%s]\n", symtable[j].pzLexptr));
+755   755: 		}
+756   756: 		str++;
+757   757: 	}
+758   758: 
+759   759: 	/* 3: Evaluate boolean expression, using keyword "hits" from FSA-run */
+760   760: 	D(puts("\nINTERPRET ..."));
+761   761: 	D(puts("Symboltable Boolean values :"));
+762   762: 	D(for (i = 1; symtable[i].pzLexptr; i++)
+763   763: 		printf("\tsymtable[%d] : %s %s\n",
+764   764: 			i, symtable[i].pzLexptr, symtable[i].fValue ? "TRUE" : "FALSE") );
+765   765: 
+766   766: 	D(puts("Postfix Boolean evaluation :"));
+767   767: 	return (fInterpret(pzPostfix) == TRUE);
+768   768: 
+769   769: }  /* END function fRunFsa() */
+770   770: 
+771   771: 
+772   772: /*+3 MODULE AC.C -----------------------------------------------------------*/
+773   773: /*   NAME   02.01             psRunTrans                                    */
+774   774: /*-- SYNOPSIS --------------------------------------------------------------*/
+775   775: sSTATE   *
+776   776: psRunTrans(
+777   777: 	int           type,
+778   778: 	sSTATE*       psState,
+779   779: 	register BYTE cText )
+780   780: {
+781   781: /* DESCRIPTION
+782   782:  * Perform one transition from psState via character cText to the next state.
+783   783:  * Return a pointer to next state, or - if cText is not on the transition
+784   784:  * list - return pointer to failure-state (type NFSA) or NULL (type DFSA).
+
+XC ... 'C' Concordance Utility   ac.c                       Page 15
+
+785   785:  *-3*/
+786   786: 	register sTRANS *t;
+787   787: 
+788   788: 	/* If state 0, access state 0 array of state pointers directly */
+789   789: 	if (!psState)
+790   790: 		return aState0[cText];
+791   791: 	else {
+792   792: 		/* Point to the head of the linked list of transitions */
+793   793: 		t = (type == NFSA ? psState->psGoList : psState->psMvList);
+794   794: 
+795   795: 		/* Traverse the list looking for a match to the input character. */
+796   796: 		for (; t && (t->cTrans != cText); t = t->psTrans);
+797   797: 
+798   798: 		/* Return pointer to new state, or failure (NFSA) resp. NULL (DFSA) */
+799   799: 		return (t ? t->psState : (type == NFSA ? &sFail : NULL));
+800   800: 	}
+801   801: 
+802   802: } /* END function psRunTrans() */
+803   803: 
+804   804: 
+805   805: /******************************* 3 ******************************************/
+806   806: /********************** DYNAMIC MEMORY ADMINISTRATION ***********************/
+807   807: /****************************************************************************/
+808   808: /* Alloced memory for types are deallocated in following separate del-func  */
+809   809: 
+810   810: /*+3 MODULE AC.C -----------------------------------------------------------*/
+811   811: /*   NAME   03.01         psAllocState                                      */
+812   812: /*-- SYNOPSIS --------------------------------------------------------------*/
+813   813: sSTATE*
+814   814: psAllocState(void)
+815   815: {
+816   816: /* DESCRIPTION
+817   817:  * Create a new state and return a pointer to it.
+818   818:  *-3*/
+819   819: 	sSTATE   *psS;
+820   820: 	if (!(psS = (sSTATE *) malloc(sizeof(sSTATE))))
+821   821: 		vError(EMEM002, "sSTATE");
+822   822: 
+823   823: 	psS->psGoList = psS->psMvList = NULL;
+824   824: 	psS->psFailSt = NULL;
+825   825: 	psS->index = NULL;
+826   826: 	return psS;
+827   827: } /* END function psAllocState() */
+828   828: 
+829   829: 
+830   830: /*+3 MODULE AC.C -----------------------------------------------------------*/
+831   831: /*   NAME   03.02         psAllocTrans                                      */
+832   832: /*-- SYNOPSIS --------------------------------------------------------------*/
+833   833: sTRANS*
+834   834: psAllocTrans(sSTATE * psState, BYTE cText)
+835   835: {
+836   836: /* DESCRIPTION
+837   837:  * Create a new transition and return a pointer to it
+838   838:  *-3*/
+839   839: 
+840   840: 	sTRANS   *psT;
+
+XC ... 'C' Concordance Utility   ac.c                       Page 16
+
+841   841: 	if (!(psT = (sTRANS *) malloc(sizeof(sTRANS))))
+842   842: 		vError(EMEM003, "sTRANS");
+843   843: 
+844   844: 	psT->cTrans = cText;	/* transition : --(cText)-->psState */
+845   845: 	psT->psState = psState;
+846   846: 	psT->psTrans = NULL;
+847   847: 	return psT;
+848   848: 
+849   849: } /* END function psAllocTrans() */
+850   850: 
+851   851: 
+852   852: /*+2 MODULE AC.C ===========================================================*/
+853   853: /*   NAME   03.03           vDelFsa                                         */
+854   854: /*== SYNOPSIS ==============================================================*/
+855   855: void vDelFsa(void)
+856   856: {
+857   857: /* DESCRIPTION
+858   858:  * Deallocate whole FSA structure (free all node-lists from aState0[])
+859   859:  *-2*/
+860   860: 	BYTE     cText;
+861   861: 	sSTATE   *s;
+862   862: 
+863   863: 	D(puts("\nDELETION OF STATE MACHINE ...\n"));
+864   864: 
+865   865: 	for (cText = 1; (0 < cText && cText <= UCHAR_MAX); cText++)
+866   866: 		if( (s = aState0[cText]) != NULL ) {
+867   867: 			D(printf("\n[%d] --(%c)--> [%p]\n", 0, cText, s));
+868   868: 			vDelNode(s);
+869   869: 	}
+870   870: 
+871   871: } /* END function vDelFsa() */
+872   872: 
+873   873: 
+874   874: /*+3 MODULE AC.C -----------------------------------------------------------*/
+875   875: /*   NAME   03.04           vDelNode                                        */
+876   876: /*-- SYNOPSIS --------------------------------------------------------------*/
+877   877: void
+878   878: vDelNode(sSTATE *psS)
+879   879: {
+880   880: /* DESCRIPTION
+881   881: * Deallocate one list of nodes in FSA structure ...
+882   882:  *    1: Remove move-list (for DFSA). NB: states removed via go-list
+883   883:  *    2: Remove go-list (for NFSA)
+884   884:  *    3: Finally remove state and associated O-function
+885   885:  *-3*/
+886   886: 
+887   887: 	sTRANS   *psT;
+888   888: 	BYTE     *templ = "                                               ";
+889   889: 	BYTE     indent[80];
+890   890: 
+891   891: 	++depth;
+892   892: 	strncpy(indent, templ, depth * 3);
+893   893: 	indent[depth * 3] = '\0';
+894   894: 
+895   895: 	/* 1: Remove move-list (for DFSA). NB: states removed via go-list */
+896   896: 	for (psT = psS->psMvList; psT != NULL; psT = psS->psMvList) {
+
+XC ... 'C' Concordance Utility   ac.c                       Page 17
+
+897   897: 		psS->psMvList = psT->psTrans;	/* Scan through move trans-list */
+898   898: 		D(printf("%sFREE MV-sTRANS: [%p] --(%c)--> [%p]\n",
+899   899: 			indent, psS, psT->cTrans, psT->psState));
+900   900: 		free(psT);			/* Release sTRANS */
+901   901: 	}
+902   902: 
+903   903: 
+904   904: 	/* 2: Remove go-list (for NFSA) */
+905   905: 	for (psT = psS->psGoList; psT != NULL; psT = psS->psGoList) {
+906   906: 		psS->psGoList = psT->psTrans;	/* Scan through go trans-list   */
+907   907: 		vDelNode(psT->psState);		/* Recursively delete next node */
+908   908: 		D(printf("%sFREE GO-sTRANS: [%p] --(%c)--> [%p]\n",
+909   909: 			indent, psS, psT->cTrans, psT->psState));
+910   910: 		free(psT);			/* Then release sTRANS */
+911   911: 	}
+912   912: 
+913   913: 	/* 3: Finally remove state and associated O-function */
+914   914: 	D(printf("%sFREE sSTATE: [%p]\n", indent, psS));
+915   915: 	if (psS->index)				/* If O-function defined */
+916   916: 		free(psS->index);		/* Release O-list */
+917   917: 	free(psS);				/* Release sSTATE */
+918   918: 	depth--;
+919   919: 
+920   920: } /* END function vDelNode() */
+921   921: 
+922   922: 
+923   923: /*+3 MODULE AC.C -----------------------------------------------------------*/
+924   924: /*   NAME   03.05           vAllocQElem                                     */
+925   925: /*-- SYNOPSIS --------------------------------------------------------------*/
+926   926: void
+927   927: vAllocQElem(sQELEM ** head_ptr, sQELEM ** tail_ptr, sSTATE * psState)
+928   928: {
+929   929: /* DESCRIPTION
+930   930:  * Add an instance to the tail of a queue
+931   931:  *-3*/
+932   932: 
+933   933: 	sQELEM*   pq;
+934   934: 	if (!(pq = (sQELEM *) malloc(sizeof(sQELEM))))
+935   935: 		vError(EMEM004, "sQELEM");
+936   936: 
+937   937: 	pq->psState = psState;
+938   938: 	pq->psQNext = NULL;
+939   939: 
+940   940: 	if (!*head_ptr)			/* First instance of the queue? */
+941   941: 		*tail_ptr = *head_ptr = pq;
+942   942: 	else				/* No, just another one ... */
+943   943: 		*tail_ptr = (*tail_ptr)->psQNext = pq;
+944   944: 
+945   945: } /* END function vAllocQElem() */
+946   946: 
+947   947: 
+948   948: /*+3 MODULE AC.C -----------------------------------------------------------*/
+949   949: /*   NAME   03.06           fCheckQElem                                     */
+950   950: /*-- SYNOPSIS --------------------------------------------------------------*/
+951   951: FLAG
+952   952: fCheckQElem(sQELEM * head_ptr, sSTATE * psState)
+
+XC ... 'C' Concordance Utility   ac.c                       Page 18
+
+953   953: {
+954   954: /* DESCRIPTION
+955   955:  * Check for a specified FSA state in the queue
+956   956:  *-3*/
+957   957: 
+958   958: 	for (; head_ptr != NULL; head_ptr = head_ptr->psQNext)
+959   959: 		if (head_ptr->psState == psState)
+960   960: 		return (TRUE);
+961   961: 
+962   962: 	return (FALSE);
+963   963: 
+964   964: } /* END function fCheckQElem() */
+965   965: 
+966   966: 
+967   967: /*+3 MODULE AC.C -----------------------------------------------------------*/
+968   968: /*   NAME   03.07           vDelQElem                                       */
+969   969: /*-- SYNOPSIS --------------------------------------------------------------*/
+970   970: void
+971   971: vDelQElem(sQELEM ** head_ptr)
+972   972: {
+973   973: /* DESCRIPTION
+974   974:  * Delete an instance from the head of queue
+975   975:  *-3*/
+976   976: 
+977   977: 	sQELEM   *pQElem;
+978   978: 
+979   979: 	pQElem = *head_ptr;
+980   980: 	*head_ptr = (*head_ptr)->psQNext;
+981   981: 	free(pQElem);		/* Deallocate storage pointed to by pQElem */
+982   982: 
+983   983: } /* END function vDelQElem() */
+984   984: 
+985   985: 
+986   986: /*+3 MODULE AC.C -----------------------------------------------------------*/
+987   987: /*   NAME   03.08           pzToupperStr                                    */
+988   988: /*-- SYNOPSIS --------------------------------------------------------------*/
+989   989: BYTE*
+990   990: pzToupperStr(register BYTE * str)
+991   991: /* DESCRIPTION
+992   992:  * Map entire string pointed to by "str" to upper case, - incl. danish ‘›†
+993   993:  *-3*/
+994   994: {
+995   995: 	static BYTE pcMap[] = {
+996   996: /*                  0      1       2       3       4       5       6       7   */
+997   997: /*                  8      9       A       B       C       D       E       F   */
+998   998: 	/*---------------------------cntrl chars-- -- -------------------------*/
+999   999: 	/* 00 */ '\000', '\001', '\002', '\003', '\004', '\005', '\006', '\007',
+1000 1000: 	/* 08 */ '\010', '\011', '\012', '\013', '\014', '\015', '\016', '\017',
+1001 1001: 	/* 10 */ '\020', '\021', '\022', '\023', '\024', '\025', '\026', '\027',
+1002 1002: 	/* 18 */ '\030', '\031', '\032', '\033', '\034', '\035', '\036', '\037',
+1003 1003: 	/*-------------------------- spec & numeric ---------------------------*/
+1004 1004: 	/* 20 */ '\040', '\041', '\042', '\043', '\044', '\045', '\046', '\047',
+1005 1005: 	/* 28 */ '\050', '\051', '\052', '\053', '\054', '\055', '\056', '\057',
+1006 1006: 	/* 30 */ '\060', '\061', '\062', '\063', '\064', '\065', '\066', '\067',
+1007 1007: 	/* 38 */ '\070', '\071', '\072', '\073', '\074', '\075', '\076', '\077',
+1008 1008: 	/*-------------------------- upper letters ----------------------------*/
+
+XC ... 'C' Concordance Utility   ac.c                       Page 19
+
+1009 1009: 	/* 40 */ '\100', '\101', '\102', '\103', '\104', '\105', '\106', '\107',
+1010 1010: 	/* 48 */ '\110', '\111', '\112', '\113', '\114', '\115', '\116', '\117',
+1011 1011: 	/* 50 */ '\120', '\121', '\122', '\123', '\124', '\125', '\126', '\127',
+1012 1012: 	/* 58 */ '\130', '\131', '\132', '\133', '\134', '\135', '\136', '\137',
+1013 1013: 	/*-------------------------- lower letters ----------------------------*/
+1014 1014: 	/* 60 */ '\140',    'A',    'B',    'C',    'D',    'E',    'F',    'G',
+1015 1015: 	/* 68 */    'H',    'I',    'J',    'K',    'L',    'M',    'N',    'O',
+1016 1016: 	/* 70 */    'P',    'Q',    'R',    'S',    'T',    'U',    'V',    'W',
+1017 1017: 	/* 78 */    'X',    'Y',    'Z', '\173', '\174', '\175', '\176', '\177',
+1018 1018: 	/*---------------------- international letters ------------------------*/
+1019 1019: 	/* 80 */ '\200', '\201', '\202', '\203', '\204', '\205',    '\206', '\207',
+1020 1020: 	/* 88 */ '\210', '\211', '\212', '\213', '\214', '\215', '\216', '\217',
+1021 1021: 	/* 90 */ '\220',   '\221', '\222', '\223', '\224', '\225', '\226', '\227',
+1022 1022: 	/* 98 */ '\230', '\231', '\232',   '\233' , '\234', '\235', '\236', '\237',
+1023 1023: 	/*---------------------------- graphics 1 -----------------------------*/
+1024 1024: 	/* A0 */ '\240', '\241', '\242', '\243', '\244', '\245', '\246', '\247',
+1025 1025: 	/* A8 */ '\250', '\251', '\252', '\253', '\254', '\255', '\256', '\257',
+1026 1026: 	/* B0 */ '\260', '\261', '\262', '\263', '\264', '\265', '\266', '\267',
+1027 1027: 	/* B8 */ '\270', '\271', '\272', '\273', '\274', '\275', '\276', '\277',
+1028 1028: 	/*---------------------------- graphics 2 -----------------------------*/
+1029 1029: 	/* C0 */ '\300', '\301', '\302', '\303', '\304', '\305', '\306', '\307',
+1030 1030: 	/* C8 */ '\310', '\311', '\312', '\313', '\314', '\315', '\316', '\317',
+1031 1031: 	/* D0 */ '\320', '\321', '\322', '\323', '\324', '\325', '\326', '\327',
+1032 1032: 	/* D8 */ '\330', '\331', '\332', '\333', '\334', '\335', '\336', '\337',
+1033 1033: 	/*------------------------ greek/mathematics --------------------------*/
+1034 1034: 	/* E0 */ '\340', '\341', '\342', '\343', '\344', '\345', '\346', '\347',
+1035 1035: 	/* E8 */ '\350', '\351', '\352', '\353', '\354', '\355', '\356', '\357',
+1036 1036: 	/* F0 */ '\360', '\361', '\362', '\363', '\364', '\365', '\366', '\367',
+1037 1037: 	/* F8 */ '\370', '\371', '\372', '\373', '\374', '\375', '\376', '\377'
+1038 1038: 	/*---------------------------------------------------------------------*/
+1039 1039: 	};
+1040 1040: 
+1041 1041: 	register BYTE *temp;
+1042 1042: 
+1043 1043: 	for (temp = str; *temp; temp++)
+1044 1044: 		*temp = pcMap[*temp];
+1045 1045: 
+1046 1046: 	return str;
+1047 1047: 
+1048 1048: } /* END function pzToupperStr() */
+1049 1049: 
+1050 1050: 
+1051 1051: 
+1052 1052: /******************************** 4 *****************************************/
+1053 1053: /************************* DEBUGGING ROUTINES *******************************/
+1054 1054: /****************************************************************************/
+1055 1055: /*+3 MODULE AC.C -----------------------------------------------------------*/
+1056 1056: /*   NAME   04.01           vDumpFsa                                        */
+1057 1057: /*-- SYNOPSIS --------------------------------------------------------------*/
+1058 1058: void
+1059 1059: vDumpFsa(int type) {
+1060 1060: /*-3*/
+1061 1061: 
+1062 1062: 	BYTE      cText;
+1063 1063: 	sSTATE   *s;
+1064 1064: 
+
+XC ... 'C' Concordance Utility   ac.c                       Page 20
+
+1065 1065: 	printf("\nDUMP OF STATE MACHINE TYPE %s ...\n",
+1066 1066: 		type == NFSA ? "NFSA" : "DFSA");
+1067 1067: 
+1068 1068: 	if (type == DFSA)
+1069 1069: 		vAllocQElem(&f, &l, NULL);
+1070 1070: 	depth = 0;
+1071 1071: 
+1072 1072: 	for (cText = 1; (0 < cText && cText <= UCHAR_MAX); cText++)
+1073 1073: 
+1074 1074: 		if (s = psRunTrans(NFSA, NULL, cText)) {
+1075 1075: 			printf("\nState: 0[%c]\n%c -> %p\n", cText, cText, s);
+1076 1076: 
+1077 1077: 			if ( type == NFSA )
+1078 1078: 				vDumpNode(type, s);
+1079 1079: 			else /* type == DFSA */
+1080 1080: 				if (!fCheckQElem(f, s)) {
+1081 1081: 					vAllocQElem(&f, &l, s);
+1082 1082: 					vDumpNode(type, s);
+1083 1083: 				}
+1084 1084: 		}
+1085 1085: 
+1086 1086: 	/* Clean up dumpQ */
+1087 1087: 	while (f)
+1088 1088: 		vDelQElem(&f);
+1089 1089: 
+1090 1090: } /* END function vDumpFsa() */
+1091 1091: 
+1092 1092: 
+1093 1093: /*+3 MODULE AC.C -----------------------------------------------------------*/
+1094 1094: /*   NAME   04.02           vDumpNode                                       */
+1095 1095: /*-- SYNOPSIS --------------------------------------------------------------*/
+1096 1096: void
+1097 1097: vDumpNode(int type, sSTATE * s) {
+1098 1098: /*-3*/
+1099 1099: 	if (s == NULL) return;
+1100 1100: 
+1101 1101: 	sTRANS   *t;
+1102 1102: 	BYTE     *templ = "                                               ";
+1103 1103: 	BYTE      indent[80];
+1104 1104: 	int       i, j;      +
+1105 1105: 
+1106 1106: 	++depth;
+1107 1107: 	strncpy(indent, templ, depth * 3);
+1108 1108: 	indent[depth * 3] = '\0';
+1109 1109: 
+1110 1110: 	/* dump state */
+1111 1111: 	printf("%sState: %p [ ", indent, s);
+1112 1112: 
+1113 1113: 	/***** HACK *****/
+1114 1114: 	// for (i = 0; j = *(s->index + i); i++)
+1115 1115: 	//		printf("%s ", symtable[j].pzLexptr);
+1116 1116: 	for (i = 0; j = (s->index == NULL ? 0 : *(s->index + i)); i++)
+1117 1117: 		printf("%s ", symtable[j].pzLexptr);
+1118 1118: 
+1119 1119: 	printf("]\n");
+1120 1120: 	printf(type == NFSA ? "%sFAIL\t-> %p\n" : "", indent, s->psFailSt);
+
+XC ... 'C' Concordance Utility   ac.c                       Page 21
+
+1121 1121: 
+1122 1122: 
+1123 1123: 	/* dump trans list */
+1124 1124: 	for (t = (type == NFSA ? s->psGoList : s->psMvList); t; t = t->psTrans) {
+1125 1125: 		printf("%s%c\t-> %p\n", indent, t->cTrans,  t->psState);
+1126 1126: 
+1127 1127: 		if (type == NFSA) 			/* type == NFSA */
+1128 1128: 			vDumpNode(type, t->psState);
+1129 1129: 		else if (!fCheckQElem(f, t->psState)) { /* type == DFSA */
+1130 1130: 			vAllocQElem(&f, &l, t->psState);
+1131 1131: 			vDumpNode(type, t->psState);
+1132 1132: 		}
+1133 1133: 	}
+1134 1134: 	depth--;
+1135 1135: 
+1136 1136: } /* END function vDumpNode() */
+1137 1137: /* END module AC.C                                                          */
+1138 1138: /*==========================================================================*/
+1139 1139: 
+XC ... 'C' Concordance Utility                              Page 22
+
+AC_ALLOC            :  166 
+ANSI                :  161 
+aState0             :  209  402  410  411  469  790  866 
+argc                :  247  280  295  302  308 
+argv                :  248  280  281  300  300  301  308 
+BYTE                :  180  221  225  229  233  233  248  269  270  397  420  452  592  677  678 
+                       779  834  860  888  889  989  990  995 1041 1062 1102 1103 
+buffer              :  269  310  312  317  317  321 
+cText               :  225  229  397  401  401  401  401  402  409  409  409  409  410  411  592 
+                       603  603  603  603  604  615  615  615  615  618  624  626  651  657  659 
+                       779  790  796  834  844  860  865  865  865  865  866  867 1062 1072 1072 
+                      1072 1072 1074 1075 1075 
+cTrans              :  180  796  844  899  909 1125 
+D                   :  298  299  301  320  362  364  492  695  696  697  707  709  712  714  729 
+                       741  743  754  760  761  762  766  863  867  898  908  914 
+DFSA                :  173  276  363  364  650  651  655  742 1068 
+depth               :  211  891  892  893  918 1070 1106 1107 1108 1134 
+EARG000             :  296 
+EMEM000             :  488 
+EMEM001             :  636 
+EMEM002             :  821 
+EMEM003             :  842 
+EMEM004             :  935 
+exit                :  291  329 
+FALSE               :  271  277  688  962 
+FILE                :  272 
+FLAG                :  232  271  277  675  688  952 
+f                   :  212 1069 1080 1081 1087 1088 1129 1130 
+fCheckQElem         :  232  952 1080 1129 
+fInterpret          :  767 
+fMatch              :  271  316  329  688  727  752 
+fRunFsa             :  316  675 
+fValue              :  728  753  764 
+fgets               :  310 
+first               :  595  598  605  608  611  612  621 
+fopen               :  308 
+free                :  900  910  916  917  981 
+head_ptr            :  231  232  233  927  940  941  952  958  958  958  959  971  979  980  980 
+                      
+i                   :  398  405  405  405  406  596  630  633  634  639  639  641  641  642  689 
+                       719  719  719  721  724  724  725  747  749  750  762  762  762  764  764 
+                       764 1104 1114 1114 1114 1116 1116 1116 
+iSymLookup          :  490 
+in_fd               :  272  308  310 
+indent              :  889  892  893  899  909  914 1103 1107 1108 1111 1120 1125 
+index               :  189  487  490  491  493  630  631  634  719  722  724  748  749  825  915 
+                       916 1114 1116 1116 
+j                   :  596  631  632  635  636  641  641  689  719  722  728  729  749  753  754 
+                      1104 1114 1115 1116 1117 
+l                   :  212 1069 1081 1130 
+last                :  595  598  605  621 
+MAX_LINE            :  240  269  310 
+main                :  246 
+malloc              :  487  634  820  841  934 
+NFSA                :  172  284  362  461  604  618  624  626  699  706  713  793  799 1066 1074 
+                      1077 1120 1124 1127 
+
+XC ... 'C' Concordance Utility                              Page 23
+
+NULL                :  212  212  270  405  411  460  598  604  631  692  722  723  748  749  799 
+                       823  824  825  846  866  896  905  938  958 1069 1074 1099 1116 
+nl                  :  269  312  313 
+PRIVATE             :  209  210  220  221  222  225  228  229  230  231  232  233  233  236  237 
+                      
+pQElem              :  977  979  981 
+pcMap               :  995 1044 
+pq                  :  933  934  937  938  941  943 
+printf              :  298  301  320  492  696  707  709  712  714  729  741  743  754  763  867 
+                       898  908  914 1065 1075 1111 1115 1117 1119 1120 1125 
+psAllocState        :  228  469  473  480  814 
+psAllocTrans        :  229  474  481  657  659  834 
+psFailSt            :  188  624  625  626  631  631  651  708  824 1120 
+psGoList            :  186  470  474  793  823  905  905  906 1124 
+psMvList            :  187  656  657  793  823  896  896  897 1124 
+psNextState         :  454  469  473  474  480  481  483 
+psQNext             :  194  938  943  958  980 
+psRunTrans          :  225  461  604  618  624  626  651  706  713  742  776 1074 
+psS                 :  230  819  820  823  823  824  825  826  878  896  896  897  899  905  905 
+                       906  909  914  915  916  917 
+psState             :  181  193  225  229  231  232  453  460  461  462  467  470  474  483  487 
+                       490  491  493  493  611  687  692  706  707  708  708  709  712  713  713 
+                       714  719  719  722  722  724  741  742  742  743  747  748  749  778  789 
+                       793  793  799  834  845  845  899  907  909  927  937  937  952  959  959 
+                      1125 1128 1129 1130 1131 
+psT                 :  840  841  844  845  846  847  887  896  896  896  897  899  899  900  905 
+                       905  905  906  907  909  909  910 
+psTrans             :  182  478  479  481  659  796  846  897  906 1124 
+puts                :  299  321  695  697  760  761  766  863 
+pzIndex             :  452  460  461  462  465  469  474  481 
+pzLexptr            :  405  406  635  636  729  754  762  764 1115 1117 
+pzParse             :  300 
+pzPostfix           :  270  300  318  678  767 
+pzToupperStr        :  233  300  317  990 
+pzWord              :  221  420  460  487  488  490  490  493 
+QElement            :  192  194 
+s                   :  237  455  461  462  861  866  867  868 1063 1074 1075 1078 1080 1081 1082 
+                      1097 1099 1111 1114 1116 1116 1120 1124 1124 
+s1                  :  593  604  605  611  618  624  651  656  657 
+s2                  :  593  618  621  626  630  631  631  634  651  655  657  659 
+sFail               :  210  402  410  461  618  624  706  799 
+sQELEM              :  195  212  231  231  232  233  595  927  927  933  934  934  952  971  977 
+                      
+sSTATE              :  190  209  210  225  225  228  229  230  231  232  237  453  454  455  593 
+                       687  775  778  813  819  820  820  834  861  878  927  952 1063 1097 
+sTRANS              :  183  186  187  229  456  594  786  833  840  841  841  887 1101 
+sf                  :  593  624  624  625  625  626 
+state               :  181  185  188  193 
+stdin               :  308 
+str                 :  233  677  696  704  706  707  712  713  731  740  741  742  756  990 1043 
+                      1046 
+strchr              :  312 
+strlen              :  487  490  635 
+strncpy             :  892 1107 
+symtable            :  405  406  635  636  728  729  753  754  762  764  764 1115 1117 
+TRUE                :  288  727  728  752  753  767  960 
+
+XC ... 'C' Concordance Utility                              Page 24
+
+t                   :  456  470  478  479  479  481  594  657  659  659  786  793  796  796  796 
+                       796  799  799 1101 1124 1124 1124 1124 1125 1125 1128 1129 1130 1131 
+tail_ptr            :  231  927  941  943  943 
+temp                :  273  281  281  281  282 1041 1043 1043 1043 1044 1044 
+templ               :  888  892 1102 1107 
+toupper             :  282 
+transition          :  179  182 
+type                :  222  225  236  237  276  284  305  316  345  359  363  502  650  655  676 
+                       699  777  793  799 1059 1066 1068 1077 1078 1082 1097 1120 1124 1127 1128 
+                      1131 
+UCASE               :  277  288  300  317 
+UCHAR_MAX           :  209  401  409  603  615  865 1072 
+vAllocQElem         :  231  605  621  927 1069 1081 1130 
+vBuildFailMoveTrans :  222  359  502 
+vBuildFsa           :  305  345 
+vBuildGoGraph       :  220  356  373 
+vBuildKeyword       :  221  406  420 
+vDelFsa             :  328  855 
+vDelNode            :  230  868  878  907 
+vDelQElem           :  233  612  971 1088 
+vDumpFsa            :  236  362  364 1059 
+vDumpNode           :  237 1078 1082 1097 1128 1131 
+vError              :  296  488  636  821  842  935 
+vSymReset           :  691 
+void                :  220  220  221  222  228  230  231  233  236  237  246  345  373  373  420 
+                       502  814  855  855  878  927  971 1059 1097 
+
+

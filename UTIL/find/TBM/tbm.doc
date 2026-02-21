@@ -1,4 +1,138 @@
-/*+1========================================================================*/
+
+
+
+
+
+Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.h   is	[B148]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+  #####  #####   #    #          #    #
+    #    #    #  ##  ##          #    #
+    #    #####   # ## #          ######
+    #    #    #  #    #   ###    #    #
+    #    #    #  #    #   ###    #    #
+    #    #####   #    #   ###    #    #
+
+
+
+
+
+
+/*+1 =======================================================================*/
+/*                                MODULE TBM.H                              */
+/*==========================================================================*/
+/* FUNCTION      Headerfile for module TBM.C (and user modules);
+ *               #include this file to access the PUBLIC functions in TBM.C
+ *		 for performing a "Tuned Boyer-Moore" single string search.
+ *
+ * SYSTEM         Standard (ANSI/ISO) C
+ *                Tested on PC/MS DOS v.3.3 & UNIX SYS V.3, 1992
+ *                Tested on Windows 10 and WSL UBUNTU Linux, 2025.
+ *
+ * SEE ALSO       Module TBM.C
+ *
+ * PROGRAMMER     Allan Dystrup
+ *
+ * COPYRIGHT (c)  Allan Dystrup, Mar. 1992
+ *
+ * VERSION        $Header: d:/cwork/index/RCS/key.h 1.5 92/03/03 11:25:04
+ *                Allan_Dystrup Exp Locker: Allan_Dystrup $
+ *                -----------------------------------------
+ *                $Log: tbm.h $
+ *                Revision 1.2 92/03/11 14:53:51 Allan_Dystrup
+ *                hack'ed UCASE
+ *                Revision 1.3 92/03/13 11:15:46 Allan_Dystrup
+ *                integrated UCASE
+ *                Revision 1.4 92/03/13 13:34:23 Allan_Dystrup
+ *                linted DOS/UX
+ *                ------------------------------------------
+ *                Revision 1.2 2025/12/09 11:00:00	Allan_Dystrup
+ *                Port to UBUNTU  on Win.10 / WSL, Using CLion for Linux
+ *		 Port to Win. 10 native/terminal, Using CLion for Windows
+ *
+ *-1==========================================================================*/Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.h   is	[B148]
+
+
+
+
+
+
+END EXTRACTION
+
+
+
+
+
+
+Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.c   is	[DCE0]
+
+
+
+
+
+######  #######  #####
+#     # #     # #     #
+#     # #     # #
+#     # #     # #
+#     # #     # #
+#     # #     # #     #
+######  #######  #####
+
+
+
+ #####   #####   #####
+
+ #####   #####   #####
+
+
+
+
+
+
+
+
+
+  #####  #####   #    #           ####
+    #    #    #  ##  ##          #    #
+    #    #####   # ## #          #
+    #    #    #  #    #   ###    #
+    #    #    #  #    #   ###    #    #
+    #    #####   #    #   ###     ####
+
+
+
+
+
+
+/*+1========================================================================*/
 /* MODULE TBM.C */
 /*==========================================================================*/
 /* FUNCTION
@@ -118,79 +252,16 @@
  * 		documentation of the program, but if in doubt, please consult
  * 		the references.
  *
- *-1========================================================================*/
-
-
-/*=========================================================================*/
-/*                            Includes			                   */
-/*=========================================================================*/
-/* Standard C (ANSI/ISO( headerfiles */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-
-/* Project headerfile */
-//#define DEBUG
-#define _TBM_ALLOC
-#include "tbm.h"
-
-/* Project main() */
-//#define MAIN
-//#define DUMMY
-
-
-/*=========================================================================*/
-/*                            Function Prototypes                          */
-/*=========================================================================*/
-
-PRIVATE BYTE
-	bDKupper(int ii);
-	
-	
-	
-	
-#ifdef MAIN
-/****************************************************************************/
-/******************************** MAIN **************************************/
-/****************************************************************************/
-
-/* Define "signon message" for module tbm.c */
-PRIVATE char SIGNON[] =
-	"\TBM Search Functions (Testdriver), Version 1.8\n"
-	"MOD[tbm.c] VER[1.8] DAT[2025/12/08] DEV[ad]\n"
-	"Copyright (c) Allan Dystrup 1992, 2025\n\n";
-
-/* Define "usage message" for module tbm.c */
-PRIVATE char USAGE[] =
-	"\n\aUSAGE: \ttbm <pattern> <file>\n"
-	"where       <pattern>  is string to find\n"
-	"            <file>     is file to search\n"
-	"example: tbm  fee  foo.bar\n\n";
-
-
-#define MAXLIN 512 /* Max. #chars in one line of text */
-#define MAXPAT 256 /* Max. #chars in search pattern */
-
+ *-1========================================================================*/Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.c   is	[DCE0]
 
 /*+4 MODULE TBM.C ----------------------------------------------------------*/
 /*   NAME			CHKERR                                      */
 /*-- SYNOPSIS --------------------------------------------------------------*/
 /* DESCRIPTION
  * Simple macro for main() testdriver providing error test & diagnostic.
- *-4*/
-
-#define CHKERR(expr, msg) { 					\
-	if (expr) 						\
-	{ 							\
-		fprintf(stderr,					\
-		"\n\aERROR: File[%s]-Line[%d] Date[%s]-Time[%s]\nCAUSE: %s\n", \
-		__FILE__, __LINE__, __DATE__, __TIME__, msg);	\
-		exit(EXIT_FAILURE);				\
-	} 							\
-    }  /* End define CHKERR */
-	
-
+ *-4*/Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.c   is	[DCE0]
 
 /*+1 MODULE TBM.C ==========================================================*/
 /*	 NAME 00		main					    */
@@ -214,97 +285,8 @@ int main(argc, argv)
  *	   3: Prepare pattern for TBM search
  * 	   4: Perform TBM search on textfile, one line at a time, until EOF
  * 	   5: Clean up & Terminate
- *-1*/
-
-	FILE  *fdTxt; 				/* File handle for textfile */
-	BYTE  cBuf[MAXLIN+MAXPAT]; 	/* Linebuffer for textfile */
-	DWORD dwCount = 0L; 		/* Linecount for textlines */
-	int   iMatch; 				/* Integer return code (line matches) */
-	DWORD dwMatchTotal = 0L;	/* Total number matches (input stream)*/
-
-#ifdef DUMMY
-	/*-----------------------------------------------------------------------*/
-	/* I: INTERNAL TEST PART OF MAIN() TESTDRIVER */
-	/* 1: Test reaction to boundary conditions : Empty pattern/textbuffer. */
-	strcpy((char *)cBuf, ""); /* 1.1: Empty pattern */
-	vBuildTBM(cBuf, strlen(cBuf));
-
-	strcpy((char *)cBuf, "Dummy\n");
-	if ( iRunTBM(cBuf, strlen((char*)cBuf)) )
-		printf("[%05lu]\t%s", dwCount, cBuf);
-
-	strcpy((char *)cBuf, "Dummy"); /* 1.2: Empty textbuffer */
-	vBuildTBM(cBuf, strlen(cBuf));
-
-	strcpy((char *)cBuf, "");
-	if ( iRunTBM(cBuf, strlen((char*)cBuf)) )
-		printf("[%05lu]\t%s", dwCount, cBuf);
-#endif /* DUMMY */
-
-
-	/*-----------------------------------------------------------------------*/
-	/* II: APPLICATION PART OF MAIN() TESTDRIVER */
-
-	/* 1: Signon & check args */
-	fputs(SIGNON, stdout);
-
-	if (argc != 3) {
-		fputs(USAGE, stdout);
-		exit(EXIT_FAILURE);
-	}
-
-	/* 2: Open textfile to search */
-	D( printf("Input File: %s\n", argv[2]); )
-	fdTxt = fopen(argv[2], "r");
-	CHKERR(fdTxt == NULL, "Function fopen()")
-	int iRet = setvbuf(fdTxt, NULL, _IOFBF, 4*1024);
-	CHKERR(iRet != 0, "Function setvbuf()")
-
-
-	/* 3: Prepare pattern for TBM search */
-	vBuildTBM( (BYTE*) argv[1], strlen(argv[1])); /* len. of pattern (EXCL \0) */
-
-
-	/* 4: Perform TBM search on textfile, one line at a time, until EOF */
-	while (1) {
-		/*CONSTEXPR*/
-
-		/* Read next input line from file to buffer; - Break at EOF */
-		if ( fgets((char*)cBuf, MAXLIN, fdTxt) == NULL || feof(fdTxt) )
-			break;
-		D( printf( "INPUT: %s", cBuf); )
-		dwCount++;
-
-		/* Run TBM search on text in buffer; - echo text if match */
-		if ( iMatch = iRunTBM(cBuf, strlen((char*)cBuf)) ) {
-			printf("[%ld:%d]\t%s", dwCount, iMatch, cBuf);
-			dwMatchTotal += iMatch;
-		}
-	}
-	printf("\nTotal match of [%s] in input stream [%s]: [%ld]",	\
-		argv[1], argv[2], dwMatchTotal);
-
-	/* 5: Cleanup & Terminate */
-	free(fdTxt);
-	return(EXIT_SUCCESS);	
-}
-#endif /* MAIN */
-
-
-/****************************************************************************/
-/******************************** TBM ***************************************/
-/****************************************************************************/
-
-/* Structure defining search pattern and TBM parameters */
-PRIVATE struct {
-	BYTE 	pat[1024]; 		/* PATTERN Buffer holding pattern to match   */
-	int 	patlen; 		/* ------- Sizeof(pattern) pat[] (incl. \0)  */
-	int 	delta[ASIZE];	/* SKIP..: BM skip table for pattern endchar */
-	BYTE 	rarec; 			/* MATCH.: Guard, "rarest" char in pattern   */
-	int 	rareoff; 		/* ------- Position in pattern of guard-char */
-	int 	md2; 			/* SHIFT.: Mini-sd2 shift value 	     */
-} pat;
-
+ *-1*/Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.c   is	[DCE0]
 
 /*+2 MODULE TBM.C ==========================================================*/
 /*	 NAME 01		vBuildTBM				    */
@@ -346,61 +328,8 @@ vBuildTBM(pb, len)
  * RETURN
  * 		Func.return value: None (void); - Resources are statically allocated
  * 		for struct pat, so dynamic error conditions can not occur.
- *-2*/
-
-	/* 1.1: Setup shorthand register var's for struct "pat" fields */
-	register BYTE 	*pe;	/* Ptr to pattern end */
-	register BYTE 	*p; 	/* Ptr for reverse scan of pattern */
-	register int 	j; 		/* Index into delta array */
-	register int 	r; 		/* Offset in pattern of "rare" character */
-	register int 	*d; 	/* Alias for delta array */
-	BYTE			*bp;	/* Scan ptr. for pattern */
-	int				c;		/* Scratch count variable *)
-	
-	/* Initialize structure "pat" from the function arguments */
-	pat.patlen = len; 						/* #chars in pat (EXCL \0) */
-	assert(pat.patlen < sizeof(pat.pat)); 	/* must fit into buffer */
-	memcpy(pat.pat, pb, pat.patlen);
-
-	for (bp = pat.pat; bp < pat.pat+pat.patlen; bp++)
-		*bp = UCASE(*bp); 					/* Possibly conv. to uppercase */
-	D(fprintf(stdout, "Pattern[%s], Length[%d]\n", pat.pat, pat.patlen);)
-
-
-	/* 2: For SKIP-LOOP: define the BM skip delta table d[] */
-	for (j = 0, d = pat.delta; j < ASIZE; j++)
-		d[j] = pat.patlen; 		/* Init all = pat.patlen */
-
-	for (pb = pat.pat, pe = pb+pat.patlen-1; pb <= pe; pb++) {
-		d[*pb] = pe - pb; 		/* Reset for pat.chars */
-		D(fprintf(stdout, "\tSkip :\t[%c]=%d\n", *pb, pe - pb);)
-	}
-
-#ifdef TBM_FQ
-	/* 3: For MATCH-LOOP: define guard as rarest char of pattern (cf. freq[]) */
-	r = 0;	/* rare pos. (#chr from pat.start) */
-	for (pb = pat.pat, pe = pb+pat.patlen-1; pb < pe; pb++)
-		if (freq[*pb] < freq[pat.pat[r]])
-			r = pb - pat.pat;
-
-	pat.rarec = pat.pat[r]; /* guard char */
-	pat.rareoff = r - (pat.patlen - 1); /* negative guard pos (from end) */
-	D(fprintf(stdout, "\tMatch:\tGuard[%c], Offset[%d]\n", pat.rarec, pat.rareoff);)
-#endif /*TBM_FQ*/
-
-	/* 4: For SHIFT-FUNC.: define md2 = shift to left reoccur. of term. char */
-	for (pe = pat.pat+pat.patlen-1, p = pe-1, c=1; p < pat.patlen; p--, c++)
-		if (*p == *pe)
-			break;
-	
-	/* Now c=pe-p is the distance (max pat.patlen) to the first leftward
-	 * reoccurence in the pattern of the terminal char: *pe; OBS: (pe-p) is not
-	 * a valid (ANSI) statement, since p may be 1 char left of pat.pat! */
-	pat.md2 = c;
-	D(fprintf(stdout, "\tShift:\tMD2[%d]\n", pat.md2);)
-	
-} /* END function vBuildTBM() */
-
+ *-2*/Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.c   is	[DCE0]
 
 /*+2 MODULE TBM.C ==========================================================*/
 /*	 NAME 02		iRunTBM					    */
@@ -458,88 +387,8 @@ iRunTBM(base, n)
  * 	   	>0 if match, - value depending on #define TBM_TF :
  * 	   	 1 if TBM_TB defined (ie. return [True|False] )
  * 	   	 c if TBM_TB undefined (where c=count of matches)
- *-2*/
-	/* 1: Initialize variables  */
-	
-	/* 1.1: Set up shorthand register var's for struct. "pat" fields */
-	register int n1 = pat.patlen - 1;/* #chars in pattern (excl. \0) */
-	register int *d0 = pat.delta;	/* addr. of delta shift array */
-	register int md2 = pat.md2; 	/* value of mini-sd2 shift */
-	register BYTE rc = pat.rarec; 	/* rarest char of pattern */
-	register int ro = pat.rareoff; 	/* pos. from end-of-pat of rc */
-	
-	/* 1.2: Initialize pointers to text and pattern */
-	register BYTE *s = base + n1; 	/* startchar in text for match */
-	register BYTE *e = base + n; 	/* endchar of text for match */
-	register BYTE *ep = pat.pat + n1; /* startchar in pat for match */
-	
-	/* 1.3: Initialize scratch variables */
-	register BYTE *p, *q;
-	register int   k;
-	register int   nmatch = 0;
-	
-	/* 1.4: Return "no match" on boundary condition (empty pattern/text) */
-	if (pat.patlen <= 0 || n <= 0) {
-		printf("Empty %s\a\n\n", (pat.patlen == 0 ? "pattern" : "text"));
-		return(0);
-	}
-
-	/* 2: Set up sentinel for skip loop (thus removing test for End-Of-Text) */
-	memset(e, pat.pat[pat.patlen - 1], pat.patlen);
-	
-	/* 3: Enter SEARCH LOOP ... */
-	while (s < e) {
-	
-	   /* ----------------------------------------------------------------- */
-	   /* 3.1: SKIP LOOP : ufast */
-	   /* Skip on the last character in pattern, using delta shift table d0 */
-	
-	   k = d0[UCASE(*s)];			/* Get shift to rightmost *s in pattern */
-	   while (k) { 					/* While k > 0, ie no match (pos. shift) */
-		k = d0[UCASE(*(s += k))];	/* Use 3-fold loop unrolling for max. speed */
-		k = d0[UCASE(*(s += k))];	/* If match, k=0 (so unrolling is harmless) */
-		k = d0[UCASE(*(s += k))];
-	   }
-	   if (s >= e)					/* Sentinel assures match at End-Of-Text */
-			break;
-	
-	   /* ----------------------------------------------------------------- */
-	   /* 3.2: MATCH LOOP : guard test & fwd scan */
-	   #ifdef TBM_FQ
-	   	/* First test Guard (rarest char in pattern) against text */
-	   	if (UCASE(s[ro]) != rc) /* obs: ro is a negative offset */
-	 		goto L_mismatch;
-	   #endif /*TBM_FQ*/
-	
-	   /* Guard-match : do a complete forward scan of pattern against text */
-	   for (p = pat.pat, q = s - n1; p < ep;) {
-			if (UCASE(*q++) != *p++)
-				goto L_mismatch;
-	   		D( fprintf(stdout, "TBM-MATCH:\n->%s\n", q); )
-	   }
-
-	   /* Total-match : increment match-count or break w. answer [T|F] */
-	   nmatch++;
-	   #ifdef TBM_TF
-			break;	/* break at first match */
-	   #endif /*TBM_TF*/
-
-		L_mismatch:
-	   /* ----------------------------------------------------------------- */
-	   /* 3.3: SHIFT : md2 */
-	   /* Mismatch (or complete match); - shift "endptr" & continue search */
-	   s += md2;
-	   D( fprintf(stdout, "TBM-SHIFT:\n->%s\n", s); )
-
-   	} /* End search-loop : while (s<e) */
-   	
-   	
-	/* 4: Return the verdict : #match (or [1|0] if just [T|F] requested) */
-	*e = '\0'; /* Restore string termination after skip sentinel */
-	return (nmatch);
-	
-} /* END function iRunTBM() */
-
+ *-2*/Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.c   is	[DCE0]
 
 /*+3 MODULE TBM.C ----------------------------------------------------------*/
 /*	 NAME 03                     bDKupper                                   */
@@ -557,21 +406,14 @@ PRIVATE BYTE
  * 		return(DK. converted char)
  * 	ELSE
  * 		return(unconverted char)
- *-3*/
-	static const BYTE bDKlow[] = {(BYTE)'�',(BYTE)'�',(BYTE)'�'};
-	static const BYTE bDKupp[] = {(BYTE)'�',(BYTE)'�',(BYTE)'�'};
-	
-	register BYTE bi = (BYTE) ii; /* Input char from int param */
-	BYTE bo; /* Output char from conversion */
-	BYTE *bp; /* Character pointer into cDKx */
-	
-	/* Perform conversion and return char */
-	return( ((bo = (BYTE) toupper(ii)) != bi) ? bo :
-		((bp = (BYTE*) strchr((char*)bDKlow, bi)) != NULL) ? bDKupp[bp - bDKlow] :
-		bi );
-				
-} /* END function bDKupper */
+ *-3*/Sat Feb 21 13:32:33 CET 2026
+CCITT CRC (REVERSE) for    tbm.c   is	[DCE0]
 
 
-/* End of module TBM.C */
-/*==========================================================================*/
+
+
+
+
+END EXTRACTION
+
+

@@ -3,7 +3,7 @@
 
 
 
-Wed Feb 18 17:30:55 CET 2026
+Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.h   is	[8B16]
 
 
@@ -57,7 +57,7 @@ CCITT CRC (REVERSE) for     ac.h   is	[8B16]
 /* VERSION                                                                  */
 /*             Revision 1.2 2025/12/02	11:00:00	Allan_Dystrup	    */
 /*             Port to UBUNTU Linux on Windows10/WSL, Using CLion	    */
-/*-1========================================================================*/Wed Feb 18 17:30:55 CET 2026
+/*-1========================================================================*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.h   is	[8B16]
 
 
@@ -72,7 +72,7 @@ END EXTRACTION
 
 
 
-Wed Feb 18 17:30:56 CET 2026
+Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 
@@ -260,7 +260,7 @@ CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
  * DIAGNOSTICS Exit status is 0 if any matches are found, 1 if none, 2 for
  *             error condition.
  *
- *-1========================================================================*/Wed Feb 18 17:30:56 CET 2026
+ *-1========================================================================*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+2 MODULE AC.C ===========================================================*/
@@ -287,7 +287,7 @@ void main(
  *       3.1: Initialize AC-search
  *       3.2: Run AC-search machine (NFSA or DFSA) on each line of input-file <file>
  *       3.3: Terminate search & Ret status to parent proces: 0 if match, 1 otherwise
- *-2*/Wed Feb 18 17:30:56 CET 2026
+ *-2*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+2 MODULE AC.C===========================================================*/
@@ -302,7 +302,7 @@ vBuildFsa(int type)
  *    2: Build the "failure" and optionally "move" transitions
  *    3: Dump of FSA for debygging (optional)
  *
- *-2*/Wed Feb 18 17:30:56 CET 2026
+ *-2*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -331,7 +331,7 @@ vBuildGoGraph(void)
  *      (2) enter all entries in keyword-list symtable[] into the goto graph
  *      (3) reset all FAIL-transitions out of state-0 to state-0
  *    END
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -369,7 +369,7 @@ vBuildKeyword(BYTE* pzWord)
  *       (3) // Define output function for the keyword's terminal state
  *           O(S) = function(keyword)
  *    END
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -464,7 +464,7 @@ vBuildFailMoveTrans(int type)
  *             END ELSE
  *                M(s1, x) = M(F(s1), x)
  *   END
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+2 MODULE AC.C===========================================================*/
@@ -481,7 +481,7 @@ BYTE*          pzPostfix)           /* Parsed Boolean expression     */
  *    2: Run FSA on input-line <str>, and note "hits" on keywords
  *    3: Evaluate boolean expression, using keyword "hits" from FSA-run
  *       Return TRUE if match, FALSE otherwise.
- *-2*/Wed Feb 18 17:30:56 CET 2026
+ *-2*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -497,7 +497,7 @@ psRunTrans(
  * Perform one transition from psState via character cText to the next state.
  * Return a pointer to next state, or - if cText is not on the transition
  * list - return pointer to failure-state (type NFSA) or NULL (type DFSA).
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -508,7 +508,7 @@ psAllocState(void)
 {
 /* DESCRIPTION
  * Create a new state and return a pointer to it.
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -519,7 +519,7 @@ psAllocTrans(sSTATE * psState, BYTE cText)
 {
 /* DESCRIPTION
  * Create a new transition and return a pointer to it
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+2 MODULE AC.C ===========================================================*/
@@ -529,7 +529,7 @@ void vDelFsa(void)
 {
 /* DESCRIPTION
  * Deallocate whole FSA structure (free all node-lists from aState0[])
- *-2*/Wed Feb 18 17:30:56 CET 2026
+ *-2*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -543,7 +543,7 @@ vDelNode(sSTATE *psS)
  *    1: Remove move-list (for DFSA). NB: states removed via go-list
  *    2: Remove go-list (for NFSA)
  *    3: Finally remove state and associated O-function
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -554,7 +554,7 @@ vAllocQElem(sQELEM ** head_ptr, sQELEM ** tail_ptr, sSTATE * psState)
 {
 /* DESCRIPTION
  * Add an instance to the tail of a queue
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -565,7 +565,7 @@ fCheckQElem(sQELEM * head_ptr, sSTATE * psState)
 {
 /* DESCRIPTION
  * Check for a specified FSA state in the queue
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -576,7 +576,7 @@ vDelQElem(sQELEM ** head_ptr)
 {
 /* DESCRIPTION
  * Delete an instance from the head of queue
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -586,7 +586,7 @@ BYTE*
 pzToupperStr(register BYTE * str)
 /* DESCRIPTION
  * Map entire string pointed to by "str" to upper case, - incl. danish ‘›†
- *-3*/Wed Feb 18 17:30:56 CET 2026
+ *-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -594,7 +594,7 @@ CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 /*-- SYNOPSIS --------------------------------------------------------------*/
 void
 vDumpFsa(int type) {
-/*-3*/Wed Feb 18 17:30:56 CET 2026
+/*-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 /*+3 MODULE AC.C -----------------------------------------------------------*/
@@ -602,7 +602,7 @@ CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 /*-- SYNOPSIS --------------------------------------------------------------*/
 void
 vDumpNode(int type, sSTATE * s) {
-/*-3*/Wed Feb 18 17:30:56 CET 2026
+/*-3*/Sat Feb 21 13:11:11 CET 2026
 CCITT CRC (REVERSE) for     ac.c   is	[6A6A]
 
 
