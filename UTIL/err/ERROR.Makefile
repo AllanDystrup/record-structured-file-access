@@ -121,5 +121,13 @@ doc:
 	ls -al ./$(TARGET)
 	more $(TARGET).doc
 
+xref:
+	  ------- make -f ERROR.Makefile xref -------
+	rm -f $(TARGET).xrf
+	../xrf/XRF $(TARGET).c -o $(TARGET).xrf
+	ls -al
+	more $(TARGET).xrf
+
+
 # END makefile
 #=============================================================================

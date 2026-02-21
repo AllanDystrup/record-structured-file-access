@@ -1,0 +1,200 @@
+XC ... 'C' Concordance Utility   error.c                    Page 1
+
+1       1: /*+1========================================================================*/ 
+2       2: /*   MODULE                    ERROR.C                                      */ 
+3       3: /*==========================================================================*/ 
+4       4: /* FUNCTION   This module implements a common function for error reporting  
+5       5:  *             for the super-project : "FIND".  
+6       6:  *  
+7       7:  * SYSTEM      Standard (ANSI/ISO) C.  
+8       8:  *             Tested on PC/MS DOS 5.0  
+9       9:  *  
+10     10:  * SEE ALSO    ERROR.H (and application modules such as: BOOL.C, AC.C)  
+11     11:  *  
+12     12:  * PROGRAMMER  Allan Dystrup  
+13     13:  *  
+14     14:  * COPYRIGHT   (c) Allan Dystrup   
+15     15:  *
+16     16:  * VERSION     $Header: d:/cwk/kf/error/RCS/error.c 1.1 92/10/25 17:13:30  
+17     17:  *             Allan_Dystrup Exp Locker: Allan_Dystrup $  
+18     18:  *             --------------------------------------------------------------  
+19     19:  *             $Log: error.c $  
+20     20:  *             Revision 1.1  92/10/25  17:13:30  Allan_Dystrup  
+21     21:  *             Initial revision
+22     22:  *
+23     23:  *             Revision 1.2 2025/12/02 11:00:00	 Allan_Dystrup
+24     24:  *			  Port to UBUNTU Linux on Win.10/WSL, Using CLion
+25     25:  *-1========================================================================*/ 
+26     26: 
+27     27: 
+28     28: /*=========================================================================*/ 
+29     29: /*                             Includes                                    */ 
+30     30: /*=========================================================================*/  
+31     31: #include <stdio.h> 
+32     32: #include <stdlib.h> 
+33     33: #include <string.h>  
+34     34: 
+35     35: #include "../../general.h"
+36     36: #include "../err/error.h" 
+37     37: 
+38     38: 
+39     39: 
+40     40: /*-------------------------------------------------------------------------*/ 
+41     41: /*                        Error Messages                                   */ 
+42     42: /*-------------------------------------------------------------------------*/ 
+43     43: /* Error message format :                                                       
+44     44: *    error header       - severity code : MODULE[function(s)] : unique tag     
+45     45: *    error description  - what went wrong                                      
+46     46: *    error correction   - what to to do                                    
+47     47: */                                                                            
+48     48: 
+49     49: PRIVATE char *mEARG[] = {
+50     50:      	"\n  STOP : [BOOL|BM] : E[%03d]ARG\n",     
+51     51: 	"  Argumentfejl i inddata : forkert aktuel parameter i funktionskald\n",     
+52     52: 	"  Programmør: Læs manualside. --- Bruger: Underret Udvikler.\n\n", 0}; 
+53     53: 
+54     54: PRIVATE char *mELEX[] = {     
+55     55: 	"\n  STOP : BOOL[bScan] : E[%03d]LEX\n",     
+56     56: 	"  Skrivefejl i inddata : ikke tilladt eller manglende tegn i søgeudtryk\n",     
+
+XC ... 'C' Concordance Utility   error.c                    Page 2
+
+57     57: 	"  Ret søgeudtryk og gentag søgning\n\n", 0}; 
+58     58: 
+59     59: PRIVATE char *mESYN[] = {     
+60     60: 	"\n  STOP : BOOL[pzParse] : E[%03d]SYN\n",     
+61     61: 	"  Syntaksfejl i inddata : forkert opbygning af søgeudtryk\n",
+62     62: 	"  Ret søgeudtryk og gentag søgning\n\n", 0}; 
+63     63: 
+64     64: PRIVATE char *mETAB[] = {     
+65     65: 	"\n  STOP : BOOL[vEmit|iSymInsert] : E[%03d]TAB\n",     
+66     66: 	"  Programfejl i tabeller : ikke plads nok i programmets datastrukturer\n",     
+67     67: 	"  Underret Udvikler, - prøv med kortere søgeudtryk\n\n", 0}; 
+68     68: 
+69     69: PRIVATE char *mETOK[] = {     
+70     70: 	"\n  STOP : BOOL[vEmit|fInterpret] : E[%03d]TOK\n",     
+71     71: 	"  Programfejl i intermediær kode : ukendt kompilersymbol (token)\n",     
+72     72: 	"  Underret Udvikler.\n\n", 0}; 
+73     73: 
+74     74: PRIVATE char *mEMEM[] = {     
+75     75: 	"\n  STOP : [AC|BM] : E[%03d]MEM\n",     
+76     76: 	"  Intern fejl i lagerallokering : ikke nok dynamisk lager (heap)\n",     
+77     77: 	"  Underret Udvikler, - pr›v med kortere søgeudtryk\n\n", 0};   
+78     78: 
+79     79: /* Point unique ErrorCodes in enum error to appropriate ErrorMessages */ 
+80     80: /* OBS: Several ErrorCodes may "share" the same type of ErrorMessage. */ 
+81     81: 
+82     82: PRIVATE char **Errmsgs[] = {   /* Global E#     Local E# */ 
+83     83: 	mEARG,                     /* E[000]ARG  =  EARG000  */     
+84     84: 	mEARG,                     /* E[001]ARG  =  EARG001  */     
+85     85: 	mEARG,                     /* E[002]ARG  =  EARG002  */     
+86     86: 	mEARG,                     /* E[003]ARG  =  EARG003  */     
+87     87: 	mEARG,                     /* E[004]ARG  =  EARG004  */     
+88     88: 	mELEX,                     /* E[005]LEX  =  ELEX000  */     
+89     89: 	mESYN,                     /* E[006]SYN  =  ESYN000  */     
+90     90: 	mETAB,                     /* E[007]TAB  =  ETAB000  */     
+91     91: 	mETAB,                     /* E[008]TAB  =  ETAB001  */     
+92     92: 	mETAB,                     /* E[009]TAB  =  ETAB002  */     
+93     93: 	mETOK,                     /* E[010]TOK  =  ETOK000  */     
+94     94: 	mETOK,                     /* E[011]TOK  =  ETOK001  */     
+95     95: 	mEMEM,                     /* E[012]MEM  =  EMEM000  */     
+96     96: 	mEMEM,                     /* E[013]MEM  =  EMEM001  */     
+97     97: 	mEMEM,                     /* E[014]MEM  =  EMEM002  */     
+98     98: 	mEMEM,                     /* E[015]MEM  =  EMEM003  */     
+99     99: 	mEMEM,                     /* E[016]MEM  =  EMEM004  */     
+100   100: 	mEMEM,                     /* E[017]MEM  =  EMEM005  */     
+101   101: 	mEMEM,                     /* E[018]MEM  =  EMEM006  */     
+102   102: 	mEMEM,                     /* E[019]MEM  =  EMEM007  */     
+103   103: 	mEMEM                      /* E[020]MEM  =  EMEM008  */ 
+104   104: };    
+105   105: 
+106   106: #ifdef MAIN
+107   107: /*+2 MODULE ERROR.C ========================================================*/
+108   108: /*   NAME   00                     main                                     */ 
+109   109: /*== SYNOPSIS ==============================================================*/ 
+110   110: int main() { /* DESCRIPTION  
+111   111:  *    Test driver for module error.c :  
+112   112:  *    Dump all ErrorMessages to stderr, using vError() for printout.  
+
+XC ... 'C' Concordance Utility   error.c                    Page 3
+
+113   113:  *-2*/
+114   114: 
+115   115: 	ERRNUM  errnum;     /* For stepping through enumation : ERRNUM */
+116   116: 	BYTE  	*msg;       /* For pointing to corresp. err.mess., cf. Errmsg[] */
+117   117: 
+118   118: 	printf("\n======= Testudskrift af samtlige fejlmeddelelser =======\n\n"); 
+119   119: 
+120   120: 	for (errnum = 0; errnum <= ERRMAX; errnum++) {
+121   121: 		vError(errnum, "Force Continue");
+122   122: 	}
+123   123: 
+124   124: } 
+125   125: #endif /* MAIN */     
+126   126: 
+127   127: /*+2 MODULE ERROR.C ========================================================*/ 
+128   128: /*   NAME   01                     vError                                   */ 
+129   129: /*== SYNOPSIS ==============================================================*/ 
+130   130: PUBLIC void vError(
+131   131: 	ERRNUM type,       /* Error type, cf. enum errors			*/
+132   132: 	char *param )      /* Further description of error location */ 
+133   133: { 
+134   134: /* DESCRIPTION  
+135   135:  *    Simple error management:  
+136   136:  *      1. Report error  
+137   137:  *      2. If fatal, return exit status 'failure' to parent process  
+138   138:  *-2*/    
+139   139:  	int       i = 0;     
+140   140: 
+141   141: 	/* 1: Report error to stderr ... */     
+142   142: 	fprintf(stderr, "\n\a=>%s", param);			/* Pinpoint error */
+143   143: 
+144   144: 	fprintf(stderr, Errmsgs[(int) type][i++], type);	/* Error header   */
+145   145: 
+146   146: 	while (Errmsgs[(int) type][i])				/* Description    */
+147   147: 		fputs(Errmsgs[(int) type][i++], stderr);	/* & correction   */
+148   148: 
+149   149: 	/* If fatal (ie. severety code STOP), exit ' failure' */
+150   150: 	if ( strstr(Errmsgs[(int) type][0], "STOP")
+151   151: 	&&   strcmp(param,"Force Continue") != 0)		/* Unit Test    */
+152   152: 		exit(EXIT_FAILURE);				/* cf. stdlib.h */
+153   153: 
+154   154: } /* END function vError() */
+155   155: 
+156   156: /* END module ERROR.C                                                       */
+157   157: /*==========================================================================*/
+158   158: 
+159   159: 
+XC ... 'C' Concordance Utility                              Page 4
+
+BYTE                :  116 
+ERRMAX              :  120 
+ERRNUM              :  115  131 
+EXIT_FAILURE        :  152 
+Errmsgs             :   82  144  146  147  150 
+errnum              :  115  120  120  120  121 
+exit                :  152 
+fprintf             :  142  144 
+fputs               :  147 
+i                   :  139  144  146  147 
+MAIN                :  107 
+mEARG               :   49   83   84   85   86   87 
+mELEX               :   54   88 
+mEMEM               :   74   95   96   97   98   99  100  101  102  103 
+mESYN               :   59   89 
+mETAB               :   64   90   91   92 
+mETOK               :   69   93   94 
+main                :  110 
+msg                 :  116 
+PRIVATE             :   49   54   59   64   69   74   82 
+PUBLIC              :  130 
+param               :  132  142  151 
+printf              :  118 
+stderr              :  142  144  147 
+strcmp              :  151 
+strstr              :  150 
+type                :  131  144  144  146  147  150 
+vError              :  121  130 
+void                :  130 
+
+
