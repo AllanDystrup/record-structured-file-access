@@ -1,3 +1,0 @@
-C:/Users/allan/CLionProjects/ACCESS/UTIL/xrf/cmake-build-debug/CMakeFiles/xrf.dir
-C:/Users/allan/CLionProjects/ACCESS/UTIL/xrf/cmake-build-debug/CMakeFiles/edit_cache.dir
-C:/Users/allan/CLionProjects/ACCESS/UTIL/xrf/cmake-build-debug/CMakeFiles/rebuild_cache.dir
