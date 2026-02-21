@@ -103,9 +103,9 @@ BEGIN       {
                if (OS == UNIX) 
                   system("date" "> ex.hd");
 		  # Path to crc depende on project directory structure...
-		  system("./util/crc/crc " ARGV[1] ">> ex.hd");
-		  system("../crc/crc " ARGV[1] ">> ex.hd");
-		  system("../../crc/crc " ARGV[1] ">> ex.hd");
+		  system("./util/crc/crc " ARGV[1] ">> ex.hd");	# in ROOT
+		  system("../crc/crc " ARGV[1] ">> ex.hd");	# in UTIL/*
+		  system("../../crc/crc " ARGV[1] ">> ex.hd");	# in UTIL/find/*
 		  system("cat ex.hd");
 
                printf("\n\n\n\n\n");
